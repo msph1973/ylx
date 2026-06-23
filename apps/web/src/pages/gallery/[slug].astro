@@ -1,0 +1,10 @@
+---
+import GalleryLayout from '../../layouts/GalleryLayout.astro';
+import { GalleryPage } from '../../components/gallery/GalleryPage';
+
+const { slug } = Astro.params;
+---
+
+<GalleryLayout title="Gallery" clientName="">
+  <GalleryPage slug={slug!} client:load />
+</GalleryLayout>
