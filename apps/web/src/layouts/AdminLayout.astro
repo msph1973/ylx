@@ -1,0 +1,146 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+export interface Props {
+  title: string;
+  activePage?: 'albums' | 'upload';
+}
+
+const { title, activePage = 'albums' } = Astro.props;
+
+const navItems = [
+  { href: '/admin', label: 'Albums', id: 'albums' },
+  { href: '/admin/upload', label: 'Upload', id: 'upload' },
+];
+---
+
+<BaseLayout title={`Admin - ${title}`}>
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-text">YLx</span>
+        <span class="brand-subtitle">Admin</span>
+      </div>
+      <nav class="sidebar-nav">
+        {navItems.map((item) => (
+          <a
+            href={item.href}
+            class:list={['nav-item', { active: activePage === item.id }]}
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+    </aside>
+    <div class="admin-main">
+      <header class="admin-header">
+        <h1 class="admin-title">{title}</h1>
+      </header>
+      <main class="admin-content">
+        <slot />
+      </main>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .admin-layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  .admin-sidebar {
+    width: 240px;
+    background-color: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: var(--z-sticky);
+  }
+
+  .sidebar-brand {
+    padding: var(--space-6);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .brand-text {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--color-accent);
+    letter-spacing: 0.05em;
+  }
+
+  .brand-subtitle {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  .sidebar-nav {
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .nav-item {
+    display: block;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    transition: all var(--transition-fast);
+  }
+
+  .nav-item:hover {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .nav-item.active {
+    background-color: var(--color-accent);
+    color: var(--color-bg);
+  }
+
+  .admin-main {
+    flex: 1;
+    margin-left: 240px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-header {
+    padding: var(--space-6);
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-bg);
+  }
+
+  .admin-title {
+    font-size: var(--text-2xl);
+  }
+
+  .admin-content {
+    flex: 1;
+    padding: var(--space-6);
+  }
+
+  @media (max-width: 768px) {
+    .admin-sidebar {
+      display: none;
+    }
+
+    .admin-main {
+      margin-left: 0;
+    }
+  }
+</style>

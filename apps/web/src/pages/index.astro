@@ -1,0 +1,105 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Home">
+  <div class="home">
+    <main class="home-content">
+      <div class="brand">
+        <h1 class="brand-name">YLx</h1>
+        <p class="brand-tagline">Photo Proofing Gallery</p>
+      </div>
+
+      <div class="links">
+        <a href="/admin" class="link admin-link">
+          <span class="link-label">Admin Dashboard</span>
+          <span class="link-description">Manage albums and uploads</span>
+        </a>
+      </div>
+
+      <div class="gallery-note">
+        <p>Clients: Use your gallery PIN to access your photos.</p>
+      </div>
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .home {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+  }
+
+  .home-content {
+    text-align: center;
+    max-width: 400px;
+  }
+
+  .brand {
+    margin-bottom: var(--space-12);
+  }
+
+  .brand-name {
+    font-size: var(--text-6xl);
+    font-family: var(--font-display);
+    color: var(--color-accent);
+    letter-spacing: 0.1em;
+    margin-bottom: var(--space-2);
+  }
+
+  .brand-tagline {
+    font-size: var(--text-lg);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-bottom: var(--space-12);
+  }
+
+  .link {
+    display: block;
+    padding: var(--space-6);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    transition: all var(--transition-base);
+  }
+
+  .link:hover {
+    border-color: var(--color-accent);
+    transform: translateY(-2px);
+  }
+
+  .link-label {
+    display: block;
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--color-text);
+    margin-bottom: var(--space-2);
+  }
+
+  .link-description {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .gallery-note {
+    padding: var(--space-4);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .gallery-note p {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-bottom: 0;
+  }
+</style>
