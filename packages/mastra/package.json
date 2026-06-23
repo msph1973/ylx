@@ -8,9 +8,15 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@mastra/core": "^0.1.0"
+    "@mastra/core": "^1.45.0",
+    "@sanity/client": "^6.15.5",
+    "@sanity/image-url": "^1.0.2",
+    "@ylx/sanity": "workspace:*",
+    "@ylx/shared": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/node": "^20.11.5",
     "typescript": "^5.3.3"
   }
 }
