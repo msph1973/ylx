@@ -12,6 +12,14 @@ export const sanityClient = createClient({
   useCdn: true,
 });
 
+export const sanityWriteClient = createClient({
+  projectId,
+  dataset,
+  apiVersion: "2024-01-01",
+  token: process.env.SANITY_API_TOKEN,
+  useCdn: false,
+});
+
 const builder = imageUrlBuilder(sanityClient);
 
 export function urlFor(source: SanityImageSource) {
