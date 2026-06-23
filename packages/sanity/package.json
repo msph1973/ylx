@@ -3,6 +3,13 @@
   "version": "0.0.1",
   "main": "./index.ts",
   "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./client": "./client.ts",
+    "./schemas": "./schemas/index.ts",
+    "./lib/queries": "./lib/queries.ts",
+    "./lib/image": "./lib/image.ts"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch"
