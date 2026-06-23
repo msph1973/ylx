@@ -15,23 +15,36 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     inputRefs.current[0]?.focus();
   }, []);
 
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
+
+  const submittedRef = useRef(false);
+
+  useEffect(() => {
+    if (digits.every((d) => d !== '') && !submittedRef.current) {
+      submittedRef.current = true;
+      onSubmitRef.current(digits.join(''));
+    }
+    if (digits.some((d) => d === '')) {
+      submittedRef.current = false;
+    }
+  }, [digits]);
+
   const handleChange = useCallback(
     (index: number, value: string) => {
       if (!/^\d*$/.test(value)) return;
 
-      const newDigits = [...digits];
-      newDigits[index] = value.slice(-1);
-      setDigits(newDigits);
+      setDigits((prev) => {
+        const newDigits = [...prev];
+        newDigits[index] = value.slice(-1);
+        return newDigits;
+      });
 
       if (value && index < 3) {
         inputRefs.current[index + 1]?.focus();
       }
-
-      if (newDigits.every((d) => d !== '')) {
-        onSubmit(newDigits.join(''));
-      }
     },
-    [digits, onSubmit]
+    []
   );
 
   const handleKeyDown = useCallback(
