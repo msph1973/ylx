@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { sanityClient } from "@ylx/sanity/client";
+import { sanityWriteClient } from "@ylx/sanity/client";
 
 export const POST: APIRoute = async ({ params }) => {
   try {
@@ -11,9 +11,9 @@ export const POST: APIRoute = async ({ params }) => {
       );
     }
 
-    const result = await sanityClient
+    const result = await sanityWriteClient
       .patch(albumId)
-      .set({ isLocked: false })
+      .set({ status: "active" })
       .commit();
 
     return new Response(JSON.stringify({ success: true, id: result._id }), {
