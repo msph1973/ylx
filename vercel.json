@@ -1,7 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "turbo build --filter=@ylx/web",
-  "outputDirectory": "apps/web/dist",
-  "framework": "astro",
   "installCommand": "pnpm install"
 }
