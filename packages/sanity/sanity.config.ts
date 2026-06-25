@@ -15,16 +15,4 @@ export default defineConfig({
   schema: {
     types: schemaTypes,
   },
-  auth: {
-    providers: [
-      {
-        name: "google",
-        title: "Google",
-      },
-      {
-        name: "github",
-        title: "GitHub",
-      },
-    ],
-  },
 });
