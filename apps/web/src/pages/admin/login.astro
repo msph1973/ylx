@@ -1,0 +1,185 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Admin Login">
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-header">
+        <h1 class="brand-name">YLx</h1>
+        <p class="login-subtitle">Admin Dashboard</p>
+      </div>
+
+      <form id="login-form" class="login-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            placeholder="admin@ylx.com"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            placeholder="••••••••"
+          />
+        </div>
+
+        <div id="error-message" class="error-message" role="alert"></div>
+
+        <button type="submit" class="login-btn">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-6);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: var(--space-8);
+    }
+
+    .brand-name {
+      font-family: var(--font-display);
+      font-size: var(--text-4xl);
+      color: var(--color-accent);
+      margin-bottom: var(--space-2);
+    }
+
+    .login-subtitle {
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .form-group label {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--color-text-muted);
+    }
+
+    .form-group input {
+      padding: var(--space-3);
+      background-color: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      color: var(--color-text);
+      font-size: var(--text-base);
+      transition: border-color var(--transition-fast);
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(184, 134, 78, 0.2);
+    }
+
+    .form-group input::placeholder {
+      color: var(--color-text-muted);
+      opacity: 0.6;
+    }
+
+    .error-message {
+      color: var(--color-error);
+      font-size: var(--text-sm);
+      min-height: 20px;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: var(--space-3);
+      background-color: var(--color-accent);
+      color: var(--color-bg);
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: var(--text-base);
+      font-weight: var(--font-medium);
+      cursor: pointer;
+      transition: background-color var(--transition-fast);
+    }
+
+    .login-btn:hover {
+      background-color: var(--color-accent-hover);
+    }
+
+    .login-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+
+  <script>
+    const form = document.getElementById("login-form") as HTMLFormElement;
+    const errorMessage = document.getElementById("error-message") as HTMLElement;
+    const submitBtn = form?.querySelector("button[type='submit']") as HTMLButtonElement;
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorMessage.textContent = "";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Signing in...";
+
+      const formData = new FormData(form);
+      const email = formData.get("email") as string;
+      const password = formData.get("password") as string;
+
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          errorMessage.textContent = data.error || "Login failed";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Sign In";
+          return;
+        }
+
+        window.location.href = "/admin";
+      } catch {
+        errorMessage.textContent = "Network error. Please try again.";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign In";
+      }
+    });
+  </script>
+</BaseLayout>

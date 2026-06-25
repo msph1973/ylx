@@ -1,8 +1,15 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminPage from './index.tsx';
+import { requireAdmin } from '../../lib/auth';
+
+const session = requireAdmin(Astro.cookies);
+
+if (!session) {
+  return Astro.redirect('/admin/login');
+}
 ---
 
 <AdminLayout title="Albums">
-  <AdminPage client:load />
+  <AdminPage client:load adminName={session.name} />
 </AdminLayout>

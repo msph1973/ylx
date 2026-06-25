@@ -1,5 +1,6 @@
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
+import { visionTool } from "@sanity/vision";
 import { schemaTypes } from "./schemas";
 
 export default defineConfig({
@@ -7,8 +8,23 @@ export default defineConfig({
   title: "YLX Studio",
   projectId: process.env.SANITY_PROJECT_ID || "",
   dataset: "production",
-  plugins: [structureTool()],
+  plugins: [
+    structureTool(),
+    visionTool(),
+  ],
   schema: {
     types: schemaTypes,
+  },
+  auth: {
+    providers: [
+      {
+        name: "google",
+        title: "Google",
+      },
+      {
+        name: "github",
+        title: "GitHub",
+      },
+    ],
   },
 });

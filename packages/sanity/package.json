@@ -8,15 +8,19 @@
     "./client": "./client.ts",
     "./schemas": "./schemas/index.ts",
     "./lib/queries": "./lib/queries.ts",
-    "./lib/image": "./lib/image.ts"
+    "./lib/image": "./lib/image.ts",
+    "./lib/admin": "./lib/admin.ts"
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "studio": "sanity dev",
+    "deploy": "sanity deploy"
   },
   "dependencies": {
     "@sanity/client": "^6.15.5",
     "@sanity/image-url": "^1.0.2",
+    "@sanity/vision": "^3.29.5",
     "sanity": "^3.29.5"
   },
   "devDependencies": {
