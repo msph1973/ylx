@@ -146,28 +146,48 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        {album?.photos.map((photo, index) => (
-          <motion.div
-            key={photo.id}
-            className={`photo-item ${selectedPhotos.has(photo.id) ? 'selected' : ''}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            onClick={() => !album.isLocked && togglePhoto(photo.id)}
-          >
-            <img src={photo.thumbnailUrl} alt={photo.filename} loading="lazy" />
-            {selectedPhotos.has(photo.id) && (
-              <motion.div
-                className="selection-badge"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-              >
-                ✓
-              </motion.div>
-            )}
-          </motion.div>
-        ))}
+        {album?.photos.map((photo, index) => {
+          const isSelected = selectedPhotos.has(photo.id);
+          const isDisabled = album.isLocked;
+          return (
+            <motion.div
+              key={photo.id}
+              role="button"
+              tabIndex={isDisabled ? -1 : 0}
+              aria-pressed={isSelected}
+              aria-label={`${isSelected ? 'Deselect' : 'Select'} photo ${photo.filename}`}
+              aria-disabled={isDisabled}
+              className={`photo-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(index * 0.05, 1.5) }}
+              onClick={() => !isDisabled && togglePhoto(photo.id)}
+              onKeyDown={(e) => {
+                if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  togglePhoto(photo.id);
+                }
+              }}
+            >
+              <img
+                src={photo.thumbnailUrl}
+                alt={`Photo ${index + 1} of ${album.photos.length}`}
+                loading="lazy"
+              />
+              {isSelected && (
+                <motion.div
+                  className="selection-badge"
+                  aria-hidden="true"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                >
+                  ✓
+                </motion.div>
+              )}
+            </motion.div>
+          );
+        })}
       </motion.div>
 
       <style>{`
@@ -228,8 +248,18 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           border-color: var(--color-border);
         }
 
+        .photo-item:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 2px;
+        }
+
         .photo-item.selected {
           border-color: var(--color-accent);
+        }
+
+        .photo-item.disabled {
+          cursor: not-allowed;
+          opacity: 0.7;
         }
 
         .photo-item img {

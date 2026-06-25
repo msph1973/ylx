@@ -35,6 +35,8 @@ export function SelectionTable({ selections }: SelectionTableProps) {
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
+          role="img"
+          aria-label="No photos selected"
         >
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
           <circle cx="8.5" cy="8.5" r="1.5" />
@@ -107,7 +109,7 @@ export function SelectionTable({ selections }: SelectionTableProps) {
 
         .table-header {
           display: grid;
-          grid-template-columns: 1fr 140px;
+          grid-template-columns: 1fr minmax(100px, 140px);
           gap: var(--space-4);
           padding: var(--space-3) var(--space-4);
           background-color: var(--color-surface);
@@ -126,7 +128,7 @@ export function SelectionTable({ selections }: SelectionTableProps) {
 
         .table-row {
           display: grid;
-          grid-template-columns: 1fr 140px;
+          grid-template-columns: 1fr minmax(100px, 140px);
           gap: var(--space-4);
           padding: var(--space-3) var(--space-4);
           border-bottom: 1px solid var(--color-border);
