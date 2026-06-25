@@ -9,6 +9,9 @@ export default defineConfig({
     mode: "standalone",
   }),
   vite: {
+    server: {
+      allowedHosts: ["ll.ylex.my.id"],
+    },
     resolve: {
       alias: {
         "@": "/src",

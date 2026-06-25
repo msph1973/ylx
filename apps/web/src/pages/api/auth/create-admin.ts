@@ -12,7 +12,9 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
+    console.log("[CreateAdmin] Creating:", { email, name, role });
     const admin = await createAdmin({ email, password, name, role });
+    console.log("[CreateAdmin] Result:", admin);
 
     if (!admin) {
       return new Response(
@@ -25,9 +27,10 @@ export const POST: APIRoute = async ({ request }) => {
       JSON.stringify({ success: true, admin: { name: admin.name, email: admin.email, role: admin.role } }),
       { status: 201, headers: { "Content-Type": "application/json" } }
     );
-  } catch {
+  } catch (err) {
+    console.error("[CreateAdmin] Error:", err);
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ error: "Internal server error", details: String(err) }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }

@@ -1,4 +1,4 @@
-import { sanityWriteClient as client } from "../client";
+import { sanityClient, sanityWriteClient } from "../client";
 
 interface AdminUser {
   _id: string;
@@ -17,12 +17,8 @@ export async function getAdminByEmail(email: string): Promise<AdminUser | null> 
     password
   }`;
 
-  try {
-    const result = await client.fetch<AdminUser | null>(query, { email });
-    return result || null;
-  } catch {
-    return null;
-  }
+  const result = await sanityClient.fetch<AdminUser | null>(query, { email });
+  return result || null;
 }
 
 export async function validateAdminPassword(
@@ -44,23 +40,19 @@ export async function createAdmin(data: {
   name: string;
   role?: string;
 }): Promise<Omit<AdminUser, "password"> | null> {
-  try {
-    const existing = await getAdminByEmail(data.email);
-    if (existing) {
-      return null;
-    }
-
-    const result = await client.create({
-      _type: "admin",
-      email: data.email,
-      password: data.password,
-      name: data.name,
-      role: data.role || "photographer",
-    });
-
-    const { password: _, ...adminWithoutPassword } = result as any;
-    return adminWithoutPassword;
-  } catch {
+  const existing = await getAdminByEmail(data.email);
+  if (existing) {
     return null;
   }
+
+  const result = await sanityWriteClient.create({
+    _type: "admin",
+    email: data.email,
+    password: data.password,
+    name: data.name,
+    role: data.role || "photographer",
+  });
+
+  const { password: _, ...adminWithoutPassword } = result as any;
+  return adminWithoutPassword;
 }
