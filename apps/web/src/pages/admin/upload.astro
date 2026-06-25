@@ -1,0 +1,15 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import UploadPage from '../../components/admin/UploadPage';
+import { requireAdmin } from '../../lib/auth';
+
+const session = requireAdmin(Astro.cookies);
+
+if (!session) {
+  return Astro.redirect('/admin/login');
+}
+---
+
+<AdminLayout title="Upload" activePage="upload">
+  <UploadPage client:load adminName={session.name} />
+</AdminLayout>
