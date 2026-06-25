@@ -10,3 +10,4 @@ dist
 .svelte-kit
 test-results/
 .playwright/
+.env*
