@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumWithSelections, Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 import { SelectionTable } from './SelectionTable';
@@ -11,6 +11,7 @@ interface AlbumDetailProps {
 }
 
 export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [album, setAlbum] = useState<AlbumWithSelections | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,19 +75,6 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
             padding: var(--space-16);
             gap: var(--space-4);
           }
-
-          .spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--color-border);
-            border-top-color: var(--color-accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
         `}</style>
       </div>
     );
@@ -111,7 +99,7 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
           }
 
           .error-message {
-            color: #ef4444;
+            color: var(--color-error);
             font-size: var(--text-sm);
           }
 
@@ -139,10 +127,10 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
       <motion.div
         key="album-detail"
         className="album-detail"
-        initial={{ opacity: 0, x: 32 }}
+        initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 32 }}
         animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -32 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        exit={{ opacity: 0, x: shouldReduceMotion ? 0 : -32 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30, duration: shouldReduceMotion ? 0 : undefined }}
       >
         <button className="back-btn" onClick={onBack}>
           <svg
@@ -154,6 +142,7 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            aria-hidden="true"
           >
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
@@ -210,6 +199,7 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  aria-hidden="true"
                 >
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 9.9-1" />
@@ -271,13 +261,13 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
           }
 
           .status-badge.active {
-            background-color: rgba(34, 197, 94, 0.15);
-            color: #22c55e;
+            background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
+            color: var(--color-success);
           }
 
           .status-badge.locked {
-            background-color: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
+            background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+            color: var(--color-error);
           }
 
           .metadata-grid {

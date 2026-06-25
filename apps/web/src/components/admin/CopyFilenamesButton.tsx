@@ -7,12 +7,19 @@ interface CopyFilenamesButtonProps {
 
 export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   const handleCopy = async () => {
     const text = filenames.join(', ');
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setCopyError(false);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 2000);
+    }
   };
 
   return (
@@ -31,6 +38,7 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-hidden="true"
         >
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
@@ -56,10 +64,22 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              aria-hidden="true"
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
             Copied!
+          </motion.div>
+        )}
+        {copyError && (
+          <motion.div
+            className="copy-error-feedback"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          >
+            Copy failed
           </motion.div>
         )}
       </AnimatePresence>
@@ -78,7 +98,7 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
           gap: var(--space-2);
           padding: var(--space-2) var(--space-4);
           background-color: var(--color-accent);
-          color: #0a0a0a;
+          color: var(--color-bg);
           border: none;
           border-radius: var(--radius-md);
           font-size: var(--text-sm);
@@ -101,6 +121,15 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
           align-items: center;
           gap: var(--space-1);
           color: var(--color-success);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+        }
+
+        .copy-error-feedback {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          color: var(--color-error);
           font-size: var(--text-sm);
           font-weight: var(--font-medium);
         }

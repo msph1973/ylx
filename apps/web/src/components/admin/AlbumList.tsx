@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlbumCard, type AlbumCardData } from './AlbumCard';
 
 interface AlbumListProps {
@@ -7,6 +7,7 @@ interface AlbumListProps {
 }
 
 export function AlbumList({ onSelectAlbum }: AlbumListProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [albums, setAlbums] = useState<AlbumCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +49,6 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
             padding: var(--space-16);
             gap: var(--space-4);
           }
-
-          .spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--color-border);
-            border-top-color: var(--color-accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
         `}</style>
       </div>
     );
@@ -85,7 +73,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           }
 
           .error-message {
-            color: #ef4444;
+            color: var(--color-error);
             font-size: var(--text-sm);
           }
 
@@ -148,10 +136,10 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           <motion.div
             key={album.id}
             layout
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.9 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, duration: shouldReduceMotion ? 0 : undefined }}
           >
             <AlbumCard album={album} onClick={onSelectAlbum} />
           </motion.div>

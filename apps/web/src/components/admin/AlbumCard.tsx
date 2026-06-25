@@ -107,13 +107,13 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
         }
 
         .status-badge.active {
-          background-color: rgba(34, 197, 94, 0.15);
-          color: #22c55e;
+          background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
+          color: var(--color-success);
         }
 
         .status-badge.locked {
-          background-color: rgba(239, 68, 68, 0.15);
-          color: #ef4444;
+          background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+          color: var(--color-error);
         }
 
         .album-card-meta {
