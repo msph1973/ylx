@@ -1,7 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "turbo build --filter=@ylx/web",
-  "outputDirectory": "apps/web/dist",
+  "outputDirectory": "apps/web/dist/server",
   "installCommand": "pnpm install",
-  "framework": null
+  "framework": null,
+  "functions": {
+    "apps/web/dist/server/**": {
+      "runtime": "@vercel/node@latest"
+    }
+  }
 }
