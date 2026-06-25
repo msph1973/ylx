@@ -9,37 +9,68 @@ export interface Props {
 const { title, activePage = 'albums' } = Astro.props;
 
 const navItems = [
-  { href: '/admin', label: 'Albums', id: 'albums' },
-  { href: '/admin/upload', label: 'Upload', id: 'upload' },
+  { href: '/admin', label: 'Albums', id: 'albums', icon: 'grid' },
+  { href: '/admin/upload', label: 'Upload', id: 'upload', icon: 'upload' },
 ];
 ---
 
 <BaseLayout title={`Admin - ${title}`}>
   <div class="admin-layout">
-    <aside class="admin-sidebar">
+    <!-- Desktop sidebar -->
+    <aside class="admin-sidebar" aria-label="Admin navigation">
       <div class="sidebar-brand">
         <span class="brand-text">YLx</span>
         <span class="brand-subtitle">Admin</span>
       </div>
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" aria-label="Admin navigation">
         {navItems.map((item) => (
           <a
             href={item.href}
             class:list={['nav-item', { active: activePage === item.id }]}
+            aria-current={activePage === item.id ? 'page' : undefined}
           >
             {item.label}
           </a>
         ))}
       </nav>
     </aside>
+
     <div class="admin-main">
+      <!-- Mobile top bar -->
       <header class="admin-header">
-        <h1 class="admin-title">{title}</h1>
+        <div class="header-inner">
+          <span class="header-brand">YLx</span>
+          <h1 class="admin-title">{title}</h1>
+        </div>
       </header>
       <main class="admin-content">
         <slot />
       </main>
     </div>
+
+    <!-- Mobile bottom nav -->
+    <nav class="mobile-nav" aria-label="Admin navigation">
+      {navItems.map((item) => (
+        <a
+          href={item.href}
+          class:list={['mobile-nav-item', { active: activePage === item.id }]}
+          aria-current={activePage === item.id ? 'page' : undefined}
+        >
+          {item.icon === 'grid' ? (
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+          ) : (
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+            </svg>
+          )}
+          <span>{item.label}</span>
+        </a>
+      ))}
+    </nav>
   </div>
 </BaseLayout>
 
@@ -49,6 +80,7 @@ const navItems = [
     min-height: 100vh;
   }
 
+  /* ── Desktop sidebar ── */
   .admin-sidebar {
     width: 240px;
     background-color: var(--color-surface);
@@ -112,21 +144,43 @@ const navItems = [
     color: var(--color-bg);
   }
 
+  /* ── Main area ── */
   .admin-main {
     flex: 1;
     margin-left: 240px;
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .admin-header {
-    padding: var(--space-6);
+    padding: var(--space-4) var(--space-6);
     border-bottom: 1px solid var(--color-border);
     background-color: var(--color-bg);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  /* mobile-only brand in header */
+  .header-brand {
+    display: none;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--color-accent);
   }
 
   .admin-title {
     font-size: var(--text-2xl);
+    font-family: var(--font-sans);
+    font-weight: var(--font-semibold);
   }
 
   .admin-content {
@@ -134,6 +188,12 @@ const navItems = [
     padding: var(--space-6);
   }
 
+  /* ── Mobile bottom nav (hidden on desktop) ── */
+  .mobile-nav {
+    display: none;
+  }
+
+  /* ── Mobile breakpoint ── */
   @media (max-width: 768px) {
     .admin-sidebar {
       display: none;
@@ -141,6 +201,45 @@ const navItems = [
 
     .admin-main {
       margin-left: 0;
+      padding-bottom: 72px; /* space for bottom nav */
+    }
+
+    .header-brand {
+      display: block;
+    }
+
+    .mobile-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: var(--z-sticky);
+      background-color: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+      height: 64px;
+    }
+
+    .mobile-nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-1);
+      color: var(--color-text-muted);
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      transition: color var(--transition-fast);
+      min-height: 44px;
+    }
+
+    .mobile-nav-item:hover {
+      color: var(--color-text);
+    }
+
+    .mobile-nav-item.active {
+      color: var(--color-accent);
     }
   }
 </style>
