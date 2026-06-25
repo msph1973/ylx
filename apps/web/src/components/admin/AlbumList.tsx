@@ -46,7 +46,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
   if (error) {
     return (
       <div className="state-container">
-        <p className="error-message">{error}</p>
+        <p className="error-message" role="alert">{error}</p>
         <button className="retry-btn" onClick={fetchAlbums}>
           Try Again
         </button>

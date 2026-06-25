@@ -72,7 +72,7 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
   if (error || !album) {
     return (
       <div className="state-container">
-        <p className="error-message">{error || 'Album not found'}</p>
+        <p className="error-message" role="alert">{error || 'Album not found'}</p>
         <button className="retry-btn" onClick={fetchAlbum}>
           Try Again
         </button>
