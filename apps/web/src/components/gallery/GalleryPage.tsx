@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
+import { ReducedMotionProvider } from '@/components/ui/ReducedMotionProvider';
 import type { Photo } from '@ylx/shared';
 
 interface GalleryPageProps {
@@ -81,6 +82,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   if (!isAuthenticated) {
     return (
+      <ReducedMotionProvider>
       <div className="gallery-auth">
         <motion.div
           className="gallery-auth-content"
@@ -123,10 +125,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           }
         `}</style>
       </div>
+      </ReducedMotionProvider>
     );
   }
 
   return (
+    <ReducedMotionProvider>
     <div className="gallery-view">
       <div className="gallery-selection-bar">
         <span className="selection-count">
@@ -297,5 +301,6 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
       `}</style>
     </div>
+    </ReducedMotionProvider>
   );
 }
