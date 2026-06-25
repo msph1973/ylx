@@ -62,62 +62,20 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
 
   if (isLoading) {
     return (
-      <div className="album-detail-state">
-        <div className="spinner" />
+      <div className="state-container">
+        <div className="spinner" role="status"><span className="sr-only">Loading album details</span></div>
         <p>Loading album...</p>
-
-        <style>{`
-          .album-detail-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-16);
-            gap: var(--space-4);
-          }
-        `}</style>
       </div>
     );
   }
 
   if (error || !album) {
     return (
-      <div className="album-detail-state">
+      <div className="state-container">
         <p className="error-message">{error || 'Album not found'}</p>
         <button className="retry-btn" onClick={fetchAlbum}>
           Try Again
         </button>
-
-        <style>{`
-          .album-detail-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-16);
-            gap: var(--space-4);
-          }
-
-          .error-message {
-            color: var(--color-error);
-            font-size: var(--text-sm);
-          }
-
-          .retry-btn {
-            padding: var(--space-2) var(--space-4);
-            background-color: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            color: var(--color-text);
-            font-size: var(--text-sm);
-            transition: all var(--transition-fast);
-          }
-
-          .retry-btn:hover {
-            border-color: var(--color-accent);
-            color: var(--color-accent);
-          }
-        `}</style>
       </div>
     );
   }
@@ -261,11 +219,13 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
           }
 
           .status-badge.active {
+            background-color: rgba(74, 222, 128, 0.15);
             background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
             color: var(--color-success);
           }
 
           .status-badge.locked {
+            background-color: rgba(248, 113, 113, 0.15);
             background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
             color: var(--color-error);
           }

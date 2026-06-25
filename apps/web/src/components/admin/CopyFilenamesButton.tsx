@@ -46,6 +46,7 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
         Copy Filenames
       </button>
 
+      <div aria-live="polite" aria-atomic="true">
       <AnimatePresence>
         {copied && (
           <motion.div
@@ -83,6 +84,7 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
 
       <style>{`
         .copy-filenames-wrapper {

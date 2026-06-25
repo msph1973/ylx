@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export interface AlbumCardData {
   id: string;
@@ -17,6 +17,7 @@ interface AlbumCardProps {
 }
 
 export function AlbumCard({ album, onClick }: AlbumCardProps) {
+  const shouldReduceMotion = useReducedMotion();
   const formattedDate = new Date(album.eventDate).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -29,8 +30,8 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
     <motion.button
       className="album-card"
       onClick={() => onClick(album)}
-      whileHover={{ y: -4, scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={shouldReduceMotion ? {} : { y: -4, scale: 1.02 }}
+      whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
     >
       <div className="album-card-header">
@@ -107,11 +108,13 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
         }
 
         .status-badge.active {
+          background-color: rgba(74, 222, 128, 0.15);
           background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
           color: var(--color-success);
         }
 
         .status-badge.locked {
+          background-color: rgba(248, 113, 113, 0.15);
           background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
           color: var(--color-error);
         }

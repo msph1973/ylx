@@ -36,62 +36,20 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
 
   if (isLoading) {
     return (
-      <div className="album-list-state">
-        <div className="spinner" />
+      <div className="state-container">
+        <div className="spinner" role="status"><span className="sr-only">Loading albums</span></div>
         <p>Loading albums...</p>
-
-        <style>{`
-          .album-list-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-16);
-            gap: var(--space-4);
-          }
-        `}</style>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="album-list-state">
+      <div className="state-container">
         <p className="error-message">{error}</p>
         <button className="retry-btn" onClick={fetchAlbums}>
           Try Again
         </button>
-
-        <style>{`
-          .album-list-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-16);
-            gap: var(--space-4);
-          }
-
-          .error-message {
-            color: var(--color-error);
-            font-size: var(--text-sm);
-          }
-
-          .retry-btn {
-            padding: var(--space-2) var(--space-4);
-            background-color: var(--color-surface);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            color: var(--color-text);
-            font-size: var(--text-sm);
-            transition: all var(--transition-fast);
-          }
-
-          .retry-btn:hover {
-            border-color: var(--color-accent);
-            color: var(--color-accent);
-          }
-        `}</style>
       </div>
     );
   }

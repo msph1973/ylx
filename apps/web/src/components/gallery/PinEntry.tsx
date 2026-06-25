@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 interface PinEntryProps {
   onSubmit: (pin: string) => void;
@@ -8,6 +8,7 @@ interface PinEntryProps {
 }
 
 export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -60,16 +61,16 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     <div className="pin-entry">
       <motion.div
         className="pin-inputs"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.4 }}
       >
         {digits.map((digit, index) => (
           <motion.div
             key={index}
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.1 }}
+            transition={{ delay: shouldReduceMotion ? 0 : index * 0.1 }}
           >
             <input
               ref={(el) => { inputRefs.current[index] = el; }}
@@ -91,6 +92,7 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
         {error && (
           <motion.div
             className="pin-error"
+            role="alert"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -133,12 +135,13 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
           border: 2px solid var(--color-border);
           border-radius: var(--radius-lg);
           color: var(--color-text);
-          outline: none;
-          transition: border-color var(--transition-fast);
+          transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
         }
 
-        .pin-digit:focus {
+        .pin-digit:focus-visible {
           border-color: var(--color-accent);
+          box-shadow: 0 0 0 3px rgba(184, 134, 78, 0.3);
+          outline: none;
         }
 
         .pin-digit:disabled {

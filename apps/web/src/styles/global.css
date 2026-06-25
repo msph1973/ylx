@@ -128,6 +128,38 @@ ul, ol {
   to { transform: rotate(360deg); }
 }
 
+/* Shared state container (loading / error / empty) */
+.state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+  gap: var(--space-4);
+}
+
+/* Shared error + retry */
+.error-message {
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+
+.retry-btn {
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 /* Utility classes */
 .sr-only {
   position: absolute;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 
@@ -7,25 +7,25 @@ interface SelectionTableProps {
   selections: Selection[];
 }
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
-
-const rowVariants = {
-  hidden: { opacity: 0, x: -16 },
-  show: { opacity: 1, x: 0 },
-};
-
 export function SelectionTable({ selections }: SelectionTableProps) {
+  const shouldReduceMotion = useReducedMotion();
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: shouldReduceMotion ? 0 : 0.05 },
+    },
+  };
+
+  const rowVariants = {
+    hidden: { opacity: 0, x: shouldReduceMotion ? 0 : -16 },
+    show: { opacity: 1, x: 0 },
+  };
+
   if (selections.length === 0) {
     return (
-      <div className="empty-state">
+      <div className="state-container">
         <svg
           width="48"
           height="48"
@@ -43,42 +43,21 @@ export function SelectionTable({ selections }: SelectionTableProps) {
           <polyline points="21 15 16 10 5 21" />
         </svg>
         <p>No selections yet</p>
-        <p className="empty-hint">Selected photos will appear here</p>
-
-        <style>{`
-          .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-12);
-            gap: var(--space-3);
-            color: var(--color-text-muted);
-          }
-
-          .empty-state p {
-            margin: 0;
-            font-size: var(--text-base);
-          }
-
-          .empty-hint {
-            font-size: var(--text-sm);
-            opacity: 0.7;
-          }
-        `}</style>
+        <p>Selected photos will appear here</p>
       </div>
     );
   }
 
   return (
-    <div className="selection-table-container">
-      <div className="table-header">
-        <span className="col-filename">Filename</span>
-        <span className="col-date">Selected</span>
+    <div className="selection-table-container" role="table">
+      <div className="table-header" role="row">
+        <span className="col-filename" role="columnheader">Filename</span>
+        <span className="col-date" role="columnheader">Selected</span>
       </div>
 
       <motion.div
         className="table-body"
+        role="rowgroup"
         variants={containerVariants}
         initial="hidden"
         animate="show"
@@ -87,13 +66,14 @@ export function SelectionTable({ selections }: SelectionTableProps) {
           <motion.div
             key={selection.id}
             className="table-row"
+            role="row"
             variants={rowVariants}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
           >
-            <span className="col-filename filename">
+            <span className="col-filename filename" role="cell">
               {selection.photo.filename}
             </span>
-            <span className="col-date date">
+            <span className="col-date date" role="cell">
               {formatDate(selection.selectedAt)}
             </span>
           </motion.div>
@@ -114,6 +94,9 @@ export function SelectionTable({ selections }: SelectionTableProps) {
           padding: var(--space-3) var(--space-4);
           background-color: var(--color-surface);
           border-bottom: 1px solid var(--color-border);
+        }
+
+        .table-header span {
           font-size: var(--text-xs);
           font-weight: var(--font-medium);
           color: var(--color-text-muted);
@@ -144,7 +127,7 @@ export function SelectionTable({ selections }: SelectionTableProps) {
         }
 
         .filename {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-mono);
           font-size: var(--text-sm);
           color: var(--color-text);
           overflow: hidden;

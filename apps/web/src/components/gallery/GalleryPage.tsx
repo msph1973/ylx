@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
-import { ReducedMotionProvider } from '@/components/ui/ReducedMotionProvider';
+
 import type { Photo } from '@ylx/shared';
 
 interface GalleryPageProps {
@@ -17,6 +17,7 @@ interface AlbumData {
 }
 
 export function GalleryPage({ slug }: GalleryPageProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [album, setAlbum] = useState<AlbumData | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
@@ -82,13 +83,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   if (!isAuthenticated) {
     return (
-      <ReducedMotionProvider>
       <div className="gallery-auth">
         <motion.div
           className="gallery-auth-content"
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
         >
           <h1 className="gallery-title">Enter PIN</h1>
           <p className="gallery-subtitle">to view your photos</p>
@@ -125,12 +125,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           }
         `}</style>
       </div>
-      </ReducedMotionProvider>
     );
   }
 
   return (
-    <ReducedMotionProvider>
     <div className="gallery-view">
       <div className="gallery-selection-bar">
         <span className="selection-count">
@@ -149,6 +147,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         className="photo-grid"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
       >
         {album?.photos.map((photo, index) => {
           const isSelected = selectedPhotos.has(photo.id);
@@ -162,9 +161,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
               aria-label={`${isSelected ? 'Deselect' : 'Select'} photo ${photo.filename}`}
               aria-disabled={isDisabled}
               className={`photo-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(index * 0.05, 1.5) }}
+              transition={{ delay: shouldReduceMotion ? 0 : Math.min(index * 0.04, 0.4) }}
               onClick={() => !isDisabled && togglePhoto(photo.id)}
               onKeyDown={(e) => {
                 if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) {
@@ -182,9 +181,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 <motion.div
                   className="selection-badge"
                   aria-hidden="true"
-                  initial={{ scale: 0 }}
+                  initial={{ scale: shouldReduceMotion ? 1 : 0 }}
                   animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
+                  exit={{ scale: shouldReduceMotion ? 1 : 0 }}
                 >
                   ✓
                 </motion.div>
@@ -301,6 +300,5 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
       `}</style>
     </div>
-    </ReducedMotionProvider>
   );
 }
