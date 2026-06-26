@@ -18,6 +18,7 @@ export const allAlbumsQuery = `*[_type == "album"] | order(createdAt desc) {
   title,
   clientName,
   eventDate,
+  pin,
   status,
   "photoCount": count(photos)
 }`;
@@ -44,5 +45,5 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
     filename,
     image
   },
-  "selections": *[_type == "selection" && album._ref == ^.]._id
+  "selections": *[_type == "selection" && album._ref == ^._id]._id
 }`;
