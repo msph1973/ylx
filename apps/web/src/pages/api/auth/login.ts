@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { validateAdminPassword, getAdminByEmail } from "@ylx/sanity/lib/admin";
+import { validateAdminPassword } from "@ylx/sanity/lib/admin";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
@@ -12,24 +12,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // Check if admin exists
-    const admin = await getAdminByEmail(email);
-    console.warn("[Login] Admin found:", admin ? "yes" : "no");
-
-    if (!admin) {
-      return new Response(
-        JSON.stringify({ error: "Admin not found. Please create an admin first." }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // Validate password
+    // Validate credentials — use a single generic error to prevent username enumeration
     const validated = await validateAdminPassword(email, password);
-    console.warn("[Login] Password valid:", validated ? "yes" : "no");
 
     if (!validated) {
       return new Response(
-        JSON.stringify({ error: "Invalid password" }),
+        JSON.stringify({ error: "Invalid email or password" }),
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -45,7 +33,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     cookies.set("admin_session", session, {
       path: "/",
       httpOnly: true,
-      secure: false,
+      secure: import.meta.env.PROD,
       sameSite: "lax",
       maxAge: 24 * 60 * 60,
     });

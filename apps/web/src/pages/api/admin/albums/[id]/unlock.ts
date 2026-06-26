@@ -1,7 +1,16 @@
 import type { APIRoute } from "astro";
 import { sanityWriteClient } from "@ylx/sanity/client";
+import { requireAdmin } from "../../../../../lib/auth";
 
-export const POST: APIRoute = async ({ params }) => {
+export const POST: APIRoute = async ({ params, cookies }) => {
+  const session = requireAdmin(cookies);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const albumId = params.id;
     if (!albumId) {
