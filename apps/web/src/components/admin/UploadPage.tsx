@@ -259,7 +259,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                     )}
                     {uploadFile.status === 'uploading' && (
                       <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: `${uploadFile.progress}%` }} />
+                        <div className="progress-fill" style={{ transform: `scaleX(${uploadFile.progress / 100})` }} />
                       </div>
                     )}
                     {uploadFile.status === 'done' && (
@@ -487,8 +487,11 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
         .progress-fill {
           height: 100%;
+          width: 100%;
           background-color: var(--color-accent);
-          transition: width var(--transition-fast);
+          transform-origin: left;
+          transform: scaleX(0);
+          transition: transform var(--transition-fast);
         }
 
         .status-done {
