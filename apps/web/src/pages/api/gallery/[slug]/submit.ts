@@ -65,14 +65,15 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const selectionIds: string[] = [];
   for (const photoId of photoIds) {
-    const selectionDoc = {
+    const selectionId = crypto.randomUUID();
+    transaction.create({
       _type: "selection",
+      _id: selectionId,
       album: { _type: "reference", _ref: album._id },
       photo: { _type: "reference", _ref: photoId },
       selectedAt: new Date().toISOString(),
-    };
-    const result = transaction.create(selectionDoc);
-    selectionIds.push(result.id);
+    });
+    selectionIds.push(selectionId);
   }
 
   transaction.create({

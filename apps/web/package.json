@@ -9,16 +9,20 @@
     "astro": "astro",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@astrojs/node": "^8.2.4",
     "@astrojs/react": "^3.1.0",
-    "@astrojs/vercel": "7.8.2",
+    "@astrojs/vercel": "6.1.4",
+    "@sanity/client": "^6.15.5",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "ably": "^2.23.0",
     "astro": "^4.4.0",
+    "bcryptjs": "^3.0.3",
     "framer-motion": "^11.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -26,7 +30,12 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "@types/bcryptjs": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
+    "@typescript-eslint/parser": "^8.62.0",
     "@ylx/sanity": "workspace:*",
-    "@ylx/shared": "workspace:*"
+    "@ylx/shared": "workspace:*",
+    "eslint": "^10.5.0",
+    "eslint-plugin-astro": "^2.1.1"
   }
 }

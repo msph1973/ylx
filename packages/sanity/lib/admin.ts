@@ -1,7 +1,19 @@
+import bcrypt from "bcryptjs";
 import { sanityClient, sanityWriteClient } from "../client";
+
+const BCRYPT_ROUNDS = 12;
 
 interface AdminUser {
   _id: string;
+  email: string;
+  name: string;
+  role: string;
+  password?: string;
+}
+
+interface SanityAdminDoc {
+  _id?: string;
+  _type: string;
   email: string;
   name: string;
   role: string;
@@ -18,7 +30,7 @@ export async function getAdminByEmail(email: string): Promise<AdminUser | null> 
   }`;
 
   const result = await sanityClient.fetch<AdminUser | null>(query, { email });
-  return result || null;
+  return result ?? null;
 }
 
 export async function validateAdminPassword(
@@ -26,11 +38,16 @@ export async function validateAdminPassword(
   password: string
 ): Promise<Omit<AdminUser, "password"> | null> {
   const admin = await getAdminByEmail(email);
-  if (!admin || admin.password !== password) {
+  if (!admin?.password) {
     return null;
   }
 
-  const { password: _, ...adminWithoutPassword } = admin;
+  const isValid = await bcrypt.compare(password, admin.password);
+  if (!isValid) {
+    return null;
+  }
+
+  const { password: _pw, ...adminWithoutPassword } = admin;
   return adminWithoutPassword;
 }
 
@@ -45,14 +62,16 @@ export async function createAdmin(data: {
     return null;
   }
 
-  const result = await sanityWriteClient.create({
+  const hashedPassword = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+
+  const result = await sanityWriteClient.create<SanityAdminDoc>({
     _type: "admin",
     email: data.email,
-    password: data.password,
+    password: hashedPassword,
     name: data.name,
-    role: data.role || "photographer",
+    role: data.role ?? "photographer",
   });
 
-  const { password: _, ...adminWithoutPassword } = result as any;
+  const { password: _pw, ...adminWithoutPassword } = result;
   return adminWithoutPassword;
 }

@@ -14,7 +14,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     // Check if admin exists
     const admin = await getAdminByEmail(email);
-    console.log("[Login] Admin found:", admin ? "yes" : "no");
+    console.warn("[Login] Admin found:", admin ? "yes" : "no");
 
     if (!admin) {
       return new Response(
@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     // Validate password
     const validated = await validateAdminPassword(email, password);
-    console.log("[Login] Password valid:", validated ? "yes" : "no");
+    console.warn("[Login] Password valid:", validated ? "yes" : "no");
 
     if (!validated) {
       return new Response(

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import type { SanityImageAssetDocument } from "@sanity/client";
 import { sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../lib/auth";
 
@@ -45,8 +46,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const asset = await sanityWriteClient.upload('image', buffer, {
-      filename: filename,
+    const asset: SanityImageAssetDocument = await sanityWriteClient.assets.upload('image', buffer, {
+      filename,
       contentType: file.type,
     });
 
@@ -58,7 +59,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         _type: 'image',
         asset: {
           _type: 'reference',
-          _ref: asset._ref,
+          _ref: asset._id,
         },
       },
       album: {
