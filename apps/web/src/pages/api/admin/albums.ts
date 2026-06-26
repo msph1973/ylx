@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
 import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
+import { requireAdmin } from "../../../lib/auth";
 
 interface SanityAlbumRaw {
   _id: string;
@@ -11,7 +12,15 @@ interface SanityAlbumRaw {
   photoCount: number;
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ cookies }) => {
+  const session = requireAdmin(cookies);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const albums = await sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery);
 

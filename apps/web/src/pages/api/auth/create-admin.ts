@@ -1,7 +1,16 @@
 import type { APIRoute } from "astro";
 import { createAdmin } from "@ylx/sanity/lib/admin";
+import { requireAdmin } from "../../../lib/auth";
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
+  const session = requireAdmin(cookies);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const { email, password, name, role } = await request.json();
 
@@ -30,7 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
   } catch (err) {
     console.error("[CreateAdmin] Error:", err);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: String(err) }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
