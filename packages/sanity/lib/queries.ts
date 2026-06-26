@@ -13,7 +13,7 @@ export const albumBySlugQuery = `*[_type == "album" && slug.current == $slug][0]
   }
 }`;
 
-export const allAlbumsQuery = `*[_type == "album"] | order(createdAt desc) {
+export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   _id,
   title,
   clientName,
