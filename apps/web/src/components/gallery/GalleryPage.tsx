@@ -68,7 +68,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       const response = await fetch(`/api/gallery/${slug}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectionIds: Array.from(selectedPhotos) }),
+        body: JSON.stringify({ photoIds: Array.from(selectedPhotos) }),
       });
 
       if (!response.ok) {

@@ -1,6 +1,28 @@
 import type { APIRoute } from "astro";
-import { sanityClient } from "@ylx/sanity/client";
+import { sanityClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
+
+interface SanityImageRef {
+  _type: string;
+  asset: { _ref: string };
+}
+
+interface SanityPhotoRaw {
+  _id: string;
+  filename: string;
+  image: SanityImageRef;
+}
+
+interface SanityAlbumRaw {
+  _id: string;
+  title: string;
+  clientName: string;
+  eventDate: string;
+  status: string;
+  maxSelections: number;
+  pin: string;
+  photos: SanityPhotoRaw[];
+}
 
 export const POST: APIRoute = async ({ params, request }) => {
   const slug = params.slug;
@@ -21,7 +43,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  const album = await sanityClient.fetch(albumBySlugQuery, { slug });
+  const album = await sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug });
 
   if (!album) {
     return new Response(JSON.stringify({ error: "Album not found" }), {
@@ -37,6 +59,13 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
+  const photos = (album.photos ?? []).map((photo) => ({
+    id: photo._id,
+    filename: photo.filename,
+    thumbnailUrl: urlFor(photo.image).width(400).height(400).fit("crop").url(),
+    url: urlFor(photo.image).width(1200).url(),
+  }));
+
   return new Response(
     JSON.stringify({
       album: {
@@ -46,7 +75,7 @@ export const POST: APIRoute = async ({ params, request }) => {
         eventDate: album.eventDate,
         status: album.status,
         maxSelections: album.maxSelections,
-        photos: album.photos,
+        photos,
       },
     }),
     {
