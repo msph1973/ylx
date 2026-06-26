@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlbumCard, type AlbumCardData } from './AlbumCard';
+import { useAdminRealtime } from '@/hooks/useAdminRealtime';
 
 interface AlbumListProps {
   onSelectAlbum: (album: AlbumCardData) => void;
@@ -33,6 +34,8 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
   useEffect(() => {
     fetchAlbums();
   }, []);
+
+  useAdminRealtime(fetchAlbums);
 
   if (isLoading) {
     return (

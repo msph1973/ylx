@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
+import { publishAdminEvent } from '@/lib/ably';
 
 interface Album {
   _id: string;
@@ -147,6 +148,10 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           ? { ...f, status: success ? 'done' : 'error', progress: success ? 100 : 0, error: success ? undefined : 'Upload failed' }
           : f
       ));
+
+      if (success) {
+        publishAdminEvent('photo:uploaded', { albumId: selectedAlbum, filename: uploadFile.file.name });
+      }
     }
 
     setIsUploading(false);
