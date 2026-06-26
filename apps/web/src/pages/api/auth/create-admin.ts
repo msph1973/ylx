@@ -12,9 +12,9 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    console.log("[CreateAdmin] Creating:", { email, name, role });
+    console.warn("[CreateAdmin] Creating:", { email, name, role });
     const admin = await createAdmin({ email, password, name, role });
-    console.log("[CreateAdmin] Result:", admin);
+    console.warn("[CreateAdmin] Result:", admin);
 
     if (!admin) {
       return new Response(

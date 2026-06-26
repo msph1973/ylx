@@ -21,9 +21,11 @@
     "@sanity/client": "^6.15.5",
     "@sanity/image-url": "^1.0.2",
     "@sanity/vision": "^3.29.5",
+    "bcryptjs": "^3.0.3",
     "sanity": "^3.29.5"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20.11.5",
     "typescript": "^5.3.3"
   }

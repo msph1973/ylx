@@ -2,11 +2,20 @@ import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
 import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
 
+interface SanityAlbumRaw {
+  _id: string;
+  title: string;
+  clientName: string;
+  eventDate: string;
+  status: string;
+  photoCount: number;
+}
+
 export const GET: APIRoute = async () => {
   try {
-    const albums = await sanityClient.fetch(allAlbumsQuery);
+    const albums = await sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery);
 
-    const formatted = albums.map((album: any) => ({
+    const formatted = albums.map((album) => ({
       id: album._id,
       title: album.title,
       clientName: album.clientName,

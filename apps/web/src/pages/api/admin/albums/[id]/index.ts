@@ -5,6 +5,33 @@ import {
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 
+interface SanityImageRef {
+  _type: string;
+  asset: { _ref: string };
+}
+
+interface SanityPhotoRaw {
+  _id: string;
+  filename: string;
+  image: SanityImageRef;
+}
+
+interface SanitySelectionRaw {
+  _id: string;
+  photo: SanityPhotoRaw;
+  selectedAt: string;
+}
+
+interface SanityAlbumDetailRaw {
+  _id: string;
+  title: string;
+  clientName: string;
+  eventDate: string;
+  maxSelections: number;
+  status: string;
+  photos: SanityPhotoRaw[];
+}
+
 export const GET: APIRoute = async ({ params }) => {
   try {
     const albumId = params.id;
@@ -15,7 +42,7 @@ export const GET: APIRoute = async ({ params }) => {
       );
     }
 
-    const album = await sanityClient.fetch(albumWithSelectionsQuery, {
+    const album = await sanityClient.fetch<SanityAlbumDetailRaw | null>(albumWithSelectionsQuery, {
       albumId,
     });
 
@@ -26,7 +53,7 @@ export const GET: APIRoute = async ({ params }) => {
       );
     }
 
-    const selections = await sanityClient.fetch(selectionsByAlbumQuery, {
+    const selections = await sanityClient.fetch<SanitySelectionRaw[]>(selectionsByAlbumQuery, {
       albumId,
     });
 
@@ -37,12 +64,12 @@ export const GET: APIRoute = async ({ params }) => {
       eventDate: album.eventDate,
       maxSelections: album.maxSelections,
       status: album.status,
-      photos: (album.photos || []).map((p: any) => ({
+      photos: (album.photos ?? []).map((p) => ({
         id: p._id,
         filename: p.filename,
         image: p.image,
       })),
-      selections: selections.map((s: any) => ({
+      selections: selections.map((s) => ({
         id: s._id,
         photo: {
           id: s.photo._id,

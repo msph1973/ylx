@@ -1,7 +1,7 @@
 import { useEffect } from "react";
+import type Ably from "ably";
 import { getAblyClient, getChannelName } from "@/lib/ably";
 import type {
-  RealtimeEvent,
   RealtimeEventType,
   PhotoUploadedData,
   SelectionChangedData,
@@ -28,28 +28,28 @@ export function useRealtime(
     const channel = ably.channels.get(channelName);
 
     const handlers: Partial<
-      Record<RealtimeEventType, (event: RealtimeEvent) => void>
+      Record<RealtimeEventType, (message: Ably.Message) => void>
     > = {};
 
     if (callbacks.onPhotoUploaded) {
-      handlers["photo:uploaded"] = (event) =>
-        callbacks.onPhotoUploaded!(event.data as PhotoUploadedData);
+      handlers["photo:uploaded"] = (msg) =>
+        callbacks.onPhotoUploaded!(msg.data as PhotoUploadedData);
     }
     if (callbacks.onSelectionChanged) {
-      handlers["selection:changed"] = (event) =>
-        callbacks.onSelectionChanged!(event.data as SelectionChangedData);
+      handlers["selection:changed"] = (msg) =>
+        callbacks.onSelectionChanged!(msg.data as SelectionChangedData);
     }
     if (callbacks.onSubmissionReceived) {
-      handlers["submission:received"] = (event) =>
-        callbacks.onSubmissionReceived!(event.data as SubmissionReceivedData);
+      handlers["submission:received"] = (msg) =>
+        callbacks.onSubmissionReceived!(msg.data as SubmissionReceivedData);
     }
     if (callbacks.onAlbumUnlocked) {
-      handlers["album:unlocked"] = (event) =>
-        callbacks.onAlbumUnlocked!(event.data as AlbumUnlockedData);
+      handlers["album:unlocked"] = (msg) =>
+        callbacks.onAlbumUnlocked!(msg.data as AlbumUnlockedData);
     }
 
     for (const [eventType, handler] of Object.entries(handlers)) {
-      channel.subscribe(eventType, handler as (message: any) => void);
+      channel.subscribe(eventType, handler as (message: Ably.Message) => void);
     }
 
     return () => {
