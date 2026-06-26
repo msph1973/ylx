@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
+import { publishAdminEvent } from "../../../../lib/ably";
 import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
@@ -89,6 +90,12 @@ export const POST: APIRoute = async ({ params, request }) => {
   transaction.patch(album._id, { set: { status: "locked" } });
 
   await transaction.commit();
+
+  // Notify admin dashboard in real-time
+  await publishAdminEvent("submission:received", {
+    albumId: album._id,
+    count: photoIds.length,
+  });
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: photoIds.length }),
