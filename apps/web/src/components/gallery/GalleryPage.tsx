@@ -10,10 +10,16 @@ interface GalleryPageProps {
 
 interface AlbumData {
   id: string;
+  title: string;
   clientName: string;
+  eventDate: string;
   maxSelections: number;
-  isLocked: boolean;
+  status: string;
   photos: Photo[];
+}
+
+function isAlbumLocked(album: AlbumData | null): boolean {
+  return album?.status === 'locked' || album?.status === 'submitted';
 }
 
 export function GalleryPage({ slug }: GalleryPageProps) {
@@ -40,7 +46,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       }
 
       const data = await response.json();
-      setAlbum(data);
+      setAlbum(data.album);
       setIsAuthenticated(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed');
@@ -62,7 +68,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, [album]);
 
   const handleSubmit = useCallback(async () => {
-    if (!album || selectedPhotos.size === 0 || album.isLocked) return;
+    if (!album || selectedPhotos.size === 0 || isAlbumLocked(album)) return;
 
     try {
       const response = await fetch(`/api/gallery/${slug}/submit`, {
@@ -75,7 +81,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         throw new Error('Submission failed');
       }
 
-      setAlbum((prev) => prev ? { ...prev, isLocked: true } : prev);
+      setAlbum((prev) => prev ? { ...prev, status: 'locked' } : prev);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed');
     }
@@ -137,9 +143,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         <button
           className="submit-btn"
           onClick={handleSubmit}
-          disabled={selectedPhotos.size === 0 || album?.isLocked}
+          disabled={selectedPhotos.size === 0 || isAlbumLocked(album)}
         >
-          {album?.isLocked ? 'Submitted' : 'Submit Selection'}
+          {isAlbumLocked(album) ? 'Submitted' : 'Submit Selection'}
         </button>
       </div>
 
@@ -151,7 +157,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       >
         {album?.photos.map((photo, index) => {
           const isSelected = selectedPhotos.has(photo.id);
-          const isDisabled = album.isLocked;
+          const isDisabled = isAlbumLocked(album);
           return (
             <motion.div
               key={photo.id}
