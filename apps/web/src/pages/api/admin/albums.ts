@@ -8,6 +8,7 @@ interface SanityAlbumRaw {
   title: string;
   clientName: string;
   eventDate: string;
+  pin: string;
   status: string;
   photoCount: number;
 }
@@ -29,7 +30,9 @@ export const GET: APIRoute = async ({ cookies }) => {
       title: album.title,
       clientName: album.clientName,
       eventDate: album.eventDate,
+      pin: album.pin,
       status: album.status,
+      isLocked: album.status === "locked",
       photoCount: album.photoCount,
     }));
 

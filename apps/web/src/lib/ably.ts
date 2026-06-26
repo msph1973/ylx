@@ -1,8 +1,13 @@
 import Ably from "ably";
 
+// Client-side singleton — only created in browser context to avoid SSR leaks.
 let clientInstance: Ably.Realtime | null = null;
 
 export function getAblyClient(): Ably.Realtime {
+  if (typeof window === "undefined") {
+    throw new Error("getAblyClient() must only be called in browser context");
+  }
+
   if (!clientInstance) {
     const key = import.meta.env.PUBLIC_ABLY_KEY;
     if (!key) {
@@ -18,11 +23,15 @@ export function getChannelName(albumId: string): string {
 }
 
 export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): void {
+  // publishAdminEvent is safe to call server-side — it uses a short-lived REST client
+  // instead of the browser singleton to avoid SSR issues.
   try {
-    const ably = getAblyClient();
-    const channel = ably.channels.get("admin:updates");
-    channel.publish(eventType, data || {});
+    const key = import.meta.env.PUBLIC_ABLY_KEY;
+    if (!key) return;
+    const rest = new Ably.Rest({ key });
+    const channel = rest.channels.get("admin:updates");
+    void channel.publish(eventType, data ?? {});
   } catch {
-    // Silently fail if Ably is not configured
+    // Silently fail if Ably is not configured or publish fails
   }
 }
