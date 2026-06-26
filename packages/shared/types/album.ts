@@ -3,34 +3,37 @@ import type { Selection } from "./selection.js";
 
 export interface Album {
   id: string;
-  slug: string;
+  slug?: string;
   clientName: string;
-  pin: string;
+  pin?: string;
   maxSelections: number;
   isLocked: boolean;
-  createdAt: Date;
+  eventDate?: string;
+  createdAt?: Date;
   photos: Photo[];
 }
 
 export interface AlbumSummary {
   id: string;
-  slug: string;
+  slug?: string;
   clientName: string;
-  pin: string;
+  pin?: string;
   maxSelections: number;
   isLocked: boolean;
-  createdAt: Date;
+  eventDate?: string;
+  createdAt?: Date;
   photoCount: number;
 }
 
 export interface AlbumWithSelections {
   id: string;
-  slug: string;
+  slug?: string;
   clientName: string;
-  pin: string;
+  pin?: string;
   maxSelections: number;
   isLocked: boolean;
-  createdAt: Date;
+  eventDate?: string;
+  createdAt?: Date;
   photos: Photo[];
   selections: Selection[];
 }

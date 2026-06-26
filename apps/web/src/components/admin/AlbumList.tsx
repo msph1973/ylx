@@ -13,7 +13,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAlbums = async () => {
+  const fetchAlbums = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -22,18 +22,18 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
       if (!response.ok) {
         throw new Error('Failed to fetch albums');
       }
-      const data = await response.json();
+      const data = await response.json() as { albums: AlbumCardData[] };
       setAlbums(data.albums);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchAlbums();
-  }, []);
+    void fetchAlbums();
+  }, [fetchAlbums]);
 
   useAdminRealtime(fetchAlbums);
 

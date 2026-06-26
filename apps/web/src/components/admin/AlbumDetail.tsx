@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumWithSelections, Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
@@ -17,7 +17,7 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
 
-  const fetchAlbum = async () => {
+  const fetchAlbum = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -26,18 +26,18 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
       if (!response.ok) {
         throw new Error('Failed to fetch album');
       }
-      const data = await response.json();
+      const data = await response.json() as { album: AlbumWithSelections };
       setAlbum(data.album);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [albumId]);
 
   useEffect(() => {
-    fetchAlbum();
-  }, [albumId]);
+    void fetchAlbum();
+  }, [fetchAlbum]);
 
   const handleUnlock = async () => {
     if (!album) return;
@@ -118,7 +118,7 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
         <div className="metadata-grid">
           <div className="metadata-item">
             <span className="metadata-label">Event Date</span>
-            <span className="metadata-value">{formatDate(album.createdAt)}</span>
+            <span className="metadata-value">{album.eventDate ? formatDate(album.eventDate) : '—'}</span>
           </div>
           <div className="metadata-item">
             <span className="metadata-label">Status</span>
