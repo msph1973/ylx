@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumCardData } from './AlbumCard';
 
@@ -7,7 +7,7 @@ interface AlbumFormData {
   clientName: string;
   eventDate: string;
   pin: string;
-  maxSelections: number;
+  maxSelections: number | '';
 }
 
 interface AlbumFormModalProps {
@@ -23,15 +23,21 @@ const DEFAULT_FORM: AlbumFormData = {
   clientName: '',
   eventDate: '',
   pin: '',
-  maxSelections: 20,
+  maxSelections: 20 as number | '',
 };
+
+/** Get today as YYYY-MM-DD in local timezone (avoids UTC offset issues) */
+function getLocalTodayString(): string {
+  return new Date().toLocaleDateString('en-CA');
+}
 
 export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormModalProps) {
   const shouldReduceMotion = useReducedMotion();
   const isEdit = Boolean(album);
+  const firstFocusableRef = useRef<HTMLInputElement>(null);
 
-  // Today's date in YYYY-MM-DD (used as min for date picker)
-  const todayString = new Date().toISOString().split('T')[0] as string;
+  // Today's date in YYYY-MM-DD in local timezone (used as min for date picker)
+  const todayString = getLocalTodayString();
 
   const [form, setForm] = useState<AlbumFormData>(DEFAULT_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,7 +50,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         clientName: album.clientName,
         eventDate: album.eventDate ? album.eventDate.slice(0, 10) : '',
         pin: album.pin ?? '',
-        maxSelections: album.maxSelections ?? 20,
+        maxSelections: album.maxSelections ?? (20 as number | ''),
       });
     } else {
       setForm(DEFAULT_FORM);
@@ -60,9 +66,11 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    // Keep raw string for maxSelections so user can clear the field;
+    // validate numeric value only on submit
     setForm((prev) => ({
       ...prev,
-      [name]: name === 'maxSelections' ? parseInt(value, 10) || 1 : value,
+      [name]: value,
     }));
   };
 
@@ -75,8 +83,9 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       setError('PIN must be exactly 4 digits');
       return;
     }
-    if (form.maxSelections < 1) {
-      setError('Max selections must be at least 1');
+    const maxSelectionsNum = form.maxSelections === '' ? NaN : Number(form.maxSelections);
+    if (isNaN(maxSelectionsNum) || maxSelectionsNum < 1 || !Number.isInteger(maxSelectionsNum)) {
+      setError('Max selections must be a whole number of at least 1');
       return;
     }
     if (form.eventDate < todayString) {
@@ -94,7 +103,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, maxSelections: maxSelectionsNum }),
       });
 
       const data = await response.json() as { error?: string };
@@ -134,7 +143,8 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           animate="visible"
           exit="hidden"
           transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
-          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+          onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}
+          onKeyDown={(e) => { if (e.key === 'Escape' && !isSubmitting) onClose(); }}
           role="dialog"
           aria-modal="true"
           aria-label={isEdit ? 'Edit Album' : 'Create Album'}
@@ -178,6 +188,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   placeholder="e.g. Sarah & James Wedding"
                   required
                   autoFocus
+                  ref={firstFocusableRef}
                 />
               </div>
 
@@ -249,10 +260,10 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
               <div className="modal-actions">
                 <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={onClose}
-                  disabled={isSubmitting}
+                type="button"
+                className="btn-secondary"
+                onClick={() => { if (!isSubmitting) onClose(); }}
+                disabled={isSubmitting}
                 >
                   Cancel
                 </button>

@@ -127,6 +127,18 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
   }
 
   try {
+    // Verify album exists before patching
+    const existingAlbum = await sanityClient.fetch<{ _id: string } | null>(
+      `*[_type == "album" && _id == $id][0]{_id}`,
+      { id: albumId }
+    );
+    if (!existingAlbum) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const body = await request.json() as UpdateAlbumBody;
     const { title, clientName, eventDate, pin, maxSelections } = body;
 
@@ -145,7 +157,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     }
 
     if (eventDate !== undefined) {
-      const today = new Date().toISOString().split("T")[0] as string;
+      const today = new Date().toLocaleDateString("en-CA");
       if (eventDate < today) {
         return new Response(
           JSON.stringify({ error: "Event date cannot be in the past" }),
@@ -157,12 +169,20 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     const patch: Record<string, unknown> = {};
     if (title !== undefined) {
       patch.title = title;
+      // Generate new slug from title; check collision only if title changed
+      const baseSlug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const collision = await sanityClient.fetch<{ _id: string }[]>(
+        `*[_type == "album" && slug.current == $slug && _id != $id]{_id}`,
+        { slug: baseSlug, id: albumId }
+      );
       patch.slug = {
         _type: "slug",
-        current: title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, ""),
+        current: collision.length > 0
+          ? `${baseSlug}-${Date.now().toString(36)}`
+          : baseSlug,
       };
     }
     if (clientName !== undefined) patch.clientName = clientName;

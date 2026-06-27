@@ -90,8 +90,8 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       );
     }
 
-    // Validate event date is not in the past
-    const today = new Date().toISOString().split("T")[0] as string;
+    // Validate event date is not in the past (compare in local timezone)
+    const today = new Date().toLocaleDateString("en-CA");
     if (eventDate < today) {
       return new Response(
         JSON.stringify({ error: "Event date cannot be in the past" }),
@@ -99,11 +99,20 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       );
     }
 
-    // Generate slug from title
-    const slug = title
+    // Generate base slug from title
+    const baseSlug = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
+
+    // Check for slug collision and append short timestamp suffix if needed
+    const existingWithSlug = await sanityClient.fetch<{ _id: string }[]>(
+      `*[_type == "album" && slug.current == $slug]{_id}`,
+      { slug: baseSlug }
+    );
+    const slug = existingWithSlug.length > 0
+      ? `${baseSlug}-${Date.now().toString(36)}`
+      : baseSlug;
 
     const doc = await sanityWriteClient.create({
       _type: "album",
