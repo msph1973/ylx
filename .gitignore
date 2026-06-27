@@ -10,4 +10,24 @@ dist
 .svelte-kit
 test-results/
 .playwright/
+.playwright-mcp/
 .env*
+
+# Build artifacts
+.output/
+.cache/
+.astro/
+
+# IDE
+.idea/
+.vscode/settings.json
+*.suo
+*.user
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Sensitive scripts (contain default credentials — run locally only)
+scripts/seed-admin.mjs
