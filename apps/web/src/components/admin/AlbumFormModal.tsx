@@ -30,6 +30,9 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
   const shouldReduceMotion = useReducedMotion();
   const isEdit = Boolean(album);
 
+  // Today's date in YYYY-MM-DD (used as min for date picker)
+  const todayString = new Date().toISOString().split('T')[0] as string;
+
   const [form, setForm] = useState<AlbumFormData>(DEFAULT_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +77,10 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     }
     if (form.maxSelections < 1) {
       setError('Max selections must be at least 1');
+      return;
+    }
+    if (form.eventDate < todayString) {
+      setError('Event date cannot be in the past');
       return;
     }
 
@@ -197,6 +204,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   name="eventDate"
                   value={form.eventDate}
                   onChange={handleChange}
+                  min={todayString}
                   required
                 />
               </div>

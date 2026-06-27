@@ -144,6 +144,16 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       );
     }
 
+    if (eventDate !== undefined) {
+      const today = new Date().toISOString().split("T")[0] as string;
+      if (eventDate < today) {
+        return new Response(
+          JSON.stringify({ error: "Event date cannot be in the past" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const patch: Record<string, unknown> = {};
     if (title !== undefined) {
       patch.title = title;
