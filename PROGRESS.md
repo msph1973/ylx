@@ -1,6 +1,6 @@
 # YLx — Progress & Status Report
 > Last updated: 2026-06-27  
-> Branch: `feat/album-crud` (PR #5 open)
+> Branch: `master` (all fix PRs merged; PR #7 `feat/ux-fixes` open)
 
 ---
 
@@ -17,163 +17,117 @@
 
 ---
 
-## Completed Fix Branches (merged to master)
+## Core User Flow — Current Status
+
+```
+Photographer creates album    →  ✅ AlbumFormModal.tsx (PR #5 merged)
+Photographer uploads photos   →  ✅ UploadPage.tsx (useEffect fix, PR #7)
+Photographer shares link      →  ✅ "Copy Gallery Link" + "Copy PIN" in AlbumDetail (PR #7)
+Client opens gallery          →  ✅ Homepage gallery form (PR #7)
+Client enters PIN             →  ✅ PinEntry.tsx + rate limiter
+Client browses photos         →  ✅ Grid + lightbox full-preview (PR #7)
+Client selects photos         →  ✅ Toggle select (from grid or inside lightbox)
+Client submits                →  ✅ API + Sanity transaction + Ably
+Admin sees real-time notif    →  ✅ useAdminRealtime + AlbumList
+Admin views selections        →  ✅ SelectionTable + AlbumDetail
+Admin copies filenames        →  ✅ CopyFilenamesButton → Lightroom
+Admin unlocks if needed       →  ✅ unlock.ts + auth guard
+Client sees unlock in real-time →  ✅ useRealtime + toast notification (PR #7)
+```
+
+---
+
+## Completed Branches (merged to master)
 
 ### `fix/gallery-core` — P0 Blocking Bugs
-- **BUG-01** `selectionIds → photoIds` field mismatch — submit selalu gagal HTTP 400
-- **BUG-02** Field `slug` ditambah ke Sanity album schema — gallery route `/gallery/[slug]` selalu 404
-- **BUG-03** `thumbnailUrl` di-generate via `urlFor()` di `verify.ts` — foto tidak muncul
+- `selectionIds → photoIds` submit mismatch fixed
+- Field `slug` added to Sanity album schema
+- `thumbnailUrl` + `url` generated via `urlFor()` in verify.ts
 
-### `fix/security` — Security Critical
-- **SEC-01** `requireAdmin()` ditambah ke `unlock.ts` — endpoint unlock tanpa auth
-- **SEC-02** `requireAdmin()` ditambah ke `create-admin.ts` + `albums.ts` — public endpoints
-- **SEC-03** Cookie `secure: import.meta.env.PROD` — hardcoded `false` di production
-- **SEC-04** Single generic error message di `login.ts` — mencegah username enumeration
-- **SEC-05** Rate limiter 5 req/15 min per IP+slug di `verify.ts` — PIN brute-force
+### `fix/security` — Security
+- `requireAdmin()` on unlock, create-admin, albums endpoints
+- Cookie `secure: import.meta.env.PROD`
+- Single generic login error (prevent username enumeration)
+- Rate limiter 5 req/15 min per IP+slug on verify.ts
 
-### `fix/bugs-p1` — P1 Major Bugs
-- **BUG-04** `useCallback` di `AlbumList.fetchAlbums` — infinite Ably resubscription loop
-- **BUG-05** `album.eventDate` menggantikan `album.createdAt` di AlbumDetail — selalu `undefined`
-- **BUG-08** `publishAdminEvent('submission:received')` setelah `transaction.commit()` — real-time tidak fired
+### `fix/bugs-p1` — P1 Bugs
+- `useCallback` on `AlbumList.fetchAlbums` (fix infinite Ably resubscription)
+- `album.eventDate` fix in AlbumDetail (was undefined `createdAt`)
+- `publishAdminEvent('submission:received')` after `transaction.commit()`
 
 ### `fix/p2-polish` — P2 Inconsistencies
-- **INC-01** GROQ `^.` → `^._id` di `albumWithSelectionsQuery`
-- **INC-02** Field `pin` ditambah ke `allAlbumsQuery` — PIN tidak tampil di AlbumCard
-- **INC-05** `getAblyClient()` SSR-safe via `Ably.Rest` di server-side
-- `isLocked` mapping diperbaiki di albums API response
+- GROQ `^.` → `^._id`, PIN added to `allAlbumsQuery`
+- `getAblyClient()` SSR-safe via `Ably.Rest`
+
+### `feat/album-crud` (PR #5, merged) — CRUD Albums
+- Create / Edit / Delete album via admin UI
+- `AlbumFormModal.tsx` — shared form, framer-motion, validations
+- Date picker with `min` attribute + timezone-aware validation
+- Slug collision detection, 404 on missing album before PATCH
 
 ---
 
-## Branch Aktif: `feat/album-crud` (PR #5)
+## Open PR
 
-### Yang Diimplementasikan
-- **`POST /api/admin/albums`** — create album baru: validasi PIN 4 digit, `maxSelections` positif, event date tidak lampau, slug auto-generate dengan collision check
-- **`PUT /api/admin/albums/[id]`** — update album: verify exists (404 jika tidak ada), validasi sama, slug collision check exclude current ID
-- **`DELETE /api/admin/albums/[id]`** — hapus album + semua selections dalam 1 Sanity transaction
-- **`AlbumFormModal.tsx`** — modal shared create/edit: framer-motion, prefers-reduced-motion, validasi client-side
-- **`AdminPage.tsx`** — tombol "New Album" + `refreshKey` pattern
-- **`AlbumDetail.tsx`** — tombol "Edit" dan "Delete" dengan confirm dialog
+### PR #7 — `feat/ux-fixes`
+**Status:** Open, awaiting CI + bot review
 
-### Date Picker Enhancement
-- Native `<input type="date">` dengan `min={todayString}` — tidak bisa pilih tanggal lampau
-- `getLocalTodayString()` menggunakan `en-CA` locale — timezone-aware (bukan UTC)
-- Validasi server-side di POST dan PUT: return HTTP 400 jika tanggal lampau
-
-### Bot Review Fixes (commit `478d840`)
-| Klaim Bot | Verdict | Tindakan |
-|-----------|---------|----------|
-| `pattern="\d{4}"` → `[0-9]{4}` | ❌ False positive | Tolak — `\d` valid di semua browser modern |
-| `maxSelections` snap ke 1 saat clear | ✅ Bug nyata | Fix: state `number \| ''`, validasi hanya saat submit |
-| Backdrop close saat submitting | ✅ Risk nyata | Fix: `!isSubmitting` guard di backdrop + Esc key |
-| Modal Esc handler + focus trap | ⚠️ Sebagian benar | Fix: Esc handler ditambah; initial focus sudah ada via `autoFocus` |
-| Slug collision create | ✅ Bug nyata | Fix: query collision sebelum create, append base36 timestamp |
-| PUT tanpa verify album exists | ✅ Bug nyata | Fix: fetch album dulu, return 404 jika tidak ada |
-| `title`/`status` optional di types | ✅ Valid | Fix: dijadikan required di semua interfaces |
-
-### Status PR #5
-- CI: ✅ CodeQL passed, ✅ Vercel preview passed
-- Bot reviews: 16 thread dibalas (fixes diakui, false positive ditolak dengan reasoning)
-- Siap merge setelah review
-
----
-
-## Additional Fixes (post-merge, direct to master)
-
-- `packages/sanity/lib/queries.ts`: `order(createdAt desc)` → `order(_createdAt desc)` — Sanity system fields pakai underscore prefix
-- `packages/sanity/client.ts`: `useCdn: false` — CDN cache menyebabkan data baru tidak muncul
-- `apps/web/src/components/gallery/GalleryPage.tsx`: `setAlbum(data.album)` — mismatch API response shape; `isAlbumLocked()` helper
+| Fix | File | Detail |
+|-----|------|--------|
+| P0-C Upload mount | `UploadPage.tsx` | `useEffect(() => fetchAlbums(), [fetchAlbums])` |
+| P0-A Share link | `AlbumDetail.tsx` | "Copy Gallery Link" + "Copy PIN" buttons |
+| P0-B Homepage form | `index.astro` | "Access Your Gallery" form with slug input |
+| P1-A Lightbox | `PhotoLightbox.tsx` (new) | Fullscreen, keyboard nav, select inside |
+| P1-B Realtime unlock | `GalleryPage.tsx` | `useRealtime` + animated toast 4s |
 
 ---
 
 ## Infrastructure & Tooling
 
-### MCP Servers Aktif (9 server)
-| Server | Package |
-|--------|---------|
-| playwright | MCP Playwright |
-| filesystem | MCP Filesystem |
-| sequential-thinking | MCP Sequential Thinking |
-| memory | MCP Memory |
-| context7 | Context7 docs |
-| github | GitHub MCP |
-| kernel | Kernel cloud browser |
-| linear | `@mseep/linear-mcp` via npx |
-| sanity | `https://mcp.sanity.io/mcp` (hosted) |
+### MCP Servers (9 active)
+playwright, filesystem, sequential-thinking, memory, context7, github, kernel, linear, sanity
 
-> Vercel MCP dihapus — butuh OAuth browser, tidak bisa di VPS headless.  
-> Untuk operasi Vercel: gunakan token di `~/.local/share/com.vercel.cli/auth.json`
+> Vercel: use token at `~/.local/share/com.vercel.cli/auth.json` via curl
 
-### Linear Integration
+### Linear
 - Team: **Ylx** | ID: `bc11a289-8943-48bc-9679-87557d86ea0e`
-- API: GraphQL di `https://api.linear.app/graphql`
-- Issues terkait PR: YLX-5 (gallery-core), YLX-6 (security), YLX-7 (bugs-p1), YLX-8 (p2-polish), YLX-9 (album-crud)
+- API: `https://api.linear.app/graphql`
 
 ### Sanity
-- Project: `741sif2l` | Dataset: `production`
-- Token role: `write` (dapat create + update/patch)
-- Token tersimpan di `apps/web/.env.local` dan Vercel env vars (preview + production)
-
-### Scripts
-- `scripts/seed-admin.mjs` — reset admin password via CLI: `node scripts/seed-admin.mjs <email> <password>`  
-  ⚠️ File di-gitignore — jalankan lokal saja, jangan commit
+- Project: `741sif2l` | Dataset: `production` | Token role: `write`
 
 ---
 
-## Security Status
+## Security Checklist
 
 | Item | Status |
 |------|--------|
-| Admin password | ✅ bcrypt 12 rounds |
-| Session cookie | ✅ `secure: PROD` |
-| Auth guards | ✅ Semua admin endpoints |
-| Username enumeration | ✅ Generic error message |
-| PIN brute-force | ✅ Rate limiter 5×/15min |
-| `.git` web exposure | ✅ Blocked via vercel.json rewrite |
-| Env files web exposure | ✅ Blocked via vercel.json rewrite |
-| Error detail exposure | ✅ `details: String(err)` dihapus |
-| Hardcoded credentials | ✅ Tidak ada di repo |
+| bcrypt 12 rounds | ✅ |
+| Session cookie secure | ✅ `PROD` only |
+| Auth guards all admin endpoints | ✅ |
+| Username enumeration prevented | ✅ |
+| PIN brute-force rate limiter | ✅ |
+| `.git` / `.env` web exposure | ✅ Blocked |
+| Hardcoded credentials in repo | ✅ None |
 
 ---
 
-## Accessibility Status
+## Known Stubs
 
-| Item | Status |
-|------|--------|
-| Keyboard navigation gallery | ✅ `role="button"`, `tabIndex`, `onKeyDown` |
-| `prefers-reduced-motion` | ✅ `useReducedMotion()` di semua komponen |
-| Accent color contrast | ✅ 4.8:1 (melebihi WCAG AA 4.5:1) |
-| Mobile nav | ✅ Bottom nav bar di `AdminLayout.astro` |
-| SVG decorative | ✅ `aria-hidden="true"` |
-| CSS transition easing | ✅ Ganti bounce `cubic-bezier(0.34, 1.56...)` → ease-out-quint |
-| Progress bar animation | ✅ `transform: scaleX()` (GPU-accelerated, bukan layout-thrashing) |
+| Item | File | Note |
+|------|------|------|
+| Mastra workflow | `api/admin/workflow.ts` | Returns `{ success: true }` — not actually running Mastra |
+| E2E tests | `apps/web/tests/` | No Playwright tests exist yet |
 
 ---
 
-## Known Stubs / Incomplete
+## Reference Files
 
-| Item | File | Catatan |
-|------|------|---------|
-| Mastra workflow | `api/admin/workflow.ts` | Selalu return `{ success: true }` tanpa jalankan Mastra sesungguhnya |
-| Python batch upload | `scripts/batch-upload.py` | Sudah ada, belum ditest dengan foto nyata di production |
-
----
-
-## Next Steps (Backlog)
-
-1. **Merge PR #5** (`feat/album-crud`) — semua CI pass, bot review sudah dibalas
-2. **Upload foto test** — gunakan Python batch script atau admin upload untuk test gallery end-to-end dengan foto nyata
-3. **Implement Mastra workflow** — ganti stub di `api/admin/workflow.ts` dengan integrasi Mastra sesungguhnya
-4. **End-to-end test** — flow lengkap: create album → share gallery link → client pilih foto → admin lihat seleksi → copy filenames untuk Lightroom
-
----
-
-## File Referensi
-
-| File | Isi |
-|------|-----|
-| `AGENTS.md` | Panduan arsitektur, tech stack, dan guidelines untuk AI agent |
-| `CONTEXT.md` | Konteks project lengkap |
-| `DESIGN.md` | Design system, tokens, komponen guidelines |
-| `PRODUCT.md` | Product requirements, user stories |
-| `REVIEW.md` | Code review checklist — semua lessons learned dari 2 siklus audit |
-| `PROGRESS.md` | File ini — last progress snapshot |
+| File | Content |
+|------|---------|
+| `AGENTS.md` | Architecture guidelines for AI agents |
+| `CONTEXT.md` | Full project context |
+| `DESIGN.md` | Design system tokens + guidelines |
+| `PRODUCT.md` | Product requirements |
+| `REVIEW.md` | Code review checklist (lessons from 2 audit cycles) |
+| `PROGRESS.md` | This file |
