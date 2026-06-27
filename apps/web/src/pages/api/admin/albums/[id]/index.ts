@@ -1,9 +1,10 @@
 import type { APIRoute } from "astro";
-import { sanityClient } from "@ylx/sanity/client";
+import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import {
   albumWithSelectionsQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
+import { requireAdmin } from "../../../../../lib/auth";
 
 interface SanityImageRef {
   _type: string;
@@ -32,7 +33,15 @@ interface SanityAlbumDetailRaw {
   photos: SanityPhotoRaw[];
 }
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, cookies }) => {
+  const session = requireAdmin(cookies);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const albumId = params.id;
     if (!albumId) {
@@ -87,6 +96,137 @@ export const GET: APIRoute = async ({ params }) => {
   } catch (error) {
     return new Response(
       JSON.stringify({ error: "Failed to fetch album" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+};
+
+interface UpdateAlbumBody {
+  title?: string;
+  clientName?: string;
+  eventDate?: string;
+  pin?: string;
+  maxSelections?: number;
+}
+
+export const PUT: APIRoute = async ({ params, cookies, request }) => {
+  const session = requireAdmin(cookies);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const albumId = params.id;
+  if (!albumId) {
+    return new Response(
+      JSON.stringify({ error: "Album ID is required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
+    const body = await request.json() as UpdateAlbumBody;
+    const { title, clientName, eventDate, pin, maxSelections } = body;
+
+    if (pin !== undefined && !/^\d{4}$/.test(pin)) {
+      return new Response(
+        JSON.stringify({ error: "PIN must be exactly 4 digits" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (maxSelections !== undefined && (typeof maxSelections !== "number" || maxSelections < 1)) {
+      return new Response(
+        JSON.stringify({ error: "maxSelections must be a positive number" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (title !== undefined) {
+      patch.title = title;
+      patch.slug = {
+        _type: "slug",
+        current: title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+      };
+    }
+    if (clientName !== undefined) patch.clientName = clientName;
+    if (eventDate !== undefined) patch.eventDate = eventDate;
+    if (pin !== undefined) patch.pin = pin;
+    if (maxSelections !== undefined) patch.maxSelections = maxSelections;
+
+    if (Object.keys(patch).length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No fields to update" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const updated = await sanityWriteClient.patch(albumId).set(patch).commit();
+
+    return new Response(
+      JSON.stringify({
+        album: {
+          id: updated._id,
+          title: updated.title as string,
+          clientName: updated.clientName as string,
+          eventDate: updated.eventDate as string,
+          pin: updated.pin as string,
+          maxSelections: updated.maxSelections as number,
+          status: updated.status as string,
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: "Failed to update album" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+};
+
+export const DELETE: APIRoute = async ({ params, cookies }) => {
+  const session = requireAdmin(cookies);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const albumId = params.id;
+  if (!albumId) {
+    return new Response(
+      JSON.stringify({ error: "Album ID is required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
+    // Delete all selections for this album first
+    const selectionsQuery = `*[_type == "selection" && album._ref == $albumId]._id`;
+    const selectionIds = await sanityClient.fetch<string[]>(selectionsQuery, { albumId });
+
+    const transaction = sanityWriteClient.transaction();
+    for (const selId of selectionIds) {
+      transaction.delete(selId);
+    }
+    transaction.delete(albumId);
+    await transaction.commit();
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: "Failed to delete album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
