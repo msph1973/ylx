@@ -194,10 +194,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             <motion.div
               key={photo.id}
               role="button"
-              tabIndex={isDisabled ? -1 : 0}
-              aria-pressed={isSelected}
-              aria-label={`${isSelected ? 'Deselect' : 'Select'} photo ${photo.filename}`}
-              aria-disabled={isDisabled}
+              tabIndex={0}
+              aria-label={`View photo ${photo.filename}${isSelected ? ' (selected)' : ''}`}
               className={`photo-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -247,17 +245,20 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         )}
       </AnimatePresence>
 
-      {lightboxIndex !== null && album && (
-        <PhotoLightbox
-          photos={album.photos}
-          currentIndex={lightboxIndex}
-          isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
-          isDisabled={isAlbumLocked(album)}
-          onClose={closeLightbox}
-          onNavigate={setLightboxIndex}
-          onToggleSelect={togglePhoto}
-        />
-      )}
+      <AnimatePresence>
+        {lightboxIndex !== null && album && (
+          <PhotoLightbox
+            key="lightbox"
+            photos={album.photos}
+            currentIndex={lightboxIndex}
+            isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
+            isDisabled={isAlbumLocked(album)}
+            onClose={closeLightbox}
+            onNavigate={setLightboxIndex}
+            onToggleSelect={togglePhoto}
+          />
+        )}
+      </AnimatePresence>
 
       <style>{`
         .gallery-view {

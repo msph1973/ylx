@@ -77,6 +77,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       slug: album.slug?.current ?? null,
       maxSelections: album.maxSelections,
       status: album.status,
+      isLocked: album.status === 'locked',
       photos: (album.photos ?? []).map((p) => ({
         id: p._id,
         filename: p.filename,
