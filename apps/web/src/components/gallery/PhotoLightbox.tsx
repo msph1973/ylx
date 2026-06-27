@@ -30,7 +30,7 @@ export function PhotoLightbox({
     if (e.key === 'Escape') onClose();
     else if (e.key === 'ArrowLeft' && hasPrev) onNavigate(currentIndex - 1);
     else if (e.key === 'ArrowRight' && hasNext) onNavigate(currentIndex + 1);
-  }, [onClose, onNavigate, currentIndex, hasPrev, hasNext]);
+  }, [onClose, onNavigate, currentIndex, hasPrev, hasNext, photos]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKey);

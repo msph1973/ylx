@@ -50,7 +50,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const slug = input.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-|-$/g, '');
+    const slug = input.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     if (!slug) {
       errorEl.textContent = 'Please enter a gallery name.';
       input.focus();

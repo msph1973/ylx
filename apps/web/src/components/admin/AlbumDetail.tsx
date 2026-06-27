@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumWithSelections, Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
@@ -24,14 +24,17 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isDeleting, setIsDeleting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedPin, setCopiedPin] = useState(false);
+  const copyLinkTimeoutRef = useRef<number | null>(null);
+  const copyPinTimeoutRef = useRef<number | null>(null);
 
   const handleCopyLink = useCallback(async () => {
     if (!album?.slug) return;
     try {
-      const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/gallery/${album.slug}`;
-      await navigator.clipboard.writeText(url);
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      await navigator.clipboard.writeText(`${origin}/gallery/${album.slug}`);
       setCopiedLink(true);
-      setTimeout(() => { setCopiedLink(false); }, 2000);
+      if (copyLinkTimeoutRef.current !== null) window.clearTimeout(copyLinkTimeoutRef.current);
+      copyLinkTimeoutRef.current = window.setTimeout(() => { setCopiedLink(false); copyLinkTimeoutRef.current = null; }, 2000);
     } catch {
       // clipboard unavailable — silently ignore
     }
@@ -42,11 +45,20 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     try {
       await navigator.clipboard.writeText(album.pin);
       setCopiedPin(true);
-      setTimeout(() => { setCopiedPin(false); }, 2000);
+      if (copyPinTimeoutRef.current !== null) window.clearTimeout(copyPinTimeoutRef.current);
+      copyPinTimeoutRef.current = window.setTimeout(() => { setCopiedPin(false); copyPinTimeoutRef.current = null; }, 2000);
     } catch {
       // clipboard unavailable — silently ignore
     }
   }, [album?.pin]);
+
+  // Cleanup copy timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (copyLinkTimeoutRef.current !== null) window.clearTimeout(copyLinkTimeoutRef.current);
+      if (copyPinTimeoutRef.current !== null) window.clearTimeout(copyPinTimeoutRef.current);
+    };
+  }, []);
 
   const fetchAlbum = useCallback(async () => {
     setIsLoading(true);
