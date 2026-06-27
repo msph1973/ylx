@@ -4,18 +4,24 @@ import type { AlbumWithSelections, Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 import { SelectionTable } from './SelectionTable';
 import { CopyFilenamesButton } from './CopyFilenamesButton';
+import { AlbumFormModal } from './AlbumFormModal';
 
 interface AlbumDetailProps {
   albumId: string;
   onBack: () => void;
+  onDeleted?: () => void;
+  onUpdated?: () => void;
 }
 
-export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
+export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDetailProps) {
   const shouldReduceMotion = useReducedMotion();
   const [album, setAlbum] = useState<AlbumWithSelections | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchAlbum = useCallback(async () => {
     setIsLoading(true);
@@ -58,6 +64,27 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
     }
   };
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/albums/${albumId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error('Failed to delete album');
+      }
+      onDeleted?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setIsDeleteConfirmOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditSuccess = useCallback(() => {
+    void fetchAlbum();
+    onUpdated?.();
+  }, [fetchAlbum, onUpdated]);
+
   const selectedFilenames = album?.selections.map((s) => s.photo.filename) || [];
 
   if (isLoading) {
@@ -90,7 +117,8 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
         exit={{ opacity: 0, x: shouldReduceMotion ? 0 : -32 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30, duration: shouldReduceMotion ? 0 : undefined }}
       >
-        <button className="back-btn" onClick={onBack}>
+        <div className="detail-nav">
+          <button className="back-btn" onClick={onBack}>
           <svg
             width="16"
             height="16"
@@ -106,7 +134,35 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
             <polyline points="12 19 5 12 12 5" />
           </svg>
           Back to Albums
-        </button>
+          </button>
+          <div className="detail-nav-actions">
+            <button
+              className="btn-edit"
+              onClick={() => setIsEditModalOpen(true)}
+              aria-label="Edit album"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit
+            </button>
+            <button
+              className="btn-delete"
+              onClick={() => setIsDeleteConfirmOpen(true)}
+              aria-label="Delete album"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+              Delete
+            </button>
+          </div>
+        </div>
 
         <div className="album-header">
           <h2 className="album-title">{album.clientName}</h2>
@@ -170,9 +226,72 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
 
         <SelectionTable selections={album.selections} />
 
+        {/* Edit modal */}
+        <AlbumFormModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={handleEditSuccess}
+          album={{
+            id: album.id,
+            title: album.title ?? album.clientName,
+            clientName: album.clientName,
+            eventDate: album.eventDate ?? '',
+            status: album.status ?? (album.isLocked ? 'locked' : 'active'),
+            photoCount: album.photos.length,
+            pin: album.pin,
+            maxSelections: album.maxSelections,
+          }}
+        />
+
+        {/* Delete confirmation */}
+        {isDeleteConfirmOpen && (
+          <div
+            className="confirm-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm delete"
+          >
+            <div className="confirm-dialog">
+              <h3 className="confirm-title">Delete Album?</h3>
+              <p className="confirm-body">
+                This will permanently delete <strong>{album.title ?? album.clientName}</strong> and all its selections. This action cannot be undone.
+              </p>
+              <div className="confirm-actions">
+                <button
+                  className="btn-cancel"
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-confirm-delete"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting…' : 'Delete Album'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <style>{`
           .album-detail {
             padding: var(--space-4);
+          }
+
+          .detail-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-6);
+          }
+
+          .detail-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
           }
 
           .back-btn {
@@ -180,7 +299,6 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
             align-items: center;
             gap: var(--space-2);
             padding: var(--space-2) var(--space-4);
-            margin-bottom: var(--space-6);
             background-color: var(--color-surface);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-md);
@@ -193,6 +311,128 @@ export function AlbumDetail({ albumId, onBack }: AlbumDetailProps) {
           .back-btn:hover {
             border-color: var(--color-accent);
             color: var(--color-accent);
+          }
+
+          .btn-edit {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-muted);
+            font-size: var(--text-sm);
+            transition: all var(--transition-fast);
+            cursor: pointer;
+          }
+
+          .btn-edit:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
+
+          .btn-delete {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-muted);
+            font-size: var(--text-sm);
+            transition: all var(--transition-fast);
+            cursor: pointer;
+          }
+
+          .btn-delete:hover {
+            border-color: var(--color-error);
+            color: var(--color-error);
+          }
+
+          .confirm-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-4);
+            z-index: 50;
+          }
+
+          .confirm-dialog {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-6);
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+          }
+
+          .confirm-title {
+            font-size: var(--text-xl);
+            font-weight: var(--font-semibold);
+            color: var(--color-text);
+            margin: 0 0 var(--space-3);
+          }
+
+          .confirm-body {
+            font-size: var(--text-sm);
+            color: var(--color-text-muted);
+            line-height: 1.6;
+            margin: 0 0 var(--space-6);
+          }
+
+          .confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-3);
+          }
+
+          .btn-cancel {
+            padding: var(--space-2-5) var(--space-5);
+            background-color: transparent;
+            color: var(--color-text-muted);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+            transition: background-color var(--transition-fast);
+          }
+
+          .btn-cancel:hover:not(:disabled) {
+            background-color: var(--color-bg);
+          }
+
+          .btn-cancel:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          .btn-confirm-delete {
+            padding: var(--space-2-5) var(--space-5);
+            background-color: var(--color-error);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+            transition: opacity var(--transition-fast);
+          }
+
+          .btn-confirm-delete:hover:not(:disabled) {
+            opacity: 0.88;
+          }
+
+          .btn-confirm-delete:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
 
           .album-header {
