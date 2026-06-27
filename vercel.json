@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "astro",
   "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "cd ../.. && TURBO_FORCE=1 pnpm turbo build --filter=@ylx/web",
+  "buildCommand": "cd ../.. && pnpm turbo build --filter=@ylx/web --force",
   "outputDirectory": ".vercel/output",
   "headers": [
     {
