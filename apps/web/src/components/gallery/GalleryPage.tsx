@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
-
+import { PhotoLightbox } from '@/components/gallery/PhotoLightbox';
+import { useRealtime } from '@/hooks/useRealtime';
 import type { Photo } from '@ylx/shared';
 
 interface GalleryPageProps {
@@ -29,6 +30,34 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [showUnlockToast, setShowUnlockToast] = useState(false);
+  const unlockToastTimeoutRef = useRef<number | null>(null);
+
+  const realtimeCallbacks = useMemo(() => ({
+    onAlbumUnlocked: () => {
+      setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
+      setShowUnlockToast(true);
+      if (unlockToastTimeoutRef.current !== null) {
+        window.clearTimeout(unlockToastTimeoutRef.current);
+      }
+      unlockToastTimeoutRef.current = window.setTimeout(() => {
+        setShowUnlockToast(false);
+        unlockToastTimeoutRef.current = null;
+      }, 4000);
+    },
+  }), []);
+
+  // Cleanup toast timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (unlockToastTimeoutRef.current !== null) {
+        window.clearTimeout(unlockToastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useRealtime(isAuthenticated ? (album?.id ?? null) : null, realtimeCallbacks);
 
   const handlePinSubmit = useCallback(async (pin: string) => {
     setIsLoading(true);
@@ -54,6 +83,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       setIsLoading(false);
     }
   }, [slug]);
+
+  const openLightbox = useCallback((index: number) => setLightboxIndex(index), []);
+  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   const togglePhoto = useCallback((photoId: string) => {
     setSelectedPhotos((prev) => {
@@ -170,11 +202,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: shouldReduceMotion ? 0 : Math.min(index * 0.04, 0.4) }}
-              onClick={() => !isDisabled && togglePhoto(photo.id)}
+              onClick={() => openLightbox(index)}
               onKeyDown={(e) => {
-                if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) {
+                if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  togglePhoto(photo.id);
+                  openLightbox(index);
                 }
               }}
             >
@@ -198,6 +230,34 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           );
         })}
       </motion.div>
+
+      <AnimatePresence>
+        {showUnlockToast && (
+          <motion.div
+            className="unlock-toast"
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
+          >
+            Gallery unlocked — you can update your selection
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {lightboxIndex !== null && album && (
+        <PhotoLightbox
+          photos={album.photos}
+          currentIndex={lightboxIndex}
+          isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
+          isDisabled={isAlbumLocked(album)}
+          onClose={closeLightbox}
+          onNavigate={setLightboxIndex}
+          onToggleSelect={togglePhoto}
+        />
+      )}
 
       <style>{`
         .gallery-view {
@@ -303,6 +363,141 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           .photo-grid {
             grid-template-columns: repeat(4, 1fr);
           }
+        }
+
+        /* Lightbox */
+        .lightbox-backdrop {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(0, 0, 0, 0.92);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 100;
+          padding: var(--space-4);
+        }
+
+        .lightbox-content {
+          display: flex;
+          flex-direction: column;
+          max-width: 90vw;
+          max-height: 90vh;
+          width: 100%;
+        }
+
+        .lightbox-header {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          padding-bottom: var(--space-3);
+          color: rgba(255,255,255,0.7);
+          font-size: var(--text-sm);
+        }
+
+        .lightbox-counter {
+          font-variant-numeric: tabular-nums;
+        }
+
+        .lightbox-filename {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-family: var(--font-mono, monospace);
+          font-size: var(--text-xs);
+        }
+
+        .lightbox-close {
+          background: none;
+          border: none;
+          color: rgba(255,255,255,0.7);
+          font-size: var(--text-xl);
+          cursor: pointer;
+          padding: var(--space-1);
+          line-height: 1;
+          transition: color var(--transition-fast);
+        }
+
+        .lightbox-close:hover {
+          color: #fff;
+        }
+
+        .lightbox-img {
+          flex: 1;
+          min-height: 0;
+          object-fit: contain;
+          max-height: 75vh;
+          width: 100%;
+          border-radius: var(--radius-md);
+        }
+
+        .lightbox-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: var(--space-3);
+          gap: var(--space-3);
+        }
+
+        .lightbox-nav {
+          background: none;
+          border: 1px solid rgba(255,255,255,0.25);
+          border-radius: var(--radius-md);
+          color: rgba(255,255,255,0.7);
+          padding: var(--space-2) var(--space-4);
+          font-size: var(--text-base);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .lightbox-nav:hover:not(:disabled) {
+          border-color: rgba(255,255,255,0.6);
+          color: #fff;
+        }
+
+        .lightbox-nav:disabled {
+          opacity: 0.25;
+          cursor: default;
+        }
+
+        .lightbox-select {
+          padding: var(--space-2) var(--space-6);
+          border-radius: var(--radius-md);
+          font-weight: var(--font-medium);
+          font-size: var(--text-sm);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          background-color: transparent;
+          border: 1px solid rgba(255,255,255,0.4);
+          color: rgba(255,255,255,0.8);
+        }
+
+        .lightbox-select.selected {
+          background-color: var(--color-accent);
+          border-color: var(--color-accent);
+          color: var(--color-bg);
+        }
+
+        .lightbox-select:hover:not(.selected) {
+          border-color: var(--color-accent);
+          color: var(--color-accent);
+        }
+
+        /* Unlock toast */
+        .unlock-toast {
+          position: fixed;
+          bottom: var(--space-6);
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: var(--color-success);
+          color: #fff;
+          padding: var(--space-3) var(--space-6);
+          border-radius: var(--radius-lg);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          z-index: 200;
+          white-space: nowrap;
+          pointer-events: none;
         }
       `}</style>
     </div>

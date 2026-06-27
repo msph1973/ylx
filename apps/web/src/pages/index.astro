@@ -10,19 +10,56 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <p class="brand-tagline">Photo Proofing Gallery</p>
       </div>
 
-      <div class="links">
-        <a href="/admin" class="link admin-link">
-          <span class="link-label">Admin Dashboard</span>
-          <span class="link-description">Manage albums and uploads</span>
-        </a>
-      </div>
+      <section class="gallery-access" aria-label="Access your gallery">
+        <h2 class="section-title">Access Your Gallery</h2>
+        <p class="section-desc">Enter your gallery link to view your photos.</p>
+        <form class="gallery-form" id="gallery-form" novalidate>
+          <div class="input-group">
+            <label for="gallery-slug" class="sr-only">Gallery link or album name</label>
+            <input
+              id="gallery-slug"
+              type="text"
+              name="slug"
+              class="gallery-input"
+              placeholder="your-gallery-name"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+            />
+            <button type="submit" class="gallery-btn" aria-label="Open gallery">
+              Open
+            </button>
+          </div>
+          <p class="input-hint" id="gallery-error" role="alert" aria-live="polite"></p>
+        </form>
+      </section>
 
-      <div class="gallery-note">
-        <p>Clients: Use your gallery PIN to access your photos.</p>
+      <div class="admin-link-wrap">
+        <a href="/admin" class="admin-link">Admin Dashboard</a>
       </div>
     </main>
   </div>
 </BaseLayout>
+
+<script>
+  const form = document.getElementById('gallery-form') as HTMLFormElement;
+  const input = document.getElementById('gallery-slug') as HTMLInputElement;
+  const errorEl = document.getElementById('gallery-error') as HTMLParagraphElement;
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const slug = input.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-|-$/g, '');
+    if (!slug) {
+      errorEl.textContent = 'Please enter a gallery name.';
+      input.focus();
+      return;
+    }
+    errorEl.textContent = '';
+    window.location.href = `/gallery/${slug}`;
+  });
+</script>
 
 <style>
   .home {
@@ -35,11 +72,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   .home-content {
     text-align: center;
-    max-width: 400px;
+    width: 100%;
+    max-width: 420px;
   }
 
   .brand {
-    margin-bottom: var(--space-12);
+    margin-bottom: var(--space-10);
   }
 
   .brand-name {
@@ -57,49 +95,109 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     letter-spacing: 0.2em;
   }
 
-  .links {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    margin-bottom: var(--space-12);
-  }
-
-  .link {
-    display: block;
+  /* Gallery access form */
+  .gallery-access {
     padding: var(--space-6);
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
-    transition: all var(--transition-base);
+    margin-bottom: var(--space-6);
   }
 
-  .link:hover {
-    border-color: var(--color-accent);
-    transform: translateY(-2px);
-  }
-
-  .link-label {
-    display: block;
-    font-size: var(--text-lg);
+  .section-title {
+    font-size: var(--text-xl);
     font-weight: var(--font-semibold);
     color: var(--color-text);
     margin-bottom: var(--space-2);
   }
 
-  .link-description {
-    display: block;
+  .section-desc {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+    margin-bottom: var(--space-5);
   }
 
-  .gallery-note {
-    padding: var(--space-4);
-    border-top: 1px solid var(--color-border);
+  .gallery-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 
-  .gallery-note p {
+  .input-group {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .gallery-input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-3) var(--space-4);
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    font-family: var(--font-mono, monospace);
+    transition: border-color var(--transition-fast);
+  }
+
+  .gallery-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+
+  .gallery-btn {
+    padding: var(--space-3) var(--space-5);
+    background-color: var(--color-accent);
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--color-bg);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
+  }
+
+  .gallery-btn:hover {
+    opacity: 0.85;
+  }
+
+  .input-hint {
+    font-size: var(--text-xs);
+    color: var(--color-error);
+    min-height: 1.25rem;
+    text-align: left;
+    margin: 0;
+  }
+
+  /* Admin link */
+  .admin-link-wrap {
+    text-align: center;
+  }
+
+  .admin-link {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    margin-bottom: 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color var(--transition-fast);
+  }
+
+  .admin-link:hover {
+    color: var(--color-accent);
+  }
+
+  /* Screen-reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 </style>
