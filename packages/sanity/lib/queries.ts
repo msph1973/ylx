@@ -38,6 +38,8 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   title,
   clientName,
   eventDate,
+  pin,
+  slug,
   maxSelections,
   status,
   photos[]-> {
