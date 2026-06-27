@@ -28,6 +28,8 @@ interface SanityAlbumDetailRaw {
   title: string;
   clientName: string;
   eventDate: string;
+  pin: string;
+  slug: { current: string };
   maxSelections: number;
   status: string;
   photos: SanityPhotoRaw[];
@@ -71,6 +73,8 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       title: album.title,
       clientName: album.clientName,
       eventDate: album.eventDate,
+      pin: album.pin,
+      slug: album.slug?.current ?? null,
       maxSelections: album.maxSelections,
       status: album.status,
       photos: (album.photos ?? []).map((p) => ({
