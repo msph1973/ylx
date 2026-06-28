@@ -37,6 +37,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const realtimeCallbacks = useMemo(() => ({
     onAlbumUnlocked: () => {
       setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
+      setSelectedPhotos(new Set()); // server deleted existing selections on unlock
       setShowUnlockToast(true);
       if (unlockToastTimeoutRef.current !== null) {
         window.clearTimeout(unlockToastTimeoutRef.current);
@@ -240,7 +241,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             exit={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
           >
-            Gallery unlocked — you can update your selection
+            Gallery unlocked — please reselect and resubmit your photos
           </motion.div>
         )}
       </AnimatePresence>
