@@ -4,7 +4,8 @@ export async function generateUniqueSlug(title: string, excludeId?: string): Pro
   const base = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/^-|-$/g, "")
+    || `album-${Date.now().toString(36)}`; // fallback for emoji/non-Latin-only titles
 
   const query = excludeId
     ? `*[_type == "album" && slug.current == $slug && _id != $id]{_id}`

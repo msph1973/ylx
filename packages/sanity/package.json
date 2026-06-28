@@ -8,7 +8,6 @@
     "./client": "./client.ts",
     "./schemas": "./schemas/index.ts",
     "./lib/queries": "./lib/queries.ts",
-    "./lib/image": "./lib/image.ts",
     "./lib/admin": "./lib/admin.ts"
   },
   "scripts": {

@@ -1,16 +1,22 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
-export function useCopyToClipboard(resetMs = 2000) {
+export function useCopyToClipboard(resetMs = 2000): { copied: boolean; copy: (text: string) => Promise<void> } {
   const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const copy = useCallback(async (text: string) => {
-    if (typeof window === 'undefined') return;
+    if (typeof navigator === 'undefined') return;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = window.setTimeout(() => setCopied(false), resetMs);
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopied(false), resetMs);
     } catch {
       // clipboard write failed silently
     }
