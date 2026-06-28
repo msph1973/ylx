@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
 import { publishAdminEvent } from '@/lib/ably';
@@ -39,6 +39,11 @@ export default function UploadPage({ adminName }: UploadPageProps) {
       console.error('Failed to fetch albums');
     }
   }, []);
+
+  // Fetch albums on mount so the album selector is populated immediately
+  useEffect(() => {
+    void fetchAlbums();
+  }, [fetchAlbums]);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles);

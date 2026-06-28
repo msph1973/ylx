@@ -38,7 +38,10 @@ export default defineType({
       title: "PIN",
       type: "string",
       validation: (Rule) =>
-        Rule.required().regex(/^\d{4}$/, "PIN must be exactly 4 digits"),
+        Rule.required().custom((value) => {
+          if (!value) return true; // required() handles empty
+          return /^\d{4}$/.test(value) || "PIN must be exactly 4 digits (numbers only)";
+        }),
     }),
     defineField({
       name: "maxSelections",

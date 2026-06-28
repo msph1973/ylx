@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumWithSelections, Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
@@ -22,6 +22,43 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedPin, setCopiedPin] = useState(false);
+  const copyLinkTimeoutRef = useRef<number | null>(null);
+  const copyPinTimeoutRef = useRef<number | null>(null);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!album?.slug) return;
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      await navigator.clipboard.writeText(`${origin}/gallery/${album.slug}`);
+      setCopiedLink(true);
+      if (copyLinkTimeoutRef.current !== null) window.clearTimeout(copyLinkTimeoutRef.current);
+      copyLinkTimeoutRef.current = window.setTimeout(() => { setCopiedLink(false); copyLinkTimeoutRef.current = null; }, 2000);
+    } catch {
+      // clipboard unavailable — silently ignore
+    }
+  }, [album?.slug]);
+
+  const handleCopyPin = useCallback(async () => {
+    if (!album?.pin) return;
+    try {
+      await navigator.clipboard.writeText(album.pin);
+      setCopiedPin(true);
+      if (copyPinTimeoutRef.current !== null) window.clearTimeout(copyPinTimeoutRef.current);
+      copyPinTimeoutRef.current = window.setTimeout(() => { setCopiedPin(false); copyPinTimeoutRef.current = null; }, 2000);
+    } catch {
+      // clipboard unavailable — silently ignore
+    }
+  }, [album?.pin]);
+
+  // Cleanup copy timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (copyLinkTimeoutRef.current !== null) window.clearTimeout(copyLinkTimeoutRef.current);
+      if (copyPinTimeoutRef.current !== null) window.clearTimeout(copyPinTimeoutRef.current);
+    };
+  }, []);
 
   const fetchAlbum = useCallback(async () => {
     setIsLoading(true);
@@ -190,6 +227,33 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             <span className="metadata-label">Max Selections</span>
             <span className="metadata-value">{album.maxSelections}</span>
           </div>
+        </div>
+
+        <div className="share-actions">
+          <button
+            className="share-btn"
+            onClick={() => { void handleCopyLink(); }}
+            disabled={!album.slug}
+            aria-label="Copy gallery link to clipboard"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            {copiedLink ? 'Copied!' : 'Copy Gallery Link'}
+          </button>
+          <button
+            className="share-btn"
+            onClick={() => { void handleCopyPin(); }}
+            disabled={!album.pin}
+            aria-label="Copy PIN to clipboard"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="9" y="11" width="6" height="11" rx="1" />
+              <path d="M9 11V7a3 3 0 0 1 6 0v4" />
+            </svg>
+            {copiedPin ? 'Copied!' : 'Copy PIN'}
+          </button>
         </div>
 
         <div className="section-header">
@@ -478,7 +542,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             background-color: var(--color-surface);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-lg);
-            margin-bottom: var(--space-8);
+            margin-bottom: var(--space-4);
           }
 
           @media (min-width: 640px) {
@@ -555,6 +619,38 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
           .unlock-btn:disabled {
             opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          .share-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-3);
+            margin-bottom: var(--space-6);
+          }
+
+          .share-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-muted);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            transition: all var(--transition-fast);
+            cursor: pointer;
+          }
+
+          .share-btn:hover:not(:disabled) {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
+
+          .share-btn:disabled {
+            opacity: 0.4;
             cursor: not-allowed;
           }
         `}</style>
