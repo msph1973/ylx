@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumWithSelections, Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 import { SelectionTable } from './SelectionTable';
 import { CopyFilenamesButton } from './CopyFilenamesButton';
 import { AlbumFormModal } from './AlbumFormModal';
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 
 interface AlbumDetailProps {
   albumId: string;
@@ -22,43 +23,19 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedPin, setCopiedPin] = useState(false);
-  const copyLinkTimeoutRef = useRef<number | null>(null);
-  const copyPinTimeoutRef = useRef<number | null>(null);
+  const { copied: copiedLink, copy: copyLink } = useCopyToClipboard();
+  const { copied: copiedPin, copy: copyPin } = useCopyToClipboard();
 
-  const handleCopyLink = useCallback(async () => {
+  const handleCopyLink = useCallback(() => {
     if (!album?.slug) return;
-    try {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      await navigator.clipboard.writeText(`${origin}/gallery/${album.slug}`);
-      setCopiedLink(true);
-      if (copyLinkTimeoutRef.current !== null) window.clearTimeout(copyLinkTimeoutRef.current);
-      copyLinkTimeoutRef.current = window.setTimeout(() => { setCopiedLink(false); copyLinkTimeoutRef.current = null; }, 2000);
-    } catch {
-      // clipboard unavailable — silently ignore
-    }
-  }, [album?.slug]);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    void copyLink(`${origin}/gallery/${album.slug}`);
+  }, [album?.slug, copyLink]);
 
-  const handleCopyPin = useCallback(async () => {
+  const handleCopyPin = useCallback(() => {
     if (!album?.pin) return;
-    try {
-      await navigator.clipboard.writeText(album.pin);
-      setCopiedPin(true);
-      if (copyPinTimeoutRef.current !== null) window.clearTimeout(copyPinTimeoutRef.current);
-      copyPinTimeoutRef.current = window.setTimeout(() => { setCopiedPin(false); copyPinTimeoutRef.current = null; }, 2000);
-    } catch {
-      // clipboard unavailable — silently ignore
-    }
-  }, [album?.pin]);
-
-  // Cleanup copy timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (copyLinkTimeoutRef.current !== null) window.clearTimeout(copyLinkTimeoutRef.current);
-      if (copyPinTimeoutRef.current !== null) window.clearTimeout(copyPinTimeoutRef.current);
-    };
-  }, []);
+    void copyPin(album.pin);
+  }, [album?.pin, copyPin]);
 
   const fetchAlbum = useCallback(async () => {
     setIsLoading(true);

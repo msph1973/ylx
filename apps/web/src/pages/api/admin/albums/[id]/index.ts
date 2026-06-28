@@ -5,6 +5,7 @@ import {
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../../../lib/auth";
+import { generateUniqueSlug } from "../../../../../lib/slug";
 
 interface SanityImageRef {
   _type: string;
@@ -174,21 +175,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     const patch: Record<string, unknown> = {};
     if (title !== undefined) {
       patch.title = title;
-      // Generate new slug from title; check collision only if title changed
-      const baseSlug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-      const collision = await sanityClient.fetch<{ _id: string }[]>(
-        `*[_type == "album" && slug.current == $slug && _id != $id]{_id}`,
-        { slug: baseSlug, id: albumId }
-      );
-      patch.slug = {
-        _type: "slug",
-        current: collision.length > 0
-          ? `${baseSlug}-${Date.now().toString(36)}`
-          : baseSlug,
-      };
+      patch.slug = { _type: "slug", current: await generateUniqueSlug(title, albumId) };
     }
     if (clientName !== undefined) patch.clientName = clientName;
     if (eventDate !== undefined) patch.eventDate = eventDate;
