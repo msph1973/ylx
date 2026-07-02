@@ -7,4 +7,6 @@ export interface Photo {
   width: number;
   height: number;
   albumId: string;
+  /** Sanity-generated low-quality image placeholder (base64 data URI) for blur-up loading. */
+  lqip?: string | null;
 }

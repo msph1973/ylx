@@ -12,6 +12,7 @@ interface SanityPhotoRaw {
   _id: string;
   filename: string;
   image: SanityImageRef;
+  lqip?: string;
 }
 
 interface SanityAlbumRaw {
@@ -85,6 +86,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     filename: photo.filename,
     thumbnailUrl: urlFor(photo.image).width(400).height(400).fit("crop").url(),
     url: urlFor(photo.image).width(1200).url(),
+    lqip: photo.lqip ?? null,
   }));
 
   return new Response(

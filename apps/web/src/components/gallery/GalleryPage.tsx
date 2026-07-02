@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
 import { PhotoLightbox } from '@/components/gallery/PhotoLightbox';
+import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import type { Photo } from '@ylx/shared';
 
@@ -209,10 +210,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 }
               }}
             >
-              <img
+              <BlurImage
                 src={photo.thumbnailUrl}
+                lqip={photo.lqip}
                 alt={`Photo ${index + 1} of ${album.photos.length}`}
-                loading="lazy"
               />
               {isSelected && (
                 <motion.div
@@ -339,6 +340,24 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           object-fit: cover;
         }
 
+        /* Blur-up progressive loading (LQIP) */
+        .blur-img {
+          background-size: cover;
+          background-position: center;
+          opacity: 0;
+          transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .blur-img.loaded {
+          opacity: 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .blur-img {
+            transition: none;
+          }
+        }
+
         .selection-badge {
           position: absolute;
           top: var(--space-2);
@@ -375,7 +394,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 100;
+          z-index: var(--z-modal);
           padding: var(--space-4);
         }
 
@@ -431,6 +450,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           max-height: 75vh;
           width: 100%;
           border-radius: var(--radius-md);
+          background-size: contain;
+          background-repeat: no-repeat;
         }
 
         .lightbox-footer {
@@ -497,7 +518,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           border-radius: var(--radius-lg);
           font-size: var(--text-sm);
           font-weight: var(--font-medium);
-          z-index: 200;
+          z-index: var(--z-toast);
           white-space: nowrap;
           pointer-events: none;
         }
