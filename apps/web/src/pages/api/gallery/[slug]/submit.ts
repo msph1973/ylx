@@ -6,6 +6,13 @@ import {
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 
+interface SubmitAlbum {
+  _id: string;
+  status: string;
+  maxSelections: number;
+  photos?: { _id: string }[];
+}
+
 export const POST: APIRoute = async ({ params, request }) => {
   const slug = params.slug;
   if (!slug) {
@@ -25,7 +32,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     );
   }
 
-  const album = await sanityClient.fetch(albumBySlugQuery, { slug });
+  const album = await sanityClient.fetch<SubmitAlbum | null>(albumBySlugQuery, { slug });
 
   if (!album) {
     return new Response(JSON.stringify({ error: "Album not found" }), {
@@ -41,7 +48,18 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  if (photoIds.length > album.maxSelections) {
+  // Deduplicate and verify every submitted photo actually belongs to this album.
+  const uniquePhotoIds = [...new Set(photoIds)];
+  const albumPhotoIds = new Set((album.photos ?? []).map((p) => p._id));
+  const invalid = uniquePhotoIds.filter((id) => !albumPhotoIds.has(id));
+  if (invalid.length > 0) {
+    return new Response(
+      JSON.stringify({ error: "Selection contains photos not in this album" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (uniquePhotoIds.length > album.maxSelections) {
     return new Response(
       JSON.stringify({
         error: `Maximum ${album.maxSelections} selections allowed`,
@@ -65,7 +83,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   const transaction = sanityWriteClient.transaction();
 
   const selectionIds: string[] = [];
-  for (const photoId of photoIds) {
+  for (const photoId of uniquePhotoIds) {
     const selectionId = crypto.randomUUID();
     transaction.create({
       _type: "selection",
@@ -77,8 +95,11 @@ export const POST: APIRoute = async ({ params, request }) => {
     selectionIds.push(selectionId);
   }
 
+  // Deterministic submission _id acts as an atomic lock: a concurrent second
+  // submit for the same album will fail with a 409 conflict on create.
   transaction.create({
     _type: "submission",
+    _id: `submission-${album._id}`,
     album: { _type: "reference", _ref: album._id },
     selections: selectionIds.map((id) => ({
       _type: "reference",
@@ -89,16 +110,34 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   transaction.patch(album._id, { set: { status: "locked" } });
 
-  await transaction.commit();
+  try {
+    await transaction.commit();
+  } catch (err) {
+    const statusCode =
+      err && typeof err === "object" && "statusCode" in err
+        ? (err as { statusCode?: number }).statusCode
+        : undefined;
+    if (statusCode === 409) {
+      return new Response(
+        JSON.stringify({ error: "Selections already submitted" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    console.error("[Submit] commit failed:", err);
+    return new Response(JSON.stringify({ error: "Failed to submit selection" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   // Notify admin dashboard in real-time
   await publishAdminEvent("submission:received", {
     albumId: album._id,
-    count: photoIds.length,
+    count: uniquePhotoIds.length,
   });
 
   return new Response(
-    JSON.stringify({ success: true, selectionCount: photoIds.length }),
+    JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
 };

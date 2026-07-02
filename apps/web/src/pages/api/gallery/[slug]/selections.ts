@@ -4,8 +4,16 @@ import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
+import { requireAdmin } from "../../../../lib/auth";
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, cookies }) => {
+  if (!requireAdmin(cookies)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
