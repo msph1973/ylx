@@ -3,8 +3,10 @@ import { createAdmin } from "@ylx/sanity/lib/admin";
 import { requireAdmin } from "../../../lib/auth";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  const session = requireAdmin(cookies);
-  if (!session) {
+  // Admin-only, unconditionally (REVIEW.md §2.1 — no auth bypass on this route).
+  // The first admin is seeded out-of-band via scripts/seed-admin.mjs (CLI), so
+  // there is no chicken-and-egg problem and this endpoint stays fully guarded.
+  if (!requireAdmin(cookies)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -21,9 +23,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    console.warn("[CreateAdmin] Creating:", { email, name, role });
     const admin = await createAdmin({ email, password, name, role });
-    console.warn("[CreateAdmin] Result:", admin);
 
     if (!admin) {
       return new Response(

@@ -42,6 +42,7 @@ export const GET: APIRoute = async ({ cookies }) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
+    console.error("[Albums] GET failed:", error);
     return new Response(
       JSON.stringify({ error: "Failed to fetch albums" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -130,6 +131,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       { status: 201, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
+    console.error("[Albums] POST failed:", error);
     return new Response(
       JSON.stringify({ error: "Failed to create album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

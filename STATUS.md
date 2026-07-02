@@ -13,7 +13,7 @@ Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber keb
 | Sanity Studio | https://ylx-admin.sanity.studio |
 | GitHub Repo | https://github.com/msph1973/ylx |
 | Admin login | Lihat `.env.local` (tidak disimpan di repo) |
-| Node | 20.x (Vercel) / 25.x (VPS dev) |
+| Node | 22.x (Vercel) / 25.x (VPS dev) |
 | Package manager | pnpm (workspace) |
 
 ---
@@ -26,9 +26,9 @@ Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber keb
 | CMS + DB | Sanity v4 | Semua data di Sanity, **tidak ada Prisma** |
 | Auth | Email + bcrypt (12 rounds) | Bukan OAuth — admin tunggal |
 | Realtime | Ably | `publishAdminEvent` di server, `useRealtime` / `useAdminRealtime` di client |
-| Deploy | Vercel Serverless | `@astrojs/vercel/serverless`, Node 20, `rootDirectory: apps/web` |
+| Deploy | Vercel Serverless | `@astrojs/vercel` v8, Node 22, `rootDirectory: apps/web` |
 | Monorepo | Turborepo + pnpm workspaces | `--force` flag di build command |
-| Mastra | **Stub saja** | `api/admin/workflow.ts` tidak benar-benar memanggil Mastra |
+| Mastra | **Dihapus** | Package & endpoint `api/admin/workflow.ts` sudah dihapus (tidak dipakai) |
 
 ---
 
@@ -101,10 +101,10 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Session cookie `secure: PROD` | ✅ |
 | `requireAdmin()` di semua admin endpoints | ✅ |
 | Single error message login (no enumeration) | ✅ |
-| PIN rate limiter 5x/15min/IP | ✅ |
+| PIN rate limiter 5x/15min/IP (persist Upstash bila di-set, else in-memory) | ✅ |
 | `.git` / `.env` diblok di Vercel | ✅ |
 | Hardcoded credentials di repo | ✅ Tidak ada |
-| `create-admin` endpoint dilindungi auth | ✅ |
+| `create-admin` selalu wajib auth (admin pertama via CLI `seed-admin.mjs`) | ✅ |
 | Session cookie HMAC-signed via `SESSION_SECRET` (C1) | ✅ |
 | Ably token auth — publish key tidak di browser (C2) | ✅ |
 | Sanity dataset **private** — read anon tidak bocorkan PIN (C3) | ✅ |
@@ -131,8 +131,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 | Item | File | Status |
 |------|------|--------|
-| Mastra workflows | `api/admin/workflow.ts` | Stub — return `{ success: true }` saja |
-| E2E / Playwright tests | — | Tidak ada — hanya `PinEntry.test.tsx` (unit) |
+| E2E / Playwright tests | `apps/web/tests/*.spec.ts` | Ada tapi selektor pre-lightbox (perlu refresh); dijalankan via `pnpm test:e2e`, tidak di CI |
 | Email notifikasi | — | Tidak ada |
 | OAuth admin auth | — | Bukan OAuth, pakai email+bcrypt |
 | LQIP / Blurhash | — | Tidak ada blur placeholder |
@@ -161,7 +160,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 ### Vercel deployment
 - `buildCommand` di-set di project settings Vercel: `cd ../.. && pnpm turbo build --filter=@ylx/web --force`
-- `rootDirectory: apps/web`, `framework: astro`, `nodeVersion: 20.x`
+- `rootDirectory: apps/web`, `framework: astro`, `nodeVersion: 22.x` (cocok dengan `@astrojs/vercel` v8 runtime `nodejs22.x`)
 - `--force` flag wajib untuk menghindari Turbo cache hit yang membuat `.vercel/output` tidak ter-generate
 
 ### Sanity patterns
