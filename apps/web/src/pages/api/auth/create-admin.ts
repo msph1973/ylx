@@ -6,6 +6,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   // Bootstrap: the very first admin can be created without auth (otherwise there
   // is no way to create the first one). Once any admin exists, creating more
   // requires an authenticated admin session.
+  //
+  // Note: this check+create is not atomic — two concurrent requests while zero
+  // admins exist could each create one. That race is accepted: bootstrap is a
+  // one-time, operator-controlled action, and duplicate emails are still
+  // rejected by createAdmin(). For production hardening, seed the first admin
+  // via scripts/seed-admin.mjs (CLI) instead of this endpoint.
   const hasAdmin = (await countAdmins()) > 0;
   if (hasAdmin && !requireAdmin(cookies)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {

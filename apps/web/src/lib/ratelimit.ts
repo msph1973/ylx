@@ -24,12 +24,10 @@ function memoryLimited(key: string): boolean {
     return false;
   }
 
-  if (entry.count >= MAX_ATTEMPTS) {
-    return true;
-  }
-
+  // Increment-then-compare, mirroring the Upstash INCR branch: both allow
+  // MAX_ATTEMPTS requests and block the (MAX_ATTEMPTS + 1)-th.
   entry.count += 1;
-  return false;
+  return entry.count > MAX_ATTEMPTS;
 }
 
 async function upstashLimited(key: string, url: string, token: string): Promise<boolean> {
@@ -47,7 +45,10 @@ async function upstashLimited(key: string, url: string, token: string): Promise<
   });
 
   // Fail open: a limiter outage must not lock out legitimate clients.
-  if (!res.ok) return false;
+  if (!res.ok) {
+    console.warn(`[RateLimit] Upstash request failed (${res.status}); failing open.`);
+    return false;
+  }
 
   const data = (await res.json()) as Array<{ result?: number }>;
   const count = Number(data?.[0]?.result ?? 0);
@@ -61,7 +62,8 @@ export async function isRateLimited(key: string): Promise<boolean> {
   if (url && token) {
     try {
       return await upstashLimited(key, url, token);
-    } catch {
+    } catch (err) {
+      console.warn("[RateLimit] Upstash unavailable; failing open:", err);
       return false; // fail open on infra error
     }
   }

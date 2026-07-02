@@ -438,8 +438,9 @@ Do not approve PRs that silently fix or change these without full discussion:
 
 | File | Status | Note |
 |------|--------|------|
-| `apps/web/src/pages/api/admin/workflow.ts` | ⚠️ Stub | Always returns `{ success: true }` — Mastra workflow not actually run |
 | `scripts/seed-admin.mjs` | 🔒 Gitignored | Sensitive — not committed, run locally only |
+
+> Mastra is fully removed — the `api/admin/workflow.ts` stub and `packages/mastra` no longer exist. Don't re-add either without validating Vercel serverless compatibility first.
 
 ---
 
@@ -454,6 +455,8 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `SANITY_API_TOKEN` | Server-side write ops | ✅ |
 | `ABLY_API_KEY` | Real-time pub/sub | ✅ |
 | `SESSION_SECRET` | Admin session cookie HMAC signing | ✅ |
+| `UPSTASH_REDIS_REST_URL` | Gallery PIN rate limiter (persistent) | ❌ falls back to in-memory |
+| `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN rate limiter (persistent) | ❌ falls back to in-memory |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above
