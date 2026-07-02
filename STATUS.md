@@ -105,6 +105,13 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `.git` / `.env` diblok di Vercel | ✅ |
 | Hardcoded credentials di repo | ✅ Tidak ada |
 | `create-admin` endpoint dilindungi auth | ✅ |
+| Session cookie HMAC-signed via `SESSION_SECRET` (C1) | ✅ |
+| Ably token auth — publish key tidak di browser (C2) | ✅ |
+| Sanity dataset **private** — read anon tidak bocorkan PIN (C3) | ✅ |
+| Submit verifikasi photo ownership + atomic lock (H3/M1) | ✅ |
+| `selections.ts` GET `requireAdmin` | ✅ |
+
+> Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) selesai — lihat `PROGRESS.md` bagian "Security Audit 2026-07-02". Realtime browser sekarang auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` karena dataset sudah private.
 
 ---
 
@@ -116,7 +123,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Vercel token | `~/.local/share/com.vercel.cli/auth.json` |
 | Kernel browser | `agent-browser -p kernel` + `KERNEL_API_KEY` di `~/.bashrc` |
 | Linear team | `Ylx` | ID: `bc11a289-8943-48bc-9679-87557d86ea0e` |
-| Sanity project | `741sif2l` / dataset `production` |
+| Sanity project | `741sif2l` / dataset `production` (**private** sejak 2026-07-02) |
 
 ---
 
@@ -166,6 +173,8 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 ### Jangan lakukan
 - Jangan hapus `packages/sanity/package.json` exports field — monorepo TypeScript resolution butuh ini
 - Jangan pakai token Sanity dari `CONTEXT.md` — sudah di-revoke
+- Dataset `production` **private** — `sanityClient` (read) WAJIB pakai `SANITY_API_TOKEN`, jangan hapus token dari client; read anon akan return `null`
+- Jangan set `PUBLIC_ABLY_KEY` sebagai satu-satunya auth Ably di client — pakai `authUrl: /api/ably/token` (key publish jangan ke browser)
 - Jangan install Mastra ke `apps/web` tanpa validasi Vercel serverless compatibility dulu
 - Jangan commit credentials apapun ke repo
 

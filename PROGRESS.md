@@ -59,6 +59,12 @@ For current state, see `STATUS.md`. This file records history of what was fixed 
 - Remove `./lib/image` stale export from `packages/sanity/package.json`
 - Security: remove hardcoded admin credentials from plan doc
 
+### Security Audit 2026-07-02 (PR #9–#12)
+- **PR #9 `fix/session-hmac` (C1):** admin session cookie now signed `base64url(json).hmacSHA256` via `SESSION_SECRET` + timing-safe verify in `getSession()`; forged `{"role":"admin"}` cookies rejected (auth-bypass closed). `signSession()` fails fast if secret missing.
+- **PR #10 `fix/submit-hardening` (H3+M1):** `submit.ts` verifies every `photoId` belongs to the album + dedupes; deterministic `submission-<albumId>` `_id` acts as atomic lock (concurrent double-submit → 409); realtime publish wrapped in try/catch so it can't turn a committed submit into a 500. `selections.ts` GET now `requireAdmin`.
+- **PR #11 `fix/ably-token-auth` (C2):** new `/api/ably/token` mints short-lived subscribe-only tokens (`album:*` for everyone, `admin:updates` only for authenticated admins); browser uses `authUrl` so the publish-capable key never ships client-side; `publishAdminEvent` uses server-only `ABLY_API_KEY`.
+- **PR #12 `fix/sanity-private` (C3):** read client authenticates with `SANITY_API_TOKEN` + warns if missing. **Dataset `production` flipped `public → private`** via Management API — anonymous Sanity queries no longer leak PINs/album data (verified: anon read → `null`; app-token read + gallery PIN flow still work).
+
 ---
 
 ## Post-merge Hot Fixes (on master)
@@ -94,6 +100,10 @@ Verify every bot claim against actual code before implementing. Common false pos
 | `.git` / `.env` web exposure | ✅ Blocked |
 | Hardcoded credentials in repo | ✅ None |
 | `create-admin` endpoint protected | ✅ |
+| Admin session cookie HMAC-signed (C1) | ✅ |
+| Ably token auth — publish key not in browser (C2) | ✅ |
+| Sanity dataset **private** — no anon PIN leak (C3) | ✅ |
+| Submit verifies photo ownership + atomic lock (H3/M1) | ✅ |
 
 ---
 
