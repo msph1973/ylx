@@ -9,11 +9,9 @@ export function getAblyClient(): Ably.Realtime {
   }
 
   if (!clientInstance) {
-    const key = import.meta.env.PUBLIC_ABLY_KEY;
-    if (!key) {
-      throw new Error("PUBLIC_ABLY_KEY environment variable is not set");
-    }
-    clientInstance = new Ably.Realtime({ key });
+    // Authenticate via a server endpoint that mints subscribe-only tokens —
+    // the full API key is never exposed to the browser.
+    clientInstance = new Ably.Realtime({ authUrl: "/api/ably/token" });
   }
   return clientInstance;
 }
@@ -26,7 +24,7 @@ export function publishAdminEvent(eventType: string, data?: Record<string, unkno
   // publishAdminEvent is safe to call server-side — it uses a short-lived REST client
   // instead of the browser singleton to avoid SSR issues.
   try {
-    const key = import.meta.env.PUBLIC_ABLY_KEY;
+    const key = process.env.ABLY_API_KEY;
     if (!key) return;
     const rest = new Ably.Rest({ key });
     const channel = rest.channels.get("admin:updates");
