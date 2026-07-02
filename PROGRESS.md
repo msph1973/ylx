@@ -65,6 +65,11 @@ For current state, see `STATUS.md`. This file records history of what was fixed 
 - **PR #11 `fix/ably-token-auth` (C2):** new `/api/ably/token` mints short-lived subscribe-only tokens (`album:*` for everyone, `admin:updates` only for authenticated admins); browser uses `authUrl` so the publish-capable key never ships client-side; `publishAdminEvent` uses server-only `ABLY_API_KEY`.
 - **PR #12 `fix/sanity-private` (C3):** read client authenticates with `SANITY_API_TOKEN` + warns if missing. **Dataset `production` flipped `public → private`** via Management API — anonymous Sanity queries no longer leak PINs/album data (verified: anon read → `null`; app-token read + gallery PIN flow still work).
 
+### Backlog Audit 2026-07-02 (PR #14–#16)
+- **PR #14 `chore/astro5-upgrade` (H2, L4):** Astro `4.16.19` → `5.18.2` (closes astro/glob/tar/vite XSS advisories — `4.16.19` was the last 4.x). `@astrojs/vercel` `6.1.4` → `^8.2.11` (runtime `nodejs22.x`; the old adapter forced the now-rejected `nodejs18.x`), `@astrojs/react` `3` → `4`, adapter import `@astrojs/vercel/serverless` → `@astrojs/vercel`, root `engines.node` `>=20`, Vercel `nodeVersion` `22.x`. Removed deps unused in `apps/web`: `@astrojs/node`, `sanity`, `bcryptjs`, `@types/bcryptjs`.
+- **PR #15 `chore/test-ci` (H1):** Vitest `include: src/**/*.{test,spec}` so it no longer crashes on the Playwright specs in `tests/`; added `.github/workflows/ci.yml` (install → typecheck → lint → unit test → build on Node 22 + pnpm).
+- **PR #16 `fix/backlog-audit` (M2/M4/L1/L2/L3):** rate limiter extracted to `src/lib/ratelimit.ts` — **Upstash Redis (REST) persistence** when `UPSTASH_REDIS_REST_URL`/`TOKEN` set (verified live: 6th attempt → 429, key persists in Upstash with ~15min TTL), in-memory fallback otherwise. `create-admin` stays **unconditionally** `requireAdmin` (REVIEW.md §2.1) with PII logging removed; first admin seeded via CLI `seed-admin.mjs`. Deleted `api/admin/workflow.ts` stub (L1). `albums.ts` logs errors before generic 500 (L2). Removed stale docs `ini.md` + `AUDIT-2026-06-24.md`, reconciled STATUS/AGENTS/REVIEW (L3).
+
 ---
 
 ## Post-merge Hot Fixes (on master)
