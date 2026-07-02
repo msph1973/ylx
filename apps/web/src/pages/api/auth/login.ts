@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { validateAdminPassword } from "@ylx/sanity/lib/admin";
+import { signSession } from "../../../lib/auth";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
@@ -22,7 +23,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    const session = JSON.stringify({
+    const session = signSession({
       id: validated._id,
       email: validated.email,
       name: validated.name,

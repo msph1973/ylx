@@ -86,6 +86,7 @@ PUBLIC_SANITY_DATASET=production
 SANITY_API_TOKEN=<write token — lihat Sanity dashboard>
 PUBLIC_ABLY_KEY=<subscribe-only key>
 ABLY_API_KEY=<full key>
+SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 ```
 
 > ⚠️ Token Sanity di `CONTEXT.md` sudah **di-revoke** — jangan pakai. Generate token baru dari https://www.sanity.io/manage/project/741sif2l/api

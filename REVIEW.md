@@ -452,7 +452,7 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `PUBLIC_SANITY_DATASET` | Everywhere | ✅ |
 | `SANITY_API_TOKEN` | Server-side write ops | ✅ |
 | `ABLY_API_KEY` | Real-time pub/sub | ✅ |
-| `ADMIN_SESSION_SECRET` | Cookie signing | ✅ |
+| `SESSION_SECRET` | Admin session cookie HMAC signing | ✅ |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above
