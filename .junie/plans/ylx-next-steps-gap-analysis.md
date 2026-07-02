@@ -210,7 +210,7 @@ LOW IMPACT  │  P2-A Mastra       P2-B Email            │
 
 ### Production
 - **URL:** https://ylx-msph.vercel.app
-- **Admin:** `admin@ylex.my.id` / `klp123`
+- **Admin:** see `.env.local` (credentials not stored in repo)
 - **Branch:** `master` (PR #5 `feat/album-crud` belum di-merge)
 - **Open PRs:** PR #5 (album CRUD, all CI green), PR #6 (Qoder workflows, all CI green)
 
