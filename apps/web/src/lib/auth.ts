@@ -16,7 +16,12 @@ function hmac(payload: string): string {
 }
 
 // Sign a session as `<base64url(json)>.<hmac>` so the payload cannot be forged.
+// Fail fast if SESSION_SECRET is missing so misconfiguration surfaces at login
+// instead of silently issuing a cookie that getSession can never validate.
 export function signSession(session: AdminSession): string {
+  if (!SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is not set");
+  }
   const payload = Buffer.from(JSON.stringify(session)).toString("base64url");
   return `${payload}.${hmac(payload)}`;
 }
