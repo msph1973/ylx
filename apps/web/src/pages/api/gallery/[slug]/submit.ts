@@ -130,11 +130,16 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  // Notify admin dashboard in real-time
-  await publishAdminEvent("submission:received", {
-    albumId: album._id,
-    count: uniquePhotoIds.length,
-  });
+  // Notify admin dashboard in real-time. The submission is already committed and
+  // locked, so a realtime failure must not turn a successful submit into a 500.
+  try {
+    await publishAdminEvent("submission:received", {
+      albumId: album._id,
+      count: uniquePhotoIds.length,
+    });
+  } catch (err) {
+    console.error("[Submit] publishAdminEvent failed:", err);
+  }
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),

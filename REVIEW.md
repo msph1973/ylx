@@ -423,7 +423,8 @@ style={{ width: `${progress}%` }}
 | Path | Purpose | Rules |
 |------|---------|-------|
 | `packages/sanity/lib/queries.ts` | GROQ query strings | Must export named const, no inline fetch |
-| `packages/sanity/lib/admin.ts` | Admin CRUD + auth | `requireAdmin()` must be imported from here |
+| `packages/sanity/lib/admin.ts` | Admin CRUD + auth | `createAdmin` / `validateAdminPassword` (bcrypt) live here |
+| `apps/web/src/lib/auth.ts` | Session auth | `requireAdmin()` / `getSession()` / `signSession()` must be imported from here |
 | `packages/sanity/client.ts` | Sanity clients | `sanityClient` (read), `sanityWriteClient` (mutations) |
 | `packages/shared/index.ts` | Shared TS types | All cross-package types exported from here |
 | `apps/web/src/pages/api/` | Astro API routes | `export const POST: APIRoute`, `export const GET: APIRoute` |
