@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
+import { generateUniqueSlug } from "../../../lib/slug";
 
 interface SanityAlbumRaw {
   _id: string;
@@ -99,20 +100,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       );
     }
 
-    // Generate base slug from title
-    const baseSlug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-
-    // Check for slug collision and append short timestamp suffix if needed
-    const existingWithSlug = await sanityClient.fetch<{ _id: string }[]>(
-      `*[_type == "album" && slug.current == $slug]{_id}`,
-      { slug: baseSlug }
-    );
-    const slug = existingWithSlug.length > 0
-      ? `${baseSlug}-${Date.now().toString(36)}`
-      : baseSlug;
+    const slug = await generateUniqueSlug(title);
 
     const doc = await sanityWriteClient.create({
       _type: "album",
