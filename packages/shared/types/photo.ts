@@ -3,10 +3,12 @@ export interface Photo {
   filename: string;
   url: string;
   thumbnailUrl: string;
-  blurhash: string;
-  width: number;
-  height: number;
-  albumId: string;
   /** Sanity-generated low-quality image placeholder (base64 data URI) for blur-up loading. */
   lqip?: string | null;
+  // Optional metadata — not returned by the gallery verify API, present only
+  // when a caller hydrates a photo from a richer source.
+  blurhash?: string;
+  width?: number;
+  height?: number;
+  albumId?: string;
 }
