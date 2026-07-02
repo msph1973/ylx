@@ -104,7 +104,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | PIN rate limiter 5x/15min/IP (persist Upstash bila di-set, else in-memory) | ✅ |
 | `.git` / `.env` diblok di Vercel | ✅ |
 | Hardcoded credentials di repo | ✅ Tidak ada |
-| `create-admin`: bootstrap admin pertama, lalu wajib auth | ✅ |
+| `create-admin` selalu wajib auth (admin pertama via CLI `seed-admin.mjs`) | ✅ |
 | Session cookie HMAC-signed via `SESSION_SECRET` (C1) | ✅ |
 | Ably token auth — publish key tidak di browser (C2) | ✅ |
 | Sanity dataset **private** — read anon tidak bocorkan PIN (C3) | ✅ |

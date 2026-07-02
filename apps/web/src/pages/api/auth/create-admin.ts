@@ -1,19 +1,12 @@
 import type { APIRoute } from "astro";
-import { createAdmin, countAdmins } from "@ylx/sanity/lib/admin";
+import { createAdmin } from "@ylx/sanity/lib/admin";
 import { requireAdmin } from "../../../lib/auth";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  // Bootstrap: the very first admin can be created without auth (otherwise there
-  // is no way to create the first one). Once any admin exists, creating more
-  // requires an authenticated admin session.
-  //
-  // Note: this check+create is not atomic — two concurrent requests while zero
-  // admins exist could each create one. That race is accepted: bootstrap is a
-  // one-time, operator-controlled action, and duplicate emails are still
-  // rejected by createAdmin(). For production hardening, seed the first admin
-  // via scripts/seed-admin.mjs (CLI) instead of this endpoint.
-  const hasAdmin = (await countAdmins()) > 0;
-  if (hasAdmin && !requireAdmin(cookies)) {
+  // Admin-only, unconditionally (REVIEW.md §2.1 — no auth bypass on this route).
+  // The first admin is seeded out-of-band via scripts/seed-admin.mjs (CLI), so
+  // there is no chicken-and-egg problem and this endpoint stays fully guarded.
+  if (!requireAdmin(cookies)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
