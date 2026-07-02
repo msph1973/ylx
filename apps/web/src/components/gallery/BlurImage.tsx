@@ -17,8 +17,11 @@ export function BlurImage({ src, alt, lqip, className, loading = 'lazy' }: BlurI
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLImageElement>(null);
 
-  // Cached images can finish before onLoad attaches — reveal them immediately.
+  // Reset on src change so the blur-up replays even when the instance is reused
+  // without a remount. Cached images can finish before onLoad attaches, so
+  // reveal them immediately when already complete.
   useEffect(() => {
+    setLoaded(false);
     if (ref.current?.complete) setLoaded(true);
   }, [src]);
 
