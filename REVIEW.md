@@ -493,5 +493,5 @@ Immediately flag for rejection if PR contains any of the following:
 
 ---
 
-*Last updated: 2026-06-27 | Based on audit cycles: AUDIT-2026-06-24.md, post-merge testing session*
+*Last updated: 2026-07-02 | Based on audit cycles (Jun–Jul 2026) + post-merge testing sessions*
 *Maintained by: Junie AI Agent — update this file after each major bug fix cycle*

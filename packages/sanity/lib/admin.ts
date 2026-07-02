@@ -20,6 +20,11 @@ interface SanityAdminDoc {
   password?: string;
 }
 
+export async function countAdmins(): Promise<number> {
+  const count = await sanityClient.fetch<number>(`count(*[_type == "admin"])`);
+  return count ?? 0;
+}
+
 export async function getAdminByEmail(email: string): Promise<AdminUser | null> {
   const query = `*[_type == "admin" && email == $email][0]{
     _id,

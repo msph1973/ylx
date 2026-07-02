@@ -1,10 +1,13 @@
 import type { APIRoute } from "astro";
-import { createAdmin } from "@ylx/sanity/lib/admin";
+import { createAdmin, countAdmins } from "@ylx/sanity/lib/admin";
 import { requireAdmin } from "../../../lib/auth";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  const session = requireAdmin(cookies);
-  if (!session) {
+  // Bootstrap: the very first admin can be created without auth (otherwise there
+  // is no way to create the first one). Once any admin exists, creating more
+  // requires an authenticated admin session.
+  const hasAdmin = (await countAdmins()) > 0;
+  if (hasAdmin && !requireAdmin(cookies)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -21,9 +24,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    console.warn("[CreateAdmin] Creating:", { email, name, role });
     const admin = await createAdmin({ email, password, name, role });
-    console.warn("[CreateAdmin] Result:", admin);
 
     if (!admin) {
       return new Response(
