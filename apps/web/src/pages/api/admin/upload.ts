@@ -69,7 +69,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       },
     });
 
-    publishAdminEvent('photo:uploaded', { albumId, filename });
+    publishAdminEvent('photo:uploaded', { photoId: photoDoc._id, filename });
 
     return new Response(
       JSON.stringify({ success: true, photoId: photoDoc._id }),
