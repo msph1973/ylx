@@ -81,10 +81,14 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     const photoById = new Map(currentPhotos.map((photo) => [photo._ref, photo]));
     const reorderedReferences = nextPhotoIds.map((photoId) => {
       const currentPhoto = photoById.get(photoId);
+      // Sanity requires a stable `_key` on every array item. Preserve the
+      // existing key when present, otherwise fall back to the reference id
+      // (unique within this album's photos array) so legacy/Studio-added
+      // references without a key don't get rejected on reorder.
       return {
         _type: "reference",
         _ref: photoId,
-        ...(currentPhoto?._key ? { _key: currentPhoto._key } : {}),
+        _key: currentPhoto?._key ?? photoId,
       };
     });
 

@@ -90,6 +90,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       photos: (album.photos ?? []).map((p) => ({
         id: p._id,
         filename: p.filename,
+        url: urlFor(p.image).url(),
         thumbnailUrl: thumbnailUrl(p.image),
         lqip: p.lqip ?? null,
       })),
@@ -98,6 +99,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
         photo: {
           id: s.photo._id,
           filename: s.photo.filename,
+          url: urlFor(s.photo.image).url(),
           thumbnailUrl: thumbnailUrl(s.photo.image),
           lqip: s.photo.lqip ?? null,
         },
