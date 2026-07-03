@@ -70,7 +70,7 @@ desain (dark theme + amber accent) dan skill `impeccable`.
 | `apps/web/src/components/admin/UploadPage.tsx` | Zona unggah keyboard-accessible (role/tabindex/Enter-Space + focus ring) |
 | `apps/web/src/hooks/useAdminRealtime.ts` | Berlangganan semua event channel admin |
 | `apps/web/src/pages/api/admin/albums.ts` | `isLocked` mencakup status non-`active` |
-| `apps/web/src/pages/api/admin/albums/[id]/index.ts` | Thumbnail + LQIP di respons, cascade delete, event `album:deleted` |
+| `apps/web/src/pages/api/admin/albums/[id]/index.ts` | Thumbnail + LQIP di respons, cascade delete, event `album:deleted`; **PUT tidak lagi menolak tanggal lampau** (edit album event lampau kini konsisten dengan klien) |
 | `apps/web/src/pages/api/admin/upload.ts` | Menambah foto ke `album.photos` |
 | `apps/web/src/pages/api/gallery/[slug]/submit.ts` | Set status `submitted`; tolak submit jika album bukan `active` |
 | `apps/web/src/styles/variables.css` | Menambah token `--space-1-5` & `--space-2-5` (sebelumnya tak terdefinisi) |
@@ -84,3 +84,9 @@ desain (dark theme + amber accent) dan skill `impeccable`.
 - `pnpm exec vitest run` — 3/3 lolos
 - `pnpm exec playwright test tests/admin.spec.ts` — **4/4 pass** (~14s): pagination, bulk photo delete, reorder (keyboard), lock/unlock. API di-mock via `page.route`; auth via signed-session helper.
 - E2E `gallery.spec.ts` — selektor & asumsi status yang diuji tetap kompatibel
+
+## Bot review (PR #19)
+
+- **Sourcery / Devin** — pass. Devin menandai 3 isu PR #19 lama sebagai ✅ Resolved dan menemukan 1 bug nyata baru: PUT `albums/[id]/index.ts` masih menolak tanggal lampau meski klien sudah dilonggarkan — **diperbaiki** (validasi past-date dihapus dari handler edit; create tetap enforce di `albums.ts`).
+- **CodeQL / Analyze / verify / Vercel** — pass.
+- Verifikasi produksi (preview `0db00f3`): homepage `200`, `/admin` `302 → /admin/login`, endpoint `photos/bulk-delete` & `albums/[id]/reorder` tanpa auth → `401` (guard `requireAdmin` aktif).

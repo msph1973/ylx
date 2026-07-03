@@ -172,15 +172,10 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       );
     }
 
-    if (eventDate !== undefined) {
-      const today = new Date().toLocaleDateString("en-CA");
-      if (eventDate < today) {
-        return new Response(
-          JSON.stringify({ error: "Event date cannot be in the past" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-    }
+    // Note: past-date validation is intentionally NOT enforced on edit.
+    // Albums whose event has already occurred (e.g. a finished wedding) must
+    // remain editable. New albums still enforce the future-date rule in the
+    // POST create handler (`albums.ts`).
 
     const patch: Record<string, unknown> = {};
     if (title !== undefined) {
