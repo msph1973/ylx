@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type Ably from "ably";
 import { getAblyClient, getChannelName } from "@/lib/ably";
 import type {
@@ -20,6 +20,9 @@ export function useRealtime(
   albumId: string | null,
   callbacks: RealtimeCallbacks
 ): void {
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+
   useEffect(() => {
     if (!albumId) return;
 
@@ -33,19 +36,19 @@ export function useRealtime(
 
     if (callbacks.onPhotoUploaded) {
       handlers["photo:uploaded"] = (msg) =>
-        callbacks.onPhotoUploaded!(msg.data as PhotoUploadedData);
+        callbacksRef.current.onPhotoUploaded?.(msg.data as PhotoUploadedData);
     }
     if (callbacks.onSelectionChanged) {
       handlers["selection:changed"] = (msg) =>
-        callbacks.onSelectionChanged!(msg.data as SelectionChangedData);
+        callbacksRef.current.onSelectionChanged?.(msg.data as SelectionChangedData);
     }
     if (callbacks.onSubmissionReceived) {
       handlers["submission:received"] = (msg) =>
-        callbacks.onSubmissionReceived!(msg.data as SubmissionReceivedData);
+        callbacksRef.current.onSubmissionReceived?.(msg.data as SubmissionReceivedData);
     }
     if (callbacks.onAlbumUnlocked) {
       handlers["album:unlocked"] = (msg) =>
-        callbacks.onAlbumUnlocked!(msg.data as AlbumUnlockedData);
+        callbacksRef.current.onAlbumUnlocked?.(msg.data as AlbumUnlockedData);
     }
 
     for (const [eventType, handler] of Object.entries(handlers)) {
@@ -57,5 +60,5 @@ export function useRealtime(
         channel.unsubscribe(eventType);
       }
     };
-  }, [albumId, callbacks]);
+  }, [albumId]);
 }

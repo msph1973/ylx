@@ -21,13 +21,23 @@ export function getChannelName(albumId: string): string {
 }
 
 export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): void {
-  // publishAdminEvent is safe to call server-side — it uses a short-lived REST client
-  // instead of the browser singleton to avoid SSR issues.
   try {
     const key = process.env.ABLY_API_KEY;
     if (!key) return;
     const rest = new Ably.Rest({ key });
     const channel = rest.channels.get("admin:updates");
+    void channel.publish(eventType, data ?? {});
+  } catch {
+    // Silently fail if Ably is not configured or publish fails
+  }
+}
+
+export function publishAlbumEvent(albumId: string, eventType: string, data?: Record<string, unknown>): void {
+  try {
+    const key = process.env.ABLY_API_KEY;
+    if (!key) return;
+    const rest = new Ably.Rest({ key });
+    const channel = rest.channels.get(getChannelName(albumId));
     void channel.publish(eventType, data ?? {});
   } catch {
     // Silently fail if Ably is not configured or publish fails

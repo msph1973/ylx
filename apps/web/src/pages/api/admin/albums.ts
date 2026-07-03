@@ -3,6 +3,7 @@ import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
 import { generateUniqueSlug } from "../../../lib/slug";
+import { publishAdminEvent } from "../../../lib/ably";
 
 interface SanityAlbumRaw {
   _id: string;
@@ -114,6 +115,8 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       status: "active",
       photos: [],
     });
+
+    publishAdminEvent("album:created", { albumId: doc._id });
 
     return new Response(
       JSON.stringify({
