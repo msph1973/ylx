@@ -2,9 +2,13 @@ import { createClient } from "@sanity/client";
 import imageUrlBuilder from "@sanity/image-url";
 import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
 
-const projectId = process.env.SANITY_PROJECT_ID || "741sif2l";
-const dataset = process.env.SANITY_DATASET || "production";
+const projectId = process.env.PUBLIC_SANITY_PROJECT_ID;
+const dataset = process.env.PUBLIC_SANITY_DATASET || "production";
 const token = process.env.SANITY_API_TOKEN;
+
+if (!projectId) {
+  throw new Error("[Sanity] PUBLIC_SANITY_PROJECT_ID is required but not set.");
+}
 
 // Surface a missing token loudly: without it, a private dataset silently 401s on
 // every read and the gallery breaks with no obvious cause.

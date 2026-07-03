@@ -28,5 +28,5 @@ export interface SubmissionReceivedData {
 }
 
 export interface AlbumUnlockedData {
-  lockedBy: string;
+  lockedBy?: string;
 }
