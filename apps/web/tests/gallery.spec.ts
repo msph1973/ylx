@@ -95,10 +95,12 @@ test.describe('Gallery', () => {
     await expect(lightbox).toBeVisible();
     await expect(page.locator('.lightbox-counter')).toContainText('1 / 3');
 
-    // The full-size image renders through the blur-up component.
+    // The full-size image renders through the blur-up component: a blur-wrap
+    // holding the LQIP background with the real <img> fading in on top of it.
     const lightboxImg = page.locator('.lightbox-img');
     await expect(lightboxImg).toBeVisible();
-    await expect(lightboxImg).toHaveClass(/blur-img/);
+    await expect(lightboxImg).toHaveClass(/blur-wrap/);
+    await expect(lightboxImg.locator('img.blur-img')).toBeVisible();
 
     // Escape closes it.
     await page.keyboard.press('Escape');

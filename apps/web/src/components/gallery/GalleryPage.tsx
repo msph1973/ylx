@@ -334,6 +334,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           opacity: 0.7;
         }
 
+        .photo-item .blur-wrap {
+          width: 100%;
+          height: 100%;
+        }
+
         .photo-item img {
           width: 100%;
           height: 100%;
@@ -341,9 +346,17 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         /* Blur-up progressive loading (LQIP) */
-        .blur-img {
+        .blur-wrap {
+          display: block;
           background-size: cover;
           background-position: center;
+          overflow: hidden;
+        }
+
+        .blur-img {
+          display: block;
+          width: 100%;
+          height: 100%;
           opacity: 0;
           transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
         }
@@ -446,12 +459,17 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         .lightbox-img {
           flex: 1;
           min-height: 0;
-          object-fit: contain;
           max-height: 75vh;
           width: 100%;
           border-radius: var(--radius-md);
           background-size: contain;
           background-repeat: no-repeat;
+          background-position: center;
+        }
+
+        .lightbox-img img {
+          max-height: 75vh;
+          object-fit: contain;
         }
 
         .lightbox-footer {
