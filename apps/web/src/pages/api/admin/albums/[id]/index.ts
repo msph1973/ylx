@@ -196,6 +196,14 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
 
     const updated = await sanityWriteClient.patch(albumId).set(patch).commit();
 
+    // Notify open admin dashboards so they refetch. Guarded so a realtime
+    // failure can't turn an already-committed update into a 500.
+    try {
+      publishAdminEvent("album:updated", { albumId });
+    } catch (eventError) {
+      console.error("[Albums] PUT publish event failed:", eventError);
+    }
+
     return new Response(
       JSON.stringify({
         album: {
