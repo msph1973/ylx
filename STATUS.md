@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-02 | Branch: `master`
+> Last updated: 2026-07-03 | Branch: `master`
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -40,7 +40,7 @@ Photographer uploads photos     ✅  UploadPage.tsx — album list auto-populate
 Photographer copies share link  ✅  AlbumDetail — "Copy Gallery Link" + "Copy PIN"
 Client opens homepage           ✅  index.astro — form "Access Your Gallery" + redirect
 Client enters PIN               ✅  PinEntry.tsx + rate limiter 5x/15min per IP
-Client browses photos           ✅  Grid + lightbox fullscreen (PhotoLightbox.tsx)
+Client browses photos           ✅  Grid + lightbox fullscreen (PhotoLightbox.tsx), LQIP blur-up (BlurImage.tsx)
 Client selects photos           ✅  Toggle dari grid atau dari dalam lightbox
 Client submits selection        ✅  API + Sanity transaction + Ably event
 Admin sees real-time notif      ✅  useAdminRealtime + AlbumList
@@ -66,7 +66,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 | `apps/web/src/pages/api/gallery/[slug]/submit.ts` | Submit selections + lock album |
 | `apps/web/src/pages/api/auth/` | Login, logout, create-admin |
 | `apps/web/src/components/admin/` | AdminPage, AlbumList, AlbumCard, AlbumDetail, AlbumFormModal, UploadPage, SelectionTable, CopyFilenamesButton |
-| `apps/web/src/components/gallery/` | GalleryPage, PinEntry, PhotoLightbox |
+| `apps/web/src/components/gallery/` | GalleryPage, PinEntry, PhotoLightbox, BlurImage (LQIP blur-up) |
 | `apps/web/src/hooks/useCopyToClipboard.ts` | Hook clipboard dengan auto-reset + cleanup |
 | `apps/web/src/lib/slug.ts` | `generateUniqueSlug()` — shared antara POST & PUT |
 | `apps/web/src/lib/auth.ts` | `requireAdmin()` — auth guard semua admin endpoints |
@@ -131,10 +131,11 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 | Item | File | Status |
 |------|------|--------|
-| E2E / Playwright tests | `apps/web/tests/*.spec.ts` | Ada tapi selektor pre-lightbox (perlu refresh); dijalankan via `pnpm test:e2e`, tidak di CI |
+| Gallery E2E (Playwright) | `apps/web/tests/gallery.spec.ts` | ✅ Refreshed ke selektor lightbox+LQIP (PR #17), 5/5 pass via `pnpm test:e2e`; masih tidak di CI (butuh server live + seed) |
+| Admin E2E (Playwright) | `apps/web/tests/admin.spec.ts` | ❌ Gagal (pre-existing): `/admin` server-side auth-guarded (C1), butuh signed-session seed helper |
 | Email notifikasi | — | Tidak ada |
 | OAuth admin auth | — | Bukan OAuth, pakai email+bcrypt |
-| LQIP / Blurhash | — | Tidak ada blur placeholder |
+| LQIP / Blurhash | `BlurImage.tsx` + `verify.ts` (`metadata.lqip`) | ✅ Blur-up progressive loading di grid + lightbox (PR #17) |
 
 ---
 

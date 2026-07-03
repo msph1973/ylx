@@ -1,5 +1,5 @@
 # YLx — Progress & History
-> Last updated: 2026-07-02 | Branch: `master` (all PRs merged)
+> Last updated: 2026-07-03 | Branch: `master` (all PRs merged)
 
 For current state, see `STATUS.md`. This file records history of what was fixed and when.
 
@@ -69,6 +69,14 @@ For current state, see `STATUS.md`. This file records history of what was fixed 
 - **PR #14 `chore/astro5-upgrade` (H2, L4):** Astro `4.16.19` → `5.18.2` (closes astro/glob/tar/vite XSS advisories — `4.16.19` was the last 4.x). `@astrojs/vercel` `6.1.4` → `^8.2.11` (runtime `nodejs22.x`; the old adapter forced the now-rejected `nodejs18.x`), `@astrojs/react` `3` → `4`, adapter import `@astrojs/vercel/serverless` → `@astrojs/vercel`, root `engines.node` `>=20`, Vercel `nodeVersion` `22.x`. Removed deps unused in `apps/web`: `@astrojs/node`, `sanity`, `bcryptjs`, `@types/bcryptjs`.
 - **PR #15 `chore/test-ci` (H1):** Vitest `include: src/**/*.{test,spec}` so it no longer crashes on the Playwright specs in `tests/`; added `.github/workflows/ci.yml` (install → typecheck → lint → unit test → build on Node 22 + pnpm).
 - **PR #16 `fix/backlog-audit` (M2/M4/L1/L2/L3):** rate limiter extracted to `src/lib/ratelimit.ts` — **Upstash Redis (REST) persistence** when `UPSTASH_REDIS_REST_URL`/`TOKEN` set (verified live: 6th attempt → 429, key persists in Upstash with ~15min TTL), in-memory fallback otherwise. `create-admin` stays **unconditionally** `requireAdmin` (REVIEW.md §2.1) with PII logging removed; first admin seeded via CLI `seed-admin.mjs`. Deleted `api/admin/workflow.ts` stub (L1). `albums.ts` logs errors before generic 500 (L2). Removed stale docs `ini.md` + `AUDIT-2026-06-24.md`, reconciled STATUS/AGENTS/REVIEW (L3).
+
+### PR #17 — `feat/lqip-e2e` (LQIP blur-up + gallery E2E refresh)
+- **LQIP (P1-C):** `albumBySlugQuery` selects `metadata.lqip`; `verify.ts` threads it per photo as `lqip`; `Photo.lqip?` added to shared type.
+- **`BlurImage.tsx` (new):** wrapper `<div>` holds the Sanity LQIP base64 placeholder as `background-image` (always visible) while the inner `<img>` fades `opacity: 0 → 1` on top — fixes the bot-found bug where an `opacity:0` image also hid its own background so the blur never showed. `prefers-reduced-motion` aware, resets on `src` change. Used in grid + lightbox.
+- **z-index fix:** lightbox moved from hardcoded `100` (below sticky header `--z-sticky:200`) to `--z-modal` (400); unlock toast → `--z-toast` (500).
+- **Gallery E2E refresh:** `tests/gallery.spec.ts` updated to `{ album }` response shape + lightbox open/close (Escape) + select/deselect-from-lightbox flow; hydration-safe PIN helper (waits for React `__reactFiber$`/`__reactProps$`) fixes the dropped-first-digit flake. 5/5 pass via `pnpm test:e2e`.
+- Bot reviews (Sourcery, Devin) addressed: `loaded` reset on `src`, `Photo` metadata fields made optional to match the verify API, blur-up wrapper visibility fix.
+- `tests/admin.spec.ts` still fails (pre-existing, out of scope): needs a signed-session seed helper for the `/admin` auth guard.
 
 ---
 
