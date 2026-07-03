@@ -88,9 +88,13 @@ desain (dark theme + amber accent) dan skill `impeccable`.
 
 ## Bot review (PR #19)
 
-- **Sourcery / Devin** — pass. Devin menandai isu PR #19 lama sebagai ✅ Resolved dan menemukan 2 bug konsistensi yang **sudah diperbaiki**:
+- **Sourcery / Devin** — pass. Temuan Devin yang **sudah diperbaiki**:
   1. PUT `albums/[id]/index.ts` masih menolak tanggal lampau meski klien sudah dilonggarkan → validasi past-date dihapus dari handler edit (create tetap enforce di `albums.ts`).
   2. `GalleryPage.tsx` optimistic status pasca-submit masih `'locked'` sedangkan server kini `'submitted'` → diselaraskan ke `'submitted'`.
-  Dua catatan 🚩 non-blocking (backfill `album.photos` untuk foto lama; `Photo.url` absen di GET, tanpa bug runtime) di-acknowledge sebagai follow-up.
+  3. PUT edit tidak memancarkan event realtime → ditambah `publishAdminEvent('album:updated')` (guarded) setelah commit, konsisten dengan endpoint lain.
+  4. Respons GET album detail tidak mengembalikan `url` foto (langgar kontrak `Photo`, REVIEW.md §4.2/§3.5) → ditambah `url: urlFor(image).url()` untuk photos + selections.
+  5. `reorder.ts` bisa gagal untuk referensi tanpa `_key` (data lama) → selalu set `_key` (fallback ke `_ref`).
+  Catatan 🚩 non-blocking: backfill `album.photos` untuk foto yang diunggah sebelum perubahan (follow-up terpisah).
 - **CodeQL / Analyze / verify / Vercel** — pass.
+- **Kilo Code Review** — status `fail`, tetapi bukan temuan kode: output check-run = "Review failed: Assistant request failed" (kegagalan layanan/kuota bot, bukan isu di repo).
 - Verifikasi produksi (preview `0db00f3`): homepage `200`, `/admin` `302 → /admin/login`, endpoint `photos/bulk-delete` & `albums/[id]/reorder` tanpa auth → `401` (guard `requireAdmin` aktif).
