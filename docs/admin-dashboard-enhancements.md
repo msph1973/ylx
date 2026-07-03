@@ -73,6 +73,7 @@ desain (dark theme + amber accent) dan skill `impeccable`.
 | `apps/web/src/pages/api/admin/albums/[id]/index.ts` | Thumbnail + LQIP di respons, cascade delete, event `album:deleted`; **PUT tidak lagi menolak tanggal lampau** (edit album event lampau kini konsisten dengan klien) |
 | `apps/web/src/pages/api/admin/upload.ts` | Menambah foto ke `album.photos` |
 | `apps/web/src/pages/api/gallery/[slug]/submit.ts` | Set status `submitted`; tolak submit jika album bukan `active` |
+| `apps/web/src/components/gallery/GalleryPage.tsx` | Optimistic status pasca-submit `'submitted'` (selaras server; `isAlbumLocked()` tetap perlakukan `submitted`+`locked` sebagai tertutup) |
 | `apps/web/src/styles/variables.css` | Menambah token `--space-1-5` & `--space-2-5` (sebelumnya tak terdefinisi) |
 | `packages/sanity/schemas/album.ts` | Opsi status `Submitted` |
 | `packages/sanity/lib/queries.ts` | Menyertakan LQIP untuk thumbnail admin |
@@ -87,6 +88,9 @@ desain (dark theme + amber accent) dan skill `impeccable`.
 
 ## Bot review (PR #19)
 
-- **Sourcery / Devin** — pass. Devin menandai 3 isu PR #19 lama sebagai ✅ Resolved dan menemukan 1 bug nyata baru: PUT `albums/[id]/index.ts` masih menolak tanggal lampau meski klien sudah dilonggarkan — **diperbaiki** (validasi past-date dihapus dari handler edit; create tetap enforce di `albums.ts`).
+- **Sourcery / Devin** — pass. Devin menandai isu PR #19 lama sebagai ✅ Resolved dan menemukan 2 bug konsistensi yang **sudah diperbaiki**:
+  1. PUT `albums/[id]/index.ts` masih menolak tanggal lampau meski klien sudah dilonggarkan → validasi past-date dihapus dari handler edit (create tetap enforce di `albums.ts`).
+  2. `GalleryPage.tsx` optimistic status pasca-submit masih `'locked'` sedangkan server kini `'submitted'` → diselaraskan ke `'submitted'`.
+  Dua catatan 🚩 non-blocking (backfill `album.photos` untuk foto lama; `Photo.url` absen di GET, tanpa bug runtime) di-acknowledge sebagai follow-up.
 - **CodeQL / Analyze / verify / Vercel** — pass.
 - Verifikasi produksi (preview `0db00f3`): homepage `200`, `/admin` `302 → /admin/login`, endpoint `photos/bulk-delete` & `albums/[id]/reorder` tanpa auth → `401` (guard `requireAdmin` aktif).
