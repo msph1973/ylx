@@ -41,7 +41,9 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  if (album.status === "locked") {
+  // Only an active album accepts submissions. Both "submitted" (client already
+  // submitted) and "locked" (admin manually locked) are closed for selection.
+  if (album.status !== "active") {
     return new Response(JSON.stringify({ error: "Album is locked" }), {
       status: 409,
       headers: { "Content-Type": "application/json" },
@@ -108,7 +110,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     submittedAt: new Date().toISOString(),
   });
 
-  transaction.patch(album._id, { set: { status: "locked" } });
+  transaction.patch(album._id, { set: { status: "submitted" } });
 
   try {
     await transaction.commit();

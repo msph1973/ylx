@@ -29,7 +29,8 @@ export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $
   photo-> {
     _id,
     filename,
-    image
+    image,
+    "lqip": image.asset->metadata.lqip
   },
   selectedAt
 }`;
@@ -46,7 +47,8 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   photos[]-> {
     _id,
     filename,
-    image
+    image,
+    "lqip": image.asset->metadata.lqip
   },
   "selections": *[_type == "selection" && album._ref == ^._id]._id
 }`;

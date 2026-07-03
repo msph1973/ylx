@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { getAlbumStatusMeta } from '@/lib/albumStatus';
 
 export interface AlbumCardData {
   id: string;
@@ -14,9 +15,19 @@ export interface AlbumCardData {
 interface AlbumCardProps {
   album: AlbumCardData;
   onClick: (album: AlbumCardData) => void;
+  /** When true, clicking the card toggles selection instead of opening it. */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (album: AlbumCardData) => void;
 }
 
-export function AlbumCard({ album, onClick }: AlbumCardProps) {
+export function AlbumCard({
+  album,
+  onClick,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+}: AlbumCardProps) {
   const shouldReduceMotion = useReducedMotion();
   const formattedDate = new Date(album.eventDate).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -24,20 +35,46 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
     day: 'numeric',
   });
 
-  const isActive = album.status === 'active';
+  const status = getAlbumStatusMeta(album.status);
+
+  const handleClick = () => {
+    if (selectionMode) {
+      onToggleSelect?.(album);
+    } else {
+      onClick(album);
+    }
+  };
 
   return (
     <motion.button
-      className="album-card"
-      onClick={() => onClick(album)}
-      whileHover={shouldReduceMotion ? {} : { y: -4, scale: 1.02 }}
-      whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+      type="button"
+      className={`album-card${selected ? ' is-selected' : ''}`}
+      onClick={handleClick}
+      aria-pressed={selectionMode ? selected : undefined}
+      aria-label={
+        selectionMode
+          ? `${selected ? 'Deselect' : 'Select'} album ${album.title}`
+          : `Open album ${album.title}`
+      }
+      whileHover={shouldReduceMotion ? {} : { y: -4 }}
+      whileTap={shouldReduceMotion ? {} : { scale: 0.985 }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
     >
       <div className="album-card-header">
-        <h3 className="album-card-title">{album.title}</h3>
-        <span className={`status-badge ${isActive ? 'active' : 'locked'}`}>
-          {isActive ? 'Active' : 'Locked'}
+        <div className="album-card-heading">
+          {selectionMode && (
+            <span className={`select-box${selected ? ' checked' : ''}`} aria-hidden="true">
+              {selected && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </span>
+          )}
+          <h3 className="album-card-title">{album.title}</h3>
+        </div>
+        <span className={`status-badge status-badge--${status.variant}`}>
+          {status.label}
         </span>
       </div>
 
@@ -58,9 +95,7 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
           <span className="stat-label">photos</span>
         </span>
         {album.pin && (
-          <span className="pin-display">
-            PIN: {album.pin}
-          </span>
+          <span className="pin-display">PIN: {album.pin}</span>
         )}
       </div>
 
@@ -75,12 +110,23 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
           border-radius: var(--radius-xl);
           text-align: left;
           width: 100%;
-          transition: border-color var(--transition-fast);
+          transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
           cursor: pointer;
         }
 
         .album-card:hover {
           border-color: var(--color-accent);
+        }
+
+        .album-card:focus-visible {
+          outline: none;
+          border-color: var(--color-accent);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent);
+        }
+
+        .album-card.is-selected {
+          border-color: var(--color-accent);
+          background-color: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
         }
 
         .album-card-header {
@@ -90,11 +136,40 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
           gap: var(--space-3);
         }
 
+        .album-card-heading {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          min-width: 0;
+        }
+
+        .select-box {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          width: 22px;
+          height: 22px;
+          border: 1.5px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background-color: var(--color-bg);
+          color: var(--color-bg);
+          transition: background-color var(--transition-fast), border-color var(--transition-fast);
+        }
+
+        .select-box.checked {
+          background-color: var(--color-accent);
+          border-color: var(--color-accent);
+          color: var(--color-bg);
+        }
+
         .album-card-title {
           font-size: var(--text-lg);
           font-weight: var(--font-semibold);
           color: var(--color-text);
           line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .status-badge {
@@ -107,14 +182,17 @@ export function AlbumCard({ album, onClick }: AlbumCardProps) {
           letter-spacing: 0.05em;
         }
 
-        .status-badge.active {
-          background-color: rgba(74, 222, 128, 0.15);
+        .status-badge--active {
           background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
           color: var(--color-success);
         }
 
-        .status-badge.locked {
-          background-color: rgba(248, 113, 113, 0.15);
+        .status-badge--submitted {
+          background-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+          color: var(--color-accent);
+        }
+
+        .status-badge--locked {
           background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
           color: var(--color-error);
         }

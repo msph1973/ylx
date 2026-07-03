@@ -56,6 +56,7 @@ export default defineType({
       options: {
         list: [
           { title: "Active", value: "active" },
+          { title: "Submitted", value: "submitted" },
           { title: "Locked", value: "locked" },
         ],
       },

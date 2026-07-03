@@ -1,11 +1,13 @@
 import type { APIRoute } from "astro";
-import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
+import { sanityClient, sanityWriteClient, urlFor } from "@ylx/sanity/client";
 import {
   albumWithSelectionsQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../../../lib/auth";
 import { generateUniqueSlug } from "../../../../../lib/slug";
+import { publishAdminEvent } from "../../../../../lib/ably";
+import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
 
 interface SanityImageRef {
   _type: string;
@@ -16,6 +18,12 @@ interface SanityPhotoRaw {
   _id: string;
   filename: string;
   image: SanityImageRef;
+  lqip?: string | null;
+}
+
+/** Build a square, cropped thumbnail URL for an uploaded photo. */
+function thumbnailUrl(image: SanityImageRef): string {
+  return urlFor(image).width(400).height(400).fit("crop").url();
 }
 
 interface SanitySelectionRaw {
@@ -78,18 +86,20 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       slug: album.slug?.current ?? null,
       maxSelections: album.maxSelections,
       status: album.status,
-      isLocked: album.status === 'locked',
+      isLocked: album.status !== 'active',
       photos: (album.photos ?? []).map((p) => ({
         id: p._id,
         filename: p.filename,
-        image: p.image,
+        thumbnailUrl: thumbnailUrl(p.image),
+        lqip: p.lqip ?? null,
       })),
       selections: selections.map((s) => ({
         id: s._id,
         photo: {
           id: s.photo._id,
           filename: s.photo.filename,
-          image: s.photo.image,
+          thumbnailUrl: thumbnailUrl(s.photo.image),
+          lqip: s.photo.lqip ?? null,
         },
         selectedAt: s.selectedAt,
       })),
@@ -231,16 +241,10 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
-    // Delete all selections for this album first
-    const selectionsQuery = `*[_type == "selection" && album._ref == $albumId]._id`;
-    const selectionIds = await sanityClient.fetch<string[]>(selectionsQuery, { albumId });
+    // Cascade-delete the album with its selections, submissions, and photos.
+    await cascadeDeleteAlbums([albumId]);
 
-    const transaction = sanityWriteClient.transaction();
-    for (const selId of selectionIds) {
-      transaction.delete(selId);
-    }
-    transaction.delete(albumId);
-    await transaction.commit();
+    publishAdminEvent("album:deleted", { albumId });
 
     return new Response(
       JSON.stringify({ success: true }),

@@ -192,10 +192,19 @@ export default function UploadPage({ adminName }: UploadPageProps) {
       {/* Drop Zone */}
       <div
         className={`drop-zone ${isDragging ? 'dragging' : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-label="Add photos: drop files here, or press Enter to browse"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
       >
         <input
           ref={fileInputRef}
@@ -362,6 +371,12 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         .drop-zone.dragging {
           border-color: var(--color-accent);
           background-color: var(--color-surface);
+        }
+
+        .drop-zone:focus-visible {
+          outline: none;
+          border-color: var(--color-accent);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
         }
 
         .drop-zone-content {
