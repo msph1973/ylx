@@ -56,8 +56,8 @@ export function useRealtime(
     }
 
     return () => {
-      for (const eventType of Object.keys(handlers)) {
-        channel.unsubscribe(eventType);
+      for (const [eventType, handler] of Object.entries(handlers)) {
+        channel.unsubscribe(eventType, handler as (message: Ably.Message) => void);
       }
     };
   }, [albumId]);

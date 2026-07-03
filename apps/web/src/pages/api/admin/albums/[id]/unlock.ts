@@ -40,7 +40,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     const result = await tx.commit();
 
     publishAdminEvent("album:unlocked", { albumId });
-    publishAlbumEvent(albumId, "album:unlocked", { lockedBy: session.email });
+    publishAlbumEvent(albumId, "album:unlocked");
 
     return new Response(JSON.stringify({ success: true, id: result.results[0]?.id ?? albumId }), {
       status: 200,
