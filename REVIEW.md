@@ -455,8 +455,8 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `SANITY_API_TOKEN` | Server-side write ops | ✅ |
 | `ABLY_API_KEY` | Real-time pub/sub | ✅ |
 | `SESSION_SECRET` | Admin session cookie HMAC signing | ✅ |
-| `UPSTASH_REDIS_REST_URL` | Gallery PIN rate limiter (persistent) | ❌ falls back to in-memory |
-| `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN rate limiter (persistent) | ❌ falls back to in-memory |
+| `UPSTASH_REDIS_REST_URL` | Gallery PIN rate limiter (persistent) | ✅ in production (fails closed if unset; in-memory fallback is dev-only) |
+| `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN rate limiter (persistent) | ✅ in production (fails closed if unset; in-memory fallback is dev-only) |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above

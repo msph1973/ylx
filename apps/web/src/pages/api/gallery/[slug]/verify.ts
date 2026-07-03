@@ -2,7 +2,12 @@ import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
+import {
+  isLimitReached,
+  isRateLimited,
+  RATE_LIMIT_RETRY_AFTER,
+  recordFailedAttempt,
+} from "../../../../lib/ratelimit";
 
 interface SanityImageRef {
   _type: string;
@@ -28,7 +33,7 @@ interface SanityAlbumRaw {
 }
 
 const MAX_ATTEMPTS_PER_IP = 5;
-const MAX_ATTEMPTS_PER_ALBUM = 30;
+const MAX_FAILED_ATTEMPTS_PER_ALBUM = 30;
 
 function pinMatches(expected: string, provided: string): boolean {
   const a = Buffer.from(expected);
@@ -45,15 +50,18 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     });
   }
 
-  // Rate limiting: per IP+slug, plus a global per-slug cap so an attacker
-  // rotating IPs (or spoofing forwarded headers) cannot get unlimited
-  // fresh buckets against one album. `clientAddress` is the socket peer
-  // address resolved by the platform adapter, not a client-supplied header.
+  // Rate limiting: per IP+slug, plus a global per-slug cap on *failed*
+  // attempts so an attacker rotating IPs (or spoofing forwarded headers)
+  // cannot get unlimited fresh buckets against one album, while successful
+  // logins by many guests never lock the album. `clientAddress` is the
+  // socket peer address resolved by the platform adapter, not a
+  // client-supplied header.
   const ip = clientAddress ?? "unknown";
+  const albumKey = `album:${slug}`;
 
   const [ipLimited, albumLimited] = await Promise.all([
     isRateLimited(`${ip}:${slug}`, MAX_ATTEMPTS_PER_IP),
-    isRateLimited(`album:${slug}`, MAX_ATTEMPTS_PER_ALBUM),
+    isLimitReached(albumKey, MAX_FAILED_ATTEMPTS_PER_ALBUM),
   ]);
 
   if (ipLimited || albumLimited) {
@@ -89,6 +97,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   }
 
   if (!pinMatches(album.pin, pin)) {
+    await recordFailedAttempt(albumKey);
     return new Response(JSON.stringify({ error: "Invalid PIN" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
