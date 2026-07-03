@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import type { SanityImageAssetDocument } from "@sanity/client";
 import { sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../lib/auth";
+import { publishAdminEvent } from "../../../lib/ably";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff'];
@@ -67,6 +68,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         _ref: albumId,
       },
     });
+
+    publishAdminEvent('photo:uploaded', { albumId, filename });
 
     return new Response(
       JSON.stringify({ success: true, photoId: photoDoc._id }),
