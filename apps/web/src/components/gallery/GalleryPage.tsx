@@ -115,7 +115,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         throw new Error('Submission failed');
       }
 
-      setAlbum((prev) => prev ? { ...prev, status: 'locked' } : prev);
+      // Server sets status to 'submitted' on submit (three-state model: active → submitted → locked).
+      setAlbum((prev) => prev ? { ...prev, status: 'submitted' } : prev);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed');
     }
