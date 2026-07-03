@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { BlurImage } from '@/components/gallery/BlurImage';
 import type { Photo } from '@ylx/shared';
 
 interface PhotoLightboxProps {
@@ -65,9 +66,12 @@ export function PhotoLightbox({
           <button className="lightbox-close" onClick={onClose} aria-label="Close lightbox">✕</button>
         </div>
 
-        <img
+        <BlurImage
+          key={photo.id}
           className="lightbox-img"
           src={photo.url}
+          lqip={photo.lqip}
+          loading="eager"
           alt={`Photo ${currentIndex + 1} of ${photos.length}: ${photo.filename}`}
         />
 

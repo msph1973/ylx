@@ -9,7 +9,8 @@ export const albumBySlugQuery = `*[_type == "album" && slug.current == $slug][0]
   photos[]-> {
     _id,
     filename,
-    image
+    image,
+    "lqip": image.asset->metadata.lqip
   }
 }`;
 

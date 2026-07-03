@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
 import { PhotoLightbox } from '@/components/gallery/PhotoLightbox';
+import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import type { Photo } from '@ylx/shared';
 
@@ -209,10 +210,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 }
               }}
             >
-              <img
+              <BlurImage
                 src={photo.thumbnailUrl}
+                lqip={photo.lqip}
                 alt={`Photo ${index + 1} of ${album.photos.length}`}
-                loading="lazy"
               />
               {isSelected && (
                 <motion.div
@@ -333,10 +334,41 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           opacity: 0.7;
         }
 
+        .photo-item .blur-wrap {
+          width: 100%;
+          height: 100%;
+        }
+
         .photo-item img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        /* Blur-up progressive loading (LQIP) */
+        .blur-wrap {
+          display: block;
+          background-size: cover;
+          background-position: center;
+          overflow: hidden;
+        }
+
+        .blur-img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          opacity: 0;
+          transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .blur-img.loaded {
+          opacity: 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .blur-img {
+            transition: none;
+          }
         }
 
         .selection-badge {
@@ -375,7 +407,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 100;
+          z-index: var(--z-modal);
           padding: var(--space-4);
         }
 
@@ -427,10 +459,17 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         .lightbox-img {
           flex: 1;
           min-height: 0;
-          object-fit: contain;
           max-height: 75vh;
           width: 100%;
           border-radius: var(--radius-md);
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+        }
+
+        .lightbox-img img {
+          max-height: 75vh;
+          object-fit: contain;
         }
 
         .lightbox-footer {
@@ -497,7 +536,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           border-radius: var(--radius-lg);
           font-size: var(--text-sm);
           font-weight: var(--font-medium);
-          z-index: 200;
+          z-index: var(--z-toast);
           white-space: nowrap;
           pointer-events: none;
         }
