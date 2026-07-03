@@ -21,23 +21,19 @@ export function getChannelName(albumId: string): string {
 }
 
 export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): void {
-  try {
-    const key = process.env.ABLY_API_KEY;
-    if (!key) return;
-    const rest = new Ably.Rest({ key });
-    const channel = rest.channels.get("admin:updates");
-    void channel.publish(eventType, data ?? {});
-  } catch {
-    // Silently fail if Ably is not configured or publish fails
-  }
+  publish("admin:updates", eventType, data);
 }
 
 export function publishAlbumEvent(albumId: string, eventType: string, data?: Record<string, unknown>): void {
+  publish(getChannelName(albumId), eventType, data);
+}
+
+function publish(channelName: string, eventType: string, data?: Record<string, unknown>): void {
   try {
     const key = process.env.ABLY_API_KEY;
     if (!key) return;
     const rest = new Ably.Rest({ key });
-    const channel = rest.channels.get(getChannelName(albumId));
+    const channel = rest.channels.get(channelName);
     void channel.publish(eventType, data ?? {});
   } catch {
     // Silently fail if Ably is not configured or publish fails
