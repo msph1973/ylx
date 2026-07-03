@@ -19,8 +19,16 @@ interface AlbumDetailProps {
 interface AlbumPhoto {
   id: string;
   filename: string;
+  url: string;
   thumbnailUrl: string;
   lqip?: string | null;
+}
+
+function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  const next = [...items];
+  const [item] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, item);
+  return next;
 }
 
 export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDetailProps) {
@@ -39,6 +47,14 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [photoToDelete, setPhotoToDelete] = useState<AlbumPhoto | null>(null);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const [photoDeleteError, setPhotoDeleteError] = useState<string | null>(null);
+  const [photoSelectionMode, setPhotoSelectionMode] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
+  const [isBulkPhotoConfirmOpen, setIsBulkPhotoConfirmOpen] = useState(false);
+  const [isDeletingSelectedPhotos, setIsDeletingSelectedPhotos] = useState(false);
+  const [bulkPhotoDeleteError, setBulkPhotoDeleteError] = useState<string | null>(null);
+  const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
 
   const { copied: copiedLink, copy: copyLink } = useCopyToClipboard();
   const { copied: copiedPin, copy: copyPin } = useCopyToClipboard();
@@ -55,6 +71,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   }, [album?.pin, copyPin]);
 
   const fetchAlbum = useCallback(async () => {
+    setIsLoading(true);
     setError(null);
     try {
       const response = await fetch(`/api/admin/albums/${albumId}`);
@@ -71,6 +88,16 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   useEffect(() => {
     void fetchAlbum();
   }, [fetchAlbum]);
+
+  useEffect(() => {
+    setSelectedPhotoIds((prev) => {
+      if (prev.size === 0) return prev;
+
+      const currentIds = new Set((album?.photos ?? []).map((photo) => photo.id));
+      const next = new Set([...prev].filter((photoId) => currentIds.has(photoId)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [album?.photos]);
 
   const handleUnlock = async () => {
     setIsUnlocking(true);
@@ -134,6 +161,134 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     }
   };
 
+  const selectedPhotoCount = selectedPhotoIds.size;
+  const photos = (album?.photos ?? []) as AlbumPhoto[];
+  const allPhotosSelected = photos.length > 0 && photos.every((photo) => selectedPhotoIds.has(photo.id));
+
+  const exitPhotoSelectionMode = useCallback(() => {
+    setPhotoSelectionMode(false);
+    setSelectedPhotoIds(new Set());
+    setBulkPhotoDeleteError(null);
+  }, []);
+
+  const togglePhotoSelection = useCallback((photoId: string) => {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAllPhotos = useCallback(() => {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      const everySelected = photos.every((photo) => next.has(photo.id));
+      for (const photo of photos) {
+        if (everySelected) {
+          next.delete(photo.id);
+        } else {
+          next.add(photo.id);
+        }
+      }
+      return next;
+    });
+  }, [photos]);
+
+  const applyPhotoOrder = useCallback(async (nextPhotos: AlbumPhoto[]) => {
+    if (!album || nextPhotos.length < 2) {
+      return;
+    }
+
+    const previousPhotos = photos;
+    setReorderError(null);
+    setAlbum((prev) => (prev ? { ...prev, photos: nextPhotos } : prev));
+    setIsSavingOrder(true);
+
+    try {
+      const response = await fetch(`/api/admin/albums/${albumId}/reorder`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoIds: nextPhotos.map((photo) => photo.id) }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? 'Failed to save photo order');
+      }
+
+      await fetchAlbum();
+      onUpdated?.();
+    } catch (err) {
+      setAlbum((prev) => (prev ? { ...prev, photos: previousPhotos } : prev));
+      setReorderError(err instanceof Error ? err.message : 'Failed to save photo order');
+    } finally {
+      setDraggedPhotoId(null);
+      setIsSavingOrder(false);
+    }
+  }, [album, albumId, fetchAlbum, onUpdated, photos]);
+
+  const movePhotoByOffset = useCallback((photoId: string, offset: -1 | 1) => {
+    const currentIndex = photos.findIndex((photo) => photo.id === photoId);
+    const nextIndex = currentIndex + offset;
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= photos.length) {
+      return;
+    }
+
+    void applyPhotoOrder(moveItem(photos, currentIndex, nextIndex));
+  }, [applyPhotoOrder, photos]);
+
+  const handlePhotoDrop = useCallback((targetPhotoId: string) => {
+    if (!draggedPhotoId || draggedPhotoId === targetPhotoId) {
+      setDraggedPhotoId(null);
+      return;
+    }
+
+    const fromIndex = photos.findIndex((photo) => photo.id === draggedPhotoId);
+    const toIndex = photos.findIndex((photo) => photo.id === targetPhotoId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggedPhotoId(null);
+      return;
+    }
+
+    void applyPhotoOrder(moveItem(photos, fromIndex, toIndex));
+  }, [applyPhotoOrder, draggedPhotoId, photos]);
+
+  const handleDeleteSelectedPhotos = useCallback(async () => {
+    if (!album || selectedPhotoCount === 0) {
+      return;
+    }
+
+    setIsDeletingSelectedPhotos(true);
+    setBulkPhotoDeleteError(null);
+
+    try {
+      const response = await fetch('/api/admin/photos/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ albumId: album.id, photoIds: [...selectedPhotoIds] }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? 'Failed to delete selected photos');
+      }
+
+      setIsBulkPhotoConfirmOpen(false);
+      exitPhotoSelectionMode();
+      await fetchAlbum();
+      onUpdated?.();
+    } catch (err) {
+      setBulkPhotoDeleteError(err instanceof Error ? err.message : 'Failed to delete selected photos');
+    } finally {
+      setIsDeletingSelectedPhotos(false);
+    }
+  }, [album, exitPhotoSelectionMode, fetchAlbum, onUpdated, selectedPhotoCount, selectedPhotoIds]);
+
   const handleEditSuccess = useCallback(() => {
     void fetchAlbum();
     onUpdated?.();
@@ -159,7 +314,6 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
   const status = getAlbumStatusMeta(album.status);
   const isActive = album.status === 'active';
-  const photos = (album.photos ?? []) as AlbumPhoto[];
   const selectedFilenames = album.selections.map((s) => s.photo.filename);
 
   return (
@@ -271,7 +425,48 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
         <div className="section-header photos-section-header">
           <h3 className="photos-title">All Photos ({photos.length})</h3>
+          <div className="section-actions photo-section-actions">
+            <button
+              type="button"
+              className={`selection-toggle-btn${photoSelectionMode ? ' is-active' : ''}`}
+              onClick={() => {
+                if (photoSelectionMode) {
+                  exitPhotoSelectionMode();
+                } else {
+                  setPhotoSelectionMode(true);
+                  setBulkPhotoDeleteError(null);
+                }
+              }}
+              aria-pressed={photoSelectionMode}
+            >
+              {photoSelectionMode ? 'Done selecting' : 'Select photos'}
+            </button>
+            {isSavingOrder && <span className="reorder-status">Saving order…</span>}
+          </div>
         </div>
+
+        {reorderError && (
+          <p className="inline-error" role="alert">{reorderError}</p>
+        )}
+
+        {photoSelectionMode && photos.length > 0 && (
+          <div className="selection-bar photo-selection-bar">
+            <div className="selection-info">
+              <button type="button" className="link-btn" onClick={toggleSelectAllPhotos}>
+                {allPhotosSelected ? 'Clear all' : 'Select all'}
+              </button>
+              <span className="selection-count">{selectedPhotoCount} selected</span>
+            </div>
+            <button
+              type="button"
+              className="bulk-delete-btn"
+              onClick={() => setIsBulkPhotoConfirmOpen(true)}
+              disabled={selectedPhotoCount === 0}
+            >
+              Delete {selectedPhotoCount || ''} photo{selectedPhotoCount === 1 ? '' : 's'}
+            </button>
+          </div>
+        )}
 
         {photos.length === 0 ? (
           <div className="photos-empty">
@@ -280,8 +475,42 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
         ) : (
           <div className="photo-grid">
-            {photos.map((photo) => (
-              <div key={photo.id} className="photo-tile">
+            {photos.map((photo, index) => (
+              <div
+                key={photo.id}
+                className={`photo-tile${selectedPhotoIds.has(photo.id) ? ' is-selected' : ''}`}
+                draggable={!photoSelectionMode && photos.length > 1}
+                onDragStart={(event) => {
+                  if (photoSelectionMode || photos.length < 2) {
+                    event.preventDefault();
+                    return;
+                  }
+                  setDraggedPhotoId(photo.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(event) => {
+                  if (!photoSelectionMode && draggedPhotoId) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handlePhotoDrop(photo.id);
+                }}
+                onDragEnd={() => setDraggedPhotoId(null)}
+              >
+                {photoSelectionMode && (
+                  <button
+                    type="button"
+                    className={`photo-select-toggle${selectedPhotoIds.has(photo.id) ? ' checked' : ''}`}
+                    onClick={() => togglePhotoSelection(photo.id)}
+                    aria-pressed={selectedPhotoIds.has(photo.id)}
+                    aria-label={`${selectedPhotoIds.has(photo.id) ? 'Deselect' : 'Select'} photo ${photo.filename}`}
+                  >
+                    {selectedPhotoIds.has(photo.id) ? 'Selected' : 'Select'}
+                  </button>
+                )}
                 <img
                   className="photo-thumb"
                   src={photo.thumbnailUrl}
@@ -289,18 +518,40 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                   loading="lazy"
                   draggable={false}
                 />
-                <button
-                  className="photo-delete"
-                  onClick={() => { setPhotoDeleteError(null); setPhotoToDelete(photo); }}
-                  aria-label={`Delete photo ${photo.filename}`}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                    <path d="M10 11v6" /><path d="M14 11v6" />
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                  </svg>
-                </button>
+                {!photoSelectionMode && (
+                  <button
+                    className="photo-delete"
+                    onClick={() => { setPhotoDeleteError(null); setPhotoToDelete(photo); }}
+                    aria-label={`Delete photo ${photo.filename}`}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6" /><path d="M14 11v6" />
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                  </button>
+                )}
+                <div className="photo-actions" aria-label={`Reorder controls for ${photo.filename}`}>
+                  <button
+                    type="button"
+                    className="photo-move-btn"
+                    onClick={() => movePhotoByOffset(photo.id, -1)}
+                    disabled={index === 0 || isSavingOrder}
+                    aria-label={`Move ${photo.filename} earlier`}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="photo-move-btn"
+                    onClick={() => movePhotoByOffset(photo.id, 1)}
+                    disabled={index === photos.length - 1 || isSavingOrder}
+                    aria-label={`Move ${photo.filename} later`}
+                  >
+                    ↓
+                  </button>
+                </div>
                 <span className="photo-name" title={photo.filename}>{photo.filename}</span>
               </div>
             ))}
@@ -351,8 +602,31 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           selected it, that selection is removed too. This cannot be undone.
         </ConfirmDialog>
 
+        <ConfirmDialog
+          isOpen={isBulkPhotoConfirmOpen}
+          title={`Delete ${selectedPhotoCount} photo${selectedPhotoCount === 1 ? '' : 's'}?`}
+          confirmLabel={`Delete ${selectedPhotoCount} photo${selectedPhotoCount === 1 ? '' : 's'}`}
+          busyLabel="Deleting…"
+          isBusy={isDeletingSelectedPhotos}
+          error={bulkPhotoDeleteError}
+          onConfirm={() => { void handleDeleteSelectedPhotos(); }}
+          onCancel={() => setIsBulkPhotoConfirmOpen(false)}
+        >
+          Remove {selectedPhotoCount} selected photo{selectedPhotoCount === 1 ? '' : 's'} from this album? Any existing client selections for those photos are removed too.
+        </ConfirmDialog>
+
         <style>{`
           .album-detail { padding: var(--space-4); }
+
+          .inline-error {
+            margin: 0 0 var(--space-4);
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            border: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+            background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+            color: var(--color-error);
+            font-size: var(--text-sm);
+          }
 
           .detail-nav {
             display: flex;
@@ -368,7 +642,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             display: inline-flex;
             align-items: center;
             gap: var(--space-2);
-            min-height: 42px;
+            min-height: 44px;
             padding: var(--space-2) var(--space-4);
             background-color: var(--color-surface);
             border: 1px solid var(--color-border);
@@ -448,7 +722,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             display: inline-flex;
             align-items: center;
             gap: var(--space-2);
-            min-height: 42px;
+            min-height: 44px;
             padding: var(--space-2) var(--space-4);
             background-color: var(--color-surface);
             border: 1px solid var(--color-border);
@@ -483,6 +757,94 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .section-title, .photos-title { font-size: var(--text-lg); font-weight: var(--font-medium); color: var(--color-text); margin: 0; }
           .section-actions { display: flex; align-items: center; gap: var(--space-3); }
 
+          .selection-toggle-btn,
+          .bulk-delete-btn,
+          .photo-select-toggle,
+          .photo-move-btn,
+          .link-btn {
+            min-height: 44px;
+          }
+
+          .selection-toggle-btn,
+          .bulk-delete-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2-5) var(--space-4);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            background-color: var(--color-surface);
+            color: var(--color-text);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+            transition: border-color var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+          }
+
+          .selection-toggle-btn:hover:not(:disabled),
+          .selection-toggle-btn.is-active {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
+
+          .bulk-delete-btn {
+            border-color: color-mix(in srgb, var(--color-error) 45%, var(--color-border));
+            color: var(--color-error);
+          }
+
+          .bulk-delete-btn:hover:not(:disabled) {
+            border-color: var(--color-error);
+            background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+          }
+
+          .bulk-delete-btn:disabled,
+          .selection-toggle-btn:disabled,
+          .photo-move-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          .reorder-status,
+          .selection-count {
+            font-size: var(--text-sm);
+            color: var(--color-text-muted);
+            font-variant-numeric: tabular-nums;
+          }
+
+          .selection-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-4);
+            margin-bottom: var(--space-4);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            background-color: var(--color-surface);
+          }
+
+          .selection-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            flex-wrap: wrap;
+          }
+
+          .link-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--color-accent);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+          }
+
+          .link-btn:hover:not(:disabled) {
+            text-decoration: underline;
+          }
+
           .photos-empty {
             display: flex;
             flex-direction: column;
@@ -511,6 +873,16 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             display: flex;
             flex-direction: column;
             gap: var(--space-1);
+            padding: var(--space-2);
+            border: 1px solid transparent;
+            border-radius: var(--radius-lg);
+            background-color: var(--color-surface);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+          }
+
+          .photo-tile.is-selected {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent);
           }
 
           .photo-thumb {
@@ -530,8 +902,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 34px;
-            height: 34px;
+            width: 44px;
+            height: 44px;
             border: none;
             border-radius: var(--radius-md);
             background-color: color-mix(in srgb, var(--color-bg) 78%, transparent);
@@ -540,6 +912,48 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             cursor: pointer;
             opacity: 0;
             transition: opacity var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+          }
+
+          .photo-select-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            cursor: pointer;
+          }
+
+          .photo-select-toggle.checked {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
+
+          .photo-actions {
+            display: flex;
+            gap: var(--space-2);
+          }
+
+          .photo-move-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            padding: var(--space-2);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            cursor: pointer;
+          }
+
+          .photo-move-btn:hover:not(:disabled) {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
           }
 
           .photo-tile:hover .photo-delete,
@@ -570,6 +984,74 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           @media (max-width: 640px) {
             .detail-nav .back-label { display: inline; }
             .btn-edit .btn-label, .btn-delete .btn-label { display: none; }
+          }
+
+          @media (max-width: 480px) {
+            .album-detail {
+              padding-left: 0;
+              padding-right: 0;
+            }
+
+            .detail-nav,
+            .album-header,
+            .metadata-grid,
+            .share-actions,
+            .section-header,
+            .selection-bar,
+            .inline-error {
+              margin-left: var(--space-4);
+              margin-right: var(--space-4);
+            }
+
+            .detail-nav,
+            .album-header,
+            .section-header,
+            .photo-section-actions,
+            .selection-bar,
+            .selection-info {
+              flex-direction: column;
+              align-items: stretch;
+            }
+
+            .detail-nav-actions,
+            .share-actions,
+            .section-actions,
+            .photo-actions {
+              width: 100%;
+            }
+
+            .detail-nav-actions,
+            .section-actions,
+            .photo-actions {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: var(--space-2);
+            }
+
+            .share-actions {
+              display: grid;
+              grid-template-columns: 1fr;
+            }
+
+            .share-btn,
+            .lock-btn,
+            .unlock-btn,
+            .selection-toggle-btn,
+            .bulk-delete-btn,
+            .back-btn {
+              width: 100%;
+              justify-content: center;
+            }
+
+            .metadata-grid {
+              grid-template-columns: 1fr;
+            }
+
+            .photo-grid {
+              grid-template-columns: 1fr;
+              padding-left: var(--space-4);
+              padding-right: var(--space-4);
+            }
           }
         `}</style>
       </motion.div>

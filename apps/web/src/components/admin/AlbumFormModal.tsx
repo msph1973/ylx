@@ -89,7 +89,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       setError('Max selections must be a whole number of at least 1');
       return;
     }
-    if (form.eventDate < todayString) {
+    if (!isEdit && form.eventDate < todayString) {
       setError('Event date cannot be in the past');
       return;
     }
@@ -217,7 +217,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   name="eventDate"
                   value={form.eventDate}
                   onChange={handleChange}
-                  min={todayString}
+                  min={isEdit ? undefined : todayString}
                   required
                 />
               </div>
@@ -302,6 +302,8 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           border-radius: var(--radius-2xl);
           width: 100%;
           max-width: 480px;
+          max-height: min(100%, 720px);
+          overflow: auto;
           box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
         }
 
@@ -323,8 +325,8 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
+          width: 44px;
+          height: 44px;
           border: none;
           background: transparent;
           color: var(--color-text-muted);
@@ -384,6 +386,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .form-input {
           padding: var(--space-2-5) var(--space-3);
+          min-height: 44px;
           background-color: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -415,6 +418,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .btn-primary {
           padding: var(--space-2-5) var(--space-5);
+          min-height: 44px;
           background-color: var(--color-accent);
           color: white;
           border: none;
@@ -436,6 +440,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .btn-secondary {
           padding: var(--space-2-5) var(--space-5);
+          min-height: 44px;
           background-color: transparent;
           color: var(--color-text-muted);
           border: 1px solid var(--color-border);
@@ -454,6 +459,40 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         .btn-secondary:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        @media (max-width: 480px) {
+          .modal-backdrop {
+            padding: 0;
+            align-items: flex-end;
+          }
+
+          .modal {
+            max-width: none;
+            max-height: 100dvh;
+            border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+          }
+
+          .modal-header,
+          .modal-form {
+            padding-left: var(--space-4);
+            padding-right: var(--space-4);
+          }
+
+          .modal-header {
+            padding-top: var(--space-4);
+          }
+
+          .form-row,
+          .modal-actions {
+            grid-template-columns: 1fr;
+            flex-direction: column;
+          }
+
+          .btn-primary,
+          .btn-secondary {
+            width: 100%;
+          }
         }
       `}</style>
     </AnimatePresence>

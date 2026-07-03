@@ -1,5 +1,5 @@
 # YLx — Progress & History
-> Last updated: 2026-07-03 | Branch: `master` (all PRs merged)
+> Last updated: 2026-07-03 | Branch: `feat/admin-dashboard-impeccable` (PR #19 OPEN — belum merge); semua PR lain sudah di `master`
 
 For current state, see `STATUS.md`. This file records history of what was fixed and when.
 
@@ -77,6 +77,33 @@ For current state, see `STATUS.md`. This file records history of what was fixed 
 - **Gallery E2E refresh:** `tests/gallery.spec.ts` updated to `{ album }` response shape + lightbox open/close (Escape) + select/deselect-from-lightbox flow; hydration-safe PIN helper (waits for React `__reactFiber$`/`__reactProps$`) fixes the dropped-first-digit flake. 5/5 pass via `pnpm test:e2e`.
 - Bot reviews (Sourcery, Devin) addressed: `loaded` reset on `src`, `Photo` metadata fields made optional to match the verify API, blur-up wrapper visibility fix.
 - `tests/admin.spec.ts` still fails (pre-existing, out of scope): needs a signed-session seed helper for the `/admin` auth guard.
+
+---
+
+## Open Work
+
+### PR #19 — `feat/admin-dashboard-impeccable` (OPEN, belum merge)
+
+Penyempurnaan admin dashboard (audit admin) di atas commit `1e49b3b`. Keputusan merge menunggu reviewer.
+
+**Fondasi (commit `1e49b3b`):** search + filter album, bulk-delete album, manual Lock/Unlock, grid foto + hapus per-foto, status `submitted` (schema Studio sudah deploy), `ConfirmDialog` + `useFocusTrap`, helper `cascadeDeleteAlbums` / `albumStatus`.
+
+**Perbaikan review PR #19:**
+- `AlbumFormModal.tsx` — validasi future-date hanya saat `mode === 'create'`; album event lampau kini bisa diedit & disimpan (`min` juga dilepas saat edit).
+- `AlbumList.tsx` / `AlbumDetail.tsx` — `setIsLoading(true)` di awal fetch; retry menampilkan spinner, bukan flash "No albums" / "Album not found".
+- `SelectionTable.tsx` + tipe `Selection`/`Photo` — `thumbnailUrl` jadi field bertipe, cast longgar `as { thumbnailUrl?: string }` dibuang.
+
+**Fitur baru:**
+- **Pagination album** — client-side `PAGE_SIZE=12` atas `filteredAlbums`, kontrol Prev/Next ber-`aria-label` + summary `aria-live`, reset ke halaman 1 saat search/filter berubah; select-all beroperasi pada halaman aktif.
+- **Bulk photo delete** — endpoint baru `api/admin/photos/bulk-delete.ts` (`requireAdmin`, validasi kepemilikan album, unset selection dari submission + hapus selection + unset dari `album.photos` + hapus foto dalam 1 transaksi, `publishAdminEvent('photo:deleted')`/`selection:changed` + `publishAlbumEvent`); UI mode select + select-all/clear + `ConfirmDialog` di `AlbumDetail`.
+- **Reorder foto** — endpoint baru `api/admin/albums/[id]/reorder.ts` (PATCH; `requireAdmin`, validasi semua `_ref` milik album, `set` ulang `album.photos` sambil menjaga `_key`, `publishAdminEvent('album:updated')` + `publishAlbumEvent`); UI native HTML5 drag + tombol naik/turun keyboard, optimistic update + rollback lalu refetch.
+- **Mobile-first pass (≤480px)** — `AlbumList`/`AlbumDetail`/`AlbumFormModal`/`SelectionTable`: toolbar wrap, modal full-height (`100dvh`), grid 1 kolom, tabel selection scrollable, target sentuh ≥44px — pakai token `variables.css`.
+
+**Test readiness:**
+- `tests/helpers/adminSession.ts` — seed cookie `admin_session` HMAC-signed (selaras `auth.ts`) untuk bypass auth-guard `/admin`.
+- `tests/admin.spec.ts` — 4 test (pagination, bulk photo delete, reorder keyboard, lock/unlock); semua route API di-mock via `page.route`, jadi tidak butuh Sanity/Ably live. **4/4 pass lokal** (~14s).
+
+**Verifikasi (fresh):** `pnpm exec tsc --noEmit` lolos, `pnpm exec eslint src --max-warnings 0` lolos, `pnpm exec playwright test tests/admin.spec.ts` 4/4 pass.
 
 ---
 

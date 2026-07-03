@@ -44,7 +44,7 @@ export function SelectionTable({ selections }: SelectionTableProps) {
 
       <motion.div className="table-body" role="rowgroup" variants={containerVariants} initial="hidden" animate="show">
         {selections.map((selection) => {
-          const thumbnailUrl = (selection.photo as { thumbnailUrl?: string }).thumbnailUrl;
+          const thumbnailUrl = selection.photo.thumbnailUrl;
           return (
             <motion.div
               key={selection.id}
@@ -72,6 +72,19 @@ export function SelectionTable({ selections }: SelectionTableProps) {
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
           overflow: hidden;
+        }
+
+        @media (max-width: 480px) {
+          .selection-table-container {
+            overflow-x: auto;
+          }
+
+          .table-header,
+          .table-row {
+            min-width: 320px;
+            padding-left: var(--space-3);
+            padding-right: var(--space-3);
+          }
         }
 
         .table-header,

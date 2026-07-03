@@ -10,6 +10,7 @@ interface AlbumListProps {
 }
 
 type StatusFilter = 'all' | AlbumStatusVariant;
+const PAGE_SIZE = 12;
 
 export function AlbumList({ onSelectAlbum }: AlbumListProps) {
   const shouldReduceMotion = useReducedMotion();
@@ -25,8 +26,10 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const fetchAlbums = useCallback(async () => {
+    setIsLoading(true);
     setError(null);
     try {
       const response = await fetch('/api/admin/albums');
@@ -77,8 +80,33 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
     });
   }, [albums, search, statusFilter]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAlbums.length / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
+  const paginatedAlbums = useMemo(() => {
+    const startIndex = (page - 1) * PAGE_SIZE;
+    return filteredAlbums.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredAlbums, page]);
+
+  const visibleRange = useMemo(() => {
+    if (filteredAlbums.length === 0) {
+      return { start: 0, end: 0 };
+    }
+
+    const start = (page - 1) * PAGE_SIZE + 1;
+    const end = Math.min(page * PAGE_SIZE, filteredAlbums.length);
+    return { start, end };
+  }, [filteredAlbums.length, page]);
+
   const allVisibleSelected =
-    filteredAlbums.length > 0 && filteredAlbums.every((a) => selectedIds.has(a.id));
+    paginatedAlbums.length > 0 && paginatedAlbums.every((a) => selectedIds.has(a.id));
 
   const toggleSelect = useCallback((album: AlbumCardData) => {
     setSelectedIds((prev) => {
@@ -92,14 +120,14 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
   const toggleSelectAllVisible = useCallback(() => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      const everySelected = filteredAlbums.every((a) => next.has(a.id));
-      for (const a of filteredAlbums) {
+      const everySelected = paginatedAlbums.every((a) => next.has(a.id));
+      for (const a of paginatedAlbums) {
         if (everySelected) next.delete(a.id);
         else next.add(a.id);
       }
       return next;
     });
-  }, [filteredAlbums]);
+  }, [paginatedAlbums]);
 
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false);
@@ -239,7 +267,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
             transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
           >
             <div className="selection-info">
-              <button className="link-btn" onClick={toggleSelectAllVisible} disabled={filteredAlbums.length === 0}>
+              <button className="link-btn" onClick={toggleSelectAllVisible} disabled={paginatedAlbums.length === 0}>
                 {allVisibleSelected ? 'Deselect all' : 'Select all'}
               </button>
               <span className="selection-count">
@@ -271,28 +299,61 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           </button>
         </div>
       ) : (
-        <div className="album-list">
-          <AnimatePresence mode="popLayout">
-            {filteredAlbums.map((album) => (
-              <motion.div
-                key={album.id}
-                layout
-                initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30, duration: shouldReduceMotion ? 0 : undefined }}
-              >
-                <AlbumCard
-                  album={album}
-                  onClick={onSelectAlbum}
-                  selectionMode={selectionMode}
-                  selected={selectedIds.has(album.id)}
-                  onToggleSelect={toggleSelect}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+        <>
+          <div className="pagination-summary" aria-live="polite">
+            <span>
+              Showing {visibleRange.start}–{visibleRange.end} of {filteredAlbums.length} album{filteredAlbums.length === 1 ? '' : 's'}
+            </span>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+          </div>
+
+          <div className="album-list">
+            <AnimatePresence mode="popLayout">
+              {paginatedAlbums.map((album) => (
+                <motion.div
+                  key={album.id}
+                  layout
+                  initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30, duration: shouldReduceMotion ? 0 : undefined }}
+                >
+                  <AlbumCard
+                    album={album}
+                    onClick={onSelectAlbum}
+                    selectionMode={selectionMode}
+                    selected={selectedIds.has(album.id)}
+                    onToggleSelect={toggleSelect}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          <nav className="pagination-controls" aria-label="Album pages">
+            <button
+              type="button"
+              className="pagination-btn"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page === 1}
+              aria-label="Go to previous page"
+            >
+              Previous
+            </button>
+            <span className="pagination-page-label">Page {page} / {totalPages}</span>
+            <button
+              type="button"
+              className="pagination-btn"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={page === totalPages}
+              aria-label="Go to next page"
+            >
+              Next
+            </button>
+          </nav>
+        </>
       )}
 
       <ConfirmDialog
@@ -329,6 +390,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
 
         .toolbar-primary {
           display: flex;
+          flex-wrap: wrap;
           gap: var(--space-3);
           align-items: center;
         }
@@ -350,6 +412,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
 
         .search-input {
           width: 100%;
+          min-height: 44px;
           padding: var(--space-2-5) var(--space-3) var(--space-2-5) var(--space-8);
           background-color: var(--color-surface);
           border: 1px solid var(--color-border);
@@ -373,8 +436,8 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
+          width: 36px;
+          height: 36px;
           border: none;
           background: transparent;
           color: var(--color-text-muted);
@@ -387,7 +450,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
         .select-toggle {
           flex-shrink: 0;
           padding: var(--space-2-5) var(--space-4);
-          min-height: 42px;
+          min-height: 44px;
           background-color: var(--color-surface);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -416,6 +479,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           gap: var(--space-2);
           flex-shrink: 0;
           padding: var(--space-2) var(--space-3);
+          min-height: 44px;
           background-color: transparent;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-full);
@@ -448,6 +512,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          flex-wrap: wrap;
           gap: var(--space-3);
           padding: var(--space-3) var(--space-4);
           background-color: var(--color-surface);
@@ -458,6 +523,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
         .selection-info {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
           gap: var(--space-4);
         }
 
@@ -468,6 +534,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           font-size: var(--text-sm);
           font-weight: var(--font-medium);
           cursor: pointer;
+          min-height: 44px;
           padding: 0;
         }
         .link-btn:hover:not(:disabled) { text-decoration: underline; }
@@ -484,7 +551,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           align-items: center;
           gap: var(--space-2);
           padding: var(--space-2-5) var(--space-4);
-          min-height: 42px;
+          min-height: 44px;
           background-color: transparent;
           border: 1px solid color-mix(in srgb, var(--color-error) 45%, var(--color-border));
           border-radius: var(--radius-md);
@@ -522,12 +589,83 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           gap: var(--space-4);
         }
 
+        .pagination-summary,
+        .pagination-controls {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-3);
+          flex-wrap: wrap;
+        }
+
+        .pagination-summary {
+          font-size: var(--text-sm);
+          color: var(--color-text-muted);
+        }
+
+        .pagination-controls {
+          padding-top: var(--space-1);
+        }
+
+        .pagination-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 44px;
+          padding: var(--space-2-5) var(--space-4);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          background-color: var(--color-surface);
+          color: var(--color-text);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          cursor: pointer;
+          transition: border-color var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+          border-color: var(--color-accent);
+          color: var(--color-accent);
+        }
+
+        .pagination-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+
+        .pagination-page-label {
+          font-size: var(--text-sm);
+          color: var(--color-text-muted);
+          font-variant-numeric: tabular-nums;
+        }
+
         @media (min-width: 640px) {
           .album-list { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (min-width: 1024px) {
           .album-list { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 480px) {
+          .toolbar-primary {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .select-toggle,
+          .bulk-delete-btn,
+          .pagination-btn {
+            width: 100%;
+          }
+
+          .pagination-controls > * {
+            width: 100%;
+          }
+
+          .pagination-page-label {
+            text-align: center;
+          }
         }
       `}</style>
     </div>
