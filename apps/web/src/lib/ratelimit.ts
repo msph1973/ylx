@@ -1,10 +1,11 @@
 // Fixed-window rate limiter. Uses Upstash Redis (REST) when configured so the
 // limit persists across serverless cold-starts and instances; otherwise falls
-// back to an in-memory Map (per-instance, resets on cold-start).
+// back to an in-memory Map (per-instance, dev only — production without
+// Upstash fails closed, since a per-instance limiter is trivially bypassed
+// across serverless instances).
 //
 // Configure with UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (no SDK).
 
-const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const WINDOW_SECONDS = 15 * 60;
 
@@ -15,7 +16,7 @@ interface MemoryEntry {
 
 const memory = new Map<string, MemoryEntry>();
 
-function memoryLimited(key: string): boolean {
+function memoryLimited(key: string, maxAttempts: number): boolean {
   const now = Date.now();
   const entry = memory.get(key);
 
@@ -25,12 +26,17 @@ function memoryLimited(key: string): boolean {
   }
 
   // Increment-then-compare, mirroring the Upstash INCR branch: both allow
-  // MAX_ATTEMPTS requests and block the (MAX_ATTEMPTS + 1)-th.
+  // maxAttempts requests and block the (maxAttempts + 1)-th.
   entry.count += 1;
-  return entry.count > MAX_ATTEMPTS;
+  return entry.count > maxAttempts;
 }
 
-async function upstashLimited(key: string, url: string, token: string): Promise<boolean> {
+async function upstashLimited(
+  key: string,
+  maxAttempts: number,
+  url: string,
+  token: string
+): Promise<boolean> {
   // INCR the counter and set the TTL only on the first hit (EXPIRE ... NX).
   const res = await fetch(`${url}/pipeline`, {
     method: "POST",
@@ -44,31 +50,41 @@ async function upstashLimited(key: string, url: string, token: string): Promise<
     ]),
   });
 
-  // Fail open: a limiter outage must not lock out legitimate clients.
+  // Fail closed: this limiter is the only brute-force barrier on the gallery
+  // PIN, so a limiter outage must not silently disable it.
   if (!res.ok) {
-    console.warn(`[RateLimit] Upstash request failed (${res.status}); failing open.`);
-    return false;
+    console.warn(`[RateLimit] Upstash request failed (${res.status}); failing closed.`);
+    return true;
   }
 
   const data = (await res.json()) as Array<{ result?: number }>;
   const count = Number(data?.[0]?.result ?? 0);
-  return count > MAX_ATTEMPTS;
+  return count > maxAttempts;
 }
 
-export async function isRateLimited(key: string): Promise<boolean> {
+export async function isRateLimited(key: string, maxAttempts: number): Promise<boolean> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (url && token) {
     try {
-      return await upstashLimited(key, url, token);
+      return await upstashLimited(key, maxAttempts, url, token);
     } catch (err) {
-      console.warn("[RateLimit] Upstash unavailable; failing open:", err);
-      return false; // fail open on infra error
+      console.warn("[RateLimit] Upstash unavailable; failing closed:", err);
+      return true; // fail closed on infra error
     }
   }
 
-  return memoryLimited(key);
+  // The in-memory Map is per-instance and resets on cold start, so it is not
+  // an effective limit on serverless. Only allow it outside production.
+  if (import.meta.env.PROD) {
+    console.error(
+      "[RateLimit] UPSTASH_REDIS_REST_URL/TOKEN not configured in production; failing closed."
+    );
+    return true;
+  }
+
+  return memoryLimited(key, maxAttempts);
 }
 
 export const RATE_LIMIT_RETRY_AFTER = String(WINDOW_SECONDS);

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
@@ -26,7 +27,16 @@ interface SanityAlbumRaw {
   photos: SanityPhotoRaw[];
 }
 
-export const POST: APIRoute = async ({ params, request }) => {
+const MAX_ATTEMPTS_PER_IP = 5;
+const MAX_ATTEMPTS_PER_ALBUM = 30;
+
+function pinMatches(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected);
+  const b = Buffer.from(provided);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -35,14 +45,18 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  // Rate limiting: key = IP + slug
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown";
-  const rateLimitKey = `${ip}:${slug}`;
+  // Rate limiting: per IP+slug, plus a global per-slug cap so an attacker
+  // rotating IPs (or spoofing forwarded headers) cannot get unlimited
+  // fresh buckets against one album. `clientAddress` is the socket peer
+  // address resolved by the platform adapter, not a client-supplied header.
+  const ip = clientAddress ?? "unknown";
 
-  if (await isRateLimited(rateLimitKey)) {
+  const [ipLimited, albumLimited] = await Promise.all([
+    isRateLimited(`${ip}:${slug}`, MAX_ATTEMPTS_PER_IP),
+    isRateLimited(`album:${slug}`, MAX_ATTEMPTS_PER_ALBUM),
+  ]);
+
+  if (ipLimited || albumLimited) {
     return new Response(
       JSON.stringify({ error: "Too many attempts. Please try again later." }),
       {
@@ -74,7 +88,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  if (album.pin !== pin) {
+  if (!pinMatches(album.pin, pin)) {
     return new Response(JSON.stringify({ error: "Invalid PIN" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
