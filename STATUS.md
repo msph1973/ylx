@@ -124,7 +124,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Session cookie `secure: PROD` | ✅ |
 | `requireAdmin()` di semua admin endpoints | ✅ |
 | Single error message login (no enumeration) | ✅ |
-| PIN rate limiter 5x/15min/IP (persist Upstash bila di-set, else in-memory) | ✅ |
+| PIN rate limiter 5x/15min/IP + 30 failed/15min/album (Upstash wajib di production — fail closed; in-memory hanya dev) | ✅ |
 | `.git` / `.env` diblok di Vercel | ✅ |
 | Hardcoded credentials di repo | ✅ Tidak ada |
 | `create-admin` selalu wajib auth (admin pertama via CLI `seed-admin.mjs`) | ✅ |

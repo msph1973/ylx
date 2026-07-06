@@ -1,7 +1,13 @@
+import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
+import {
+  isLimitReached,
+  isRateLimited,
+  RATE_LIMIT_RETRY_AFTER,
+  recordFailedAttempt,
+} from "../../../../lib/ratelimit";
 
 interface SanityImageRef {
   _type: string;
@@ -26,7 +32,21 @@ interface SanityAlbumRaw {
   photos: SanityPhotoRaw[];
 }
 
-export const POST: APIRoute = async ({ params, request }) => {
+const MAX_ATTEMPTS_PER_IP = 5;
+const MAX_FAILED_ATTEMPTS_PER_ALBUM = 30;
+
+function pinMatches(expected: string, provided: string): boolean {
+  // Defensive: a non-string here would make Buffer.from throw (TypeError -> 500).
+  // Guard so a malformed input degrades to a clean "no match" instead of a crash.
+  if (typeof expected !== "string" || typeof provided !== "string") {
+    return false;
+  }
+  const a = Buffer.from(expected);
+  const b = Buffer.from(provided);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -35,14 +55,21 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  // Rate limiting: key = IP + slug
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown";
-  const rateLimitKey = `${ip}:${slug}`;
+  // Rate limiting: per IP+slug, plus a global per-slug cap on *failed*
+  // attempts so an attacker rotating IPs (or spoofing forwarded headers)
+  // cannot get unlimited fresh buckets against one album, while successful
+  // logins by many guests never lock the album. `clientAddress` is the
+  // socket peer address resolved by the platform adapter, not a
+  // client-supplied header.
+  const ip = clientAddress ?? "unknown";
+  const albumKey = `album:${slug}`;
 
-  if (await isRateLimited(rateLimitKey)) {
+  const [ipLimited, albumLimited] = await Promise.all([
+    isRateLimited(`${ip}:${slug}`, MAX_ATTEMPTS_PER_IP),
+    isLimitReached(albumKey, MAX_FAILED_ATTEMPTS_PER_ALBUM),
+  ]);
+
+  if (ipLimited || albumLimited) {
     return new Response(
       JSON.stringify({ error: "Too many attempts. Please try again later." }),
       {
@@ -56,9 +83,11 @@ export const POST: APIRoute = async ({ params, request }) => {
   }
 
   const body = await request.json();
-  const pin = body.pin as string | undefined;
+  const pin = body.pin;
 
-  if (!pin) {
+  // Reject anything that isn't a non-empty string (e.g. { "pin": 1234 } or
+  // a missing field) with a clean 400 instead of letting Buffer.from throw a 500.
+  if (typeof pin !== "string" || pin.length === 0) {
     return new Response(JSON.stringify({ error: "Missing pin" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
@@ -74,7 +103,8 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  if (album.pin !== pin) {
+  if (!pinMatches(album.pin, pin)) {
+    await recordFailedAttempt(albumKey);
     return new Response(JSON.stringify({ error: "Invalid PIN" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
