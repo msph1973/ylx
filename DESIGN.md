@@ -63,7 +63,7 @@ components:
 
 **Creative North Star: "The Intimate Gallery"**
 
-YLx is a professional tool that feels personal. The dark theme signals competence and sophistication; the warm amber accent (#d4a574) signals the intimacy of weddings. This is not a corporate dashboard or a frilly wedding site—it's a crafted workspace where photographers manage their art and clients select their memories.
+YLx is a professional tool that feels personal. The dark theme signals competence and sophistication; the warm amber accent (#b8864e) signals the intimacy of weddings. This is not a corporate dashboard or a frilly wedding site—it's a crafted workspace where photographers manage their art and clients select their memories.
 
 The system rejects both poles: generic SaaS blue-gray palettes that feel interchangeable, and over-decorated wedding aesthetics with cursive scripts and pastel florals. YLx occupies the space between—professional enough for business, warm enough for the occasion.
 
@@ -78,8 +78,9 @@ The system rejects both poles: generic SaaS blue-gray palettes that feel interch
 The palette is restrained: one warm accent on a near-black neutral field. Warmth comes from the accent and imagery, not from tinted backgrounds.
 
 ### Primary
-- **Warm Amber** (#d4a574): The signature accent. Used on interactive elements, active states, brand moments. Carries the "intimate" half of the brand personality.
-- **Amber Hover** (#e0b88a): Lighter variant for hover/focus states.
+- **Warm Amber** (#b8864e): The signature accent. Used on interactive elements, active states, brand moments. Carries the "intimate" half of the brand personality. Measured 4.8:1 on #0a0a0a (WCAG AA)—chosen deliberately over a lighter amber for contrast.
+- **Amber Hover** (#c99660): Lighter variant for hover/focus states.
+- **Amber Dark** (#9e7040): Dark variant for amber-on-colored-surface fills.
 
 ### Neutral
 - **Deep Black** (#0a0a0a): Body background. Near-black, not pure black—avoids harsh contrast while maintaining premium feel.
@@ -87,7 +88,7 @@ The palette is restrained: one warm accent on a near-black neutral field. Warmth
 - **Surface Elevated** (#1a1a1a): Hover states, dropdowns, modals. Two steps lighter.
 - **Border** (#2a2a2a): Subtle dividers. Low contrast against surfaces—present but not shouting.
 - **Text** (#fafafa): Primary text. Near-white for readability on dark backgrounds.
-- **Text Muted** (#8a8a8a): Secondary text, labels, timestamps. Reduced opacity for hierarchy.
+- **Text Muted** (#a0a0a0): Secondary text, labels, timestamps. 4.6:1 on #0a0a0a (WCAG AA).
 
 ### Semantic
 - **Success** (#4ade80): Active status badges, confirmation states.
@@ -130,8 +131,8 @@ The system uses tonal layering over shadows. Depth is conveyed through backgroun
 
 ### Buttons
 - **Shape:** Gently rounded (0.5rem radius)
-- **Primary:** Warm amber background (#d4a574), dark text (#0a0a0a), padding 0.75rem 2rem
-- **Hover / Focus:** Lighter amber (#e0b88a), subtle translate up (-2px), 200ms ease
+- **Primary:** Warm amber background (#b8864e), dark text (#0a0a0a), padding 0.75rem 2rem
+- **Hover / Focus:** Lighter amber (#c99660), subtle translate up (-2px), 200ms ease
 - **Ghost/Secondary:** Transparent background, border 1px solid border color, text color
 
 ### Cards / Containers
@@ -143,15 +144,15 @@ The system uses tonal layering over shadows. Depth is conveyed through backgroun
 
 ### Inputs / Fields
 - **Style:** Dark background (#141414), 2px border (#2a2a2a), rounded (0.5rem)
-- **Focus:** Border shifts to accent (#d4a574), subtle glow (0 0 0 3px rgba(212,165,116,0.2))
+- **Focus:** Border shifts to accent (#b8864e), subtle glow (0 0 0 3px rgba(184,134,78,0.2))
 - **Error:** Border shifts to error color (#f87171)
 
 ### Navigation (Admin Sidebar)
 - **Style:** Surface background, full height, 250px width
 - **Typography:** Label style (uppercase, tracked)
-- **Default:** Muted text (#8a8a8a)
+- **Default:** Muted text (#a0a0a0)
 - **Hover:** Text brightens to primary text (#fafafa), subtle background shift
-- **Active:** Accent text (#d4a574)
+- **Active:** Accent text (#b8864e)
 
 ### Status Badges
 - **Active:** Success color (#4ade80) at 15% opacity, success text

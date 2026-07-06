@@ -287,7 +287,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         .modal-backdrop {
           position: fixed;
           inset: 0;
-          background-color: rgba(0, 0, 0, 0.5);
+          background-color: var(--overlay-scrim);
           backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
@@ -304,7 +304,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           max-width: 480px;
           max-height: min(100%, 720px);
           overflow: auto;
-          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 24px 64px var(--overlay-shadow-modal);
         }
 
         .modal-header {

@@ -65,6 +65,12 @@
   --radius-2xl: 1rem;
   --radius-full: 9999px;
 
+  /* Overlays / scrims (backdrops behind modals & lightbox) */
+  --overlay-scrim: rgba(0, 0, 0, 0.5);
+  --overlay-lightbox: rgba(0, 0, 0, 0.92);
+  --overlay-shadow-modal: rgba(0, 0, 0, 0.3);
+  --overlay-shadow-dialog: rgba(0, 0, 0, 0.4);
+
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);

@@ -103,7 +103,9 @@ Penyempurnaan admin dashboard (audit admin) di atas commit `1e49b3b`. Keputusan 
 - `tests/helpers/adminSession.ts` — seed cookie `admin_session` HMAC-signed (selaras `auth.ts`) untuk bypass auth-guard `/admin`.
 - `tests/admin.spec.ts` — 4 test (pagination, bulk photo delete, reorder keyboard, lock/unlock); semua route API di-mock via `page.route`, jadi tidak butuh Sanity/Ably live. **4/4 pass lokal** (~14s).
 
-**Verifikasi (fresh):** `pnpm exec tsc --noEmit` lolos, `pnpm exec eslint src --max-warnings 0` lolos, `pnpm exec playwright test tests/admin.spec.ts` 4/4 pass.
+**Impeccable polish pass (audit follow-up, 6 fixes):** (P1) `DESIGN.md` diselaraskan ke ramp amber ter-*ship* `#b8864e`/`#c99660`/`#9e7040` + muted `#a0a0a0`; (P2) overlay `rgba(0,0,0,…)` → token `--overlay-*` di `variables.css` (dipakai `AlbumFormModal`/`ConfirmDialog`/`GalleryPage`); (P2) target sentuh ≥44px pada `.admin-link` + kontrol lightbox; (P2) `::placeholder` eksplisit AA global di `global.css`; (P3) island admin `client:load` → `client:idle` (galeri tetap `client:load`); (P3) hover `.gallery-btn` pakai `--color-accent-hover`. `astro.config.mjs` menambah `devToolbar: { enabled: false }` (overlay dev menghalangi klik lightbox di Playwright; absen di prod). Detail: `docs/admin-dashboard-enhancements.md`.
+
+**Verifikasi (fresh):** `pnpm exec tsc --noEmit` lolos, `pnpm exec eslint src --max-warnings 0` lolos, `pnpm exec vitest run` 3/3, `pnpm exec playwright test` (admin 4/4 + gallery 5/5), `pnpm build` lolos.
 
 ---
 

@@ -156,11 +156,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     font-weight: var(--font-semibold);
     cursor: pointer;
     white-space: nowrap;
-    transition: opacity var(--transition-fast);
+    transition: background-color var(--transition-fast);
   }
 
   .gallery-btn:hover {
-    opacity: 0.85;
+    background-color: var(--color-accent-hover);
   }
 
   .input-hint {
@@ -177,6 +177,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   }
 
   .admin-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: var(--space-2) var(--space-4);
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     text-decoration: underline;

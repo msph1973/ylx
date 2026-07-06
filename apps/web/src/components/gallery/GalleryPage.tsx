@@ -404,7 +404,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         .lightbox-backdrop {
           position: fixed;
           inset: 0;
-          background-color: rgba(0, 0, 0, 0.92);
+          background-color: var(--overlay-lightbox);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -443,6 +443,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         .lightbox-close {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
           background: none;
           border: none;
           color: rgba(255,255,255,0.7);
@@ -482,6 +487,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         .lightbox-nav {
+          min-height: 44px;
           background: none;
           border: 1px solid rgba(255,255,255,0.25);
           border-radius: var(--radius-md);
@@ -503,6 +509,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         .lightbox-select {
+          min-height: 44px;
           padding: var(--space-2) var(--space-6);
           border-radius: var(--radius-md);
           font-weight: var(--font-medium);

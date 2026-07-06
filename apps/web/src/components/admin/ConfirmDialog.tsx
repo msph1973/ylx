@@ -95,7 +95,7 @@ export function ConfirmDialog({
             .confirm-backdrop {
               position: fixed;
               inset: 0;
-              background-color: rgba(0, 0, 0, 0.5);
+              background-color: var(--overlay-scrim);
               backdrop-filter: blur(4px);
               display: flex;
               align-items: center;
@@ -111,7 +111,7 @@ export function ConfirmDialog({
               padding: var(--space-6);
               max-width: 420px;
               width: 100%;
-              box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+              box-shadow: 0 24px 64px var(--overlay-shadow-dialog);
             }
 
             .confirm-dialog:focus {

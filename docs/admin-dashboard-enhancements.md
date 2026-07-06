@@ -86,6 +86,23 @@ desain (dark theme + amber accent) dan skill `impeccable`.
 - `pnpm exec playwright test tests/admin.spec.ts` — **4/4 pass** (~14s): pagination, bulk photo delete, reorder (keyboard), lock/unlock. API di-mock via `page.route`; auth via signed-session helper.
 - E2E `gallery.spec.ts` — selektor & asumsi status yang diuji tetap kompatibel
 
+## Impeccable polish pass (audit follow-up)
+
+Enam rekomendasi dari `/impeccable audit` (skor 16/20) dikerjakan sekaligus di atas fondasi ini:
+
+| # | Prioritas | Perbaikan |
+|---|---|---|
+| 1 | P1 (`document`) | `DESIGN.md` diselaraskan ke ramp amber ter-*ship* `#b8864e`/`#c99660`/`#9e7040` + muted `#a0a0a0` (prosa §1/§2/§5 sebelumnya masih menyebut `#d4a574`/`#e0b88a`/`#8a8a8a`); rasionale kontras dipertahankan. |
+| 2 | P2 (`extract`) | Overlay/scrim `rgba(0,0,0,…)` inline dijadikan token `--overlay-scrim`/`--overlay-lightbox`/`--overlay-shadow-modal`/`--overlay-shadow-dialog` di `variables.css`, dipakai `AlbumFormModal`, `ConfirmDialog`, `GalleryPage`. |
+| 3 | P2 (`adapt`) | Target sentuh ≥44px: `.admin-link` (homepage) + kontrol lightbox (`.lightbox-close`/`.lightbox-nav`/`.lightbox-select`). |
+| 4 | P2 (`colorize`) | Warna `::placeholder` eksplisit (`--color-text-muted`, 4.6:1) global di `global.css` — mencakup input homepage & PIN. |
+| 5 | P3 (`optimize`) | Island admin (`AdminPage`, `UploadPage`) diturunkan `client:load` → `client:idle`; galeri tetap `client:load` (butuh interaksi PIN langsung). |
+| 6 | P3 (`polish`) | Hover `.gallery-btn` pakai `--color-accent-hover` (bukan `opacity: 0.85`). |
+
+Catatan: `astro.config.mjs` menambah `devToolbar: { enabled: false }` — overlay dev-only `<astro-dev-toolbar>` menghalangi klik kontrol lightbox di Playwright (tak ada di build produksi).
+
+Verifikasi polish pass: `tsc` lolos, `eslint` lolos, `vitest` 3/3, `playwright` galeri **5/5** + admin **4/4**, `pnpm build` lolos.
+
 ## Bot review (PR #19)
 
 - **Sourcery / Devin** — pass. Temuan Devin yang **sudah diperbaiki**:
