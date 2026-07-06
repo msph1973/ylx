@@ -12,7 +12,7 @@ desain (dark theme + amber accent) dan skill `impeccable`.
 
 | Kategori | Yang ditambahkan |
 |---|---|
-| Search & Filter | Kotak pencarian album (client / judul / PIN) + filter status ber-hitung (All / Active / Submitted / Locked), 100% client-side |
+| Search & Filter | Kotak pencarian album (client / judul / PIN) + filter status dengan hitungan (All / Active / Submitted / Locked), 100% client-side |
 | Bulk operations (album) | Mode pilih di daftar album, select all / deselect all, dan **hapus massal** lewat satu endpoint transaksi atomik |
 | Pagination album | Daftar album ter-paginate client-side (`PAGE_SIZE=12`) dengan kontrol Prev/Next, tetap hormati search + filter |
 | Photo management | Grid "All Photos" dengan thumbnail di detail album + **hapus per-foto**, plus thumbnail di tabel pilihan |
