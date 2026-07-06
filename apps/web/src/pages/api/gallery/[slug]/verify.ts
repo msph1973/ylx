@@ -36,6 +36,11 @@ const MAX_ATTEMPTS_PER_IP = 5;
 const MAX_FAILED_ATTEMPTS_PER_ALBUM = 30;
 
 function pinMatches(expected: string, provided: string): boolean {
+  // Defensive: a non-string here would make Buffer.from throw (TypeError -> 500).
+  // Guard so a malformed input degrades to a clean "no match" instead of a crash.
+  if (typeof expected !== "string" || typeof provided !== "string") {
+    return false;
+  }
   const a = Buffer.from(expected);
   const b = Buffer.from(provided);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -78,9 +83,11 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   }
 
   const body = await request.json();
-  const pin = body.pin as string | undefined;
+  const pin = body.pin;
 
-  if (!pin) {
+  // Reject anything that isn't a non-empty string (e.g. { "pin": 1234 } or
+  // a missing field) with a clean 400 instead of letting Buffer.from throw a 500.
+  if (typeof pin !== "string" || pin.length === 0) {
     return new Response(JSON.stringify({ error: "Missing pin" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
