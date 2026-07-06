@@ -78,6 +78,13 @@ input, textarea, select {
   font-size: inherit;
 }
 
+/* Placeholder — explicit AA color (4.6:1 on #0a0a0a); UA default gray can fail 4.5:1 */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
 /* Lists */
 ul, ol {
   list-style: none;

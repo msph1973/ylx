@@ -10,16 +10,13 @@ export function useAdminRealtime(onUpdate: () => void): void {
       onUpdate();
     };
 
-    channel.subscribe("album:created", handler);
-    channel.subscribe("photo:uploaded", handler);
-    channel.subscribe("selection:changed", handler);
-    channel.subscribe("album:unlocked", handler);
+    // Subscribe to every admin event (created, uploaded, deleted, locked,
+    // unlocked, submitted, selection changes) so the dashboard always refetches
+    // on any state change without needing to enumerate each event name.
+    channel.subscribe(handler);
 
     return () => {
-      channel.unsubscribe("album:created", handler);
-      channel.unsubscribe("photo:uploaded", handler);
-      channel.unsubscribe("selection:changed", handler);
-      channel.unsubscribe("album:unlocked", handler);
+      channel.unsubscribe(handler);
     };
   }, [onUpdate]);
 }

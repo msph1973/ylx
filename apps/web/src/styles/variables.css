@@ -43,7 +43,9 @@
 
   /* Spacing */
   --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
   --space-2: 0.5rem;
+  --space-2-5: 0.625rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
   --space-5: 1.25rem;
@@ -62,6 +64,12 @@
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
   --radius-full: 9999px;
+
+  /* Overlays / scrims (backdrops behind modals & lightbox) */
+  --overlay-scrim: rgba(0, 0, 0, 0.5);
+  --overlay-lightbox: rgba(0, 0, 0, 0.92);
+  --overlay-shadow-modal: rgba(0, 0, 0, 0.3);
+  --overlay-shadow-dialog: rgba(0, 0, 0, 0.4);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);

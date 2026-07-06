@@ -69,6 +69,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       },
     });
 
+    // Attach the photo to the album's ordered `photos` array — the single source
+    // of truth the gallery, submit validation, and admin grid all read from.
+    await sanityWriteClient
+      .patch(albumId)
+      .setIfMissing({ photos: [] })
+      .append('photos', [
+        { _type: 'reference', _ref: photoDoc._id, _key: photoDoc._id },
+      ])
+      .commit();
+
     publishAdminEvent('photo:uploaded', { photoId: photoDoc._id, filename });
 
     return new Response(

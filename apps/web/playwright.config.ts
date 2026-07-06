@@ -14,5 +14,9 @@ export default defineConfig({
     port: 4321,
     reuseExistingServer: true,
     timeout: 60000,
+    env: {
+      ...process.env,
+      SESSION_SECRET: process.env.PLAYWRIGHT_SESSION_SECRET ?? 'playwright-session-secret',
+    },
   },
 });

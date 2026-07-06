@@ -6,6 +6,9 @@ export default defineConfig({
   integrations: [react()],
   output: "server",
   adapter: vercel(),
+  // Dev-only overlay; it intercepts pointer events over bottom-centered UI
+  // (e.g. the lightbox controls) and flakes Playwright. Absent from prod builds.
+  devToolbar: { enabled: false },
   vite: {
     server: {
       allowedHosts: ["ll.ylex.my.id"],

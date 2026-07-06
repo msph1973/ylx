@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumCardData } from './AlbumCard';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface AlbumFormData {
   title: string;
@@ -34,7 +35,7 @@ function getLocalTodayString(): string {
 export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormModalProps) {
   const shouldReduceMotion = useReducedMotion();
   const isEdit = Boolean(album);
-  const firstFocusableRef = useRef<HTMLInputElement>(null);
+  const modalRef = useFocusTrap<HTMLDivElement>(isOpen);
 
   // Today's date in YYYY-MM-DD in local timezone (used as min for date picker)
   const todayString = getLocalTodayString();
@@ -88,7 +89,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       setError('Max selections must be a whole number of at least 1');
       return;
     }
-    if (form.eventDate < todayString) {
+    if (!isEdit && form.eventDate < todayString) {
       setError('Event date cannot be in the past');
       return;
     }
@@ -145,12 +146,14 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
           onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}
           onKeyDown={(e) => { if (e.key === 'Escape' && !isSubmitting) onClose(); }}
-          role="dialog"
-          aria-modal="true"
-          aria-label={isEdit ? 'Edit Album' : 'Create Album'}
         >
           <motion.div
+            ref={modalRef}
             className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={isEdit ? 'Edit Album' : 'Create Album'}
+            tabIndex={-1}
             variants={modalVariants}
             initial="hidden"
             animate="visible"
@@ -188,7 +191,6 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   placeholder="e.g. Sarah & James Wedding"
                   required
                   autoFocus
-                  ref={firstFocusableRef}
                 />
               </div>
 
@@ -215,7 +217,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   name="eventDate"
                   value={form.eventDate}
                   onChange={handleChange}
-                  min={todayString}
+                  min={isEdit ? undefined : todayString}
                   required
                 />
               </div>
@@ -285,7 +287,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         .modal-backdrop {
           position: fixed;
           inset: 0;
-          background-color: rgba(0, 0, 0, 0.5);
+          background-color: var(--overlay-scrim);
           backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
@@ -300,7 +302,9 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           border-radius: var(--radius-2xl);
           width: 100%;
           max-width: 480px;
-          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+          max-height: min(100%, 720px);
+          overflow: auto;
+          box-shadow: 0 24px 64px var(--overlay-shadow-modal);
         }
 
         .modal-header {
@@ -321,8 +325,8 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
+          width: 44px;
+          height: 44px;
           border: none;
           background: transparent;
           color: var(--color-text-muted);
@@ -382,6 +386,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .form-input {
           padding: var(--space-2-5) var(--space-3);
+          min-height: 44px;
           background-color: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -413,6 +418,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .btn-primary {
           padding: var(--space-2-5) var(--space-5);
+          min-height: 44px;
           background-color: var(--color-accent);
           color: white;
           border: none;
@@ -434,6 +440,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .btn-secondary {
           padding: var(--space-2-5) var(--space-5);
+          min-height: 44px;
           background-color: transparent;
           color: var(--color-text-muted);
           border: 1px solid var(--color-border);
@@ -452,6 +459,40 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         .btn-secondary:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        @media (max-width: 480px) {
+          .modal-backdrop {
+            padding: 0;
+            align-items: flex-end;
+          }
+
+          .modal {
+            max-width: none;
+            max-height: 100dvh;
+            border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+          }
+
+          .modal-header,
+          .modal-form {
+            padding-left: var(--space-4);
+            padding-right: var(--space-4);
+          }
+
+          .modal-header {
+            padding-top: var(--space-4);
+          }
+
+          .form-row,
+          .modal-actions {
+            grid-template-columns: 1fr;
+            flex-direction: column;
+          }
+
+          .btn-primary,
+          .btn-secondary {
+            width: 100%;
+          }
         }
       `}</style>
     </AnimatePresence>

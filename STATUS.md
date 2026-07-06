@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-03 | Branch: `master`
+> Last updated: 2026-07-06 | Branch: `feat/admin-dashboard-impeccable` (PR #19, OPEN — belum merge; + impeccable polish pass)
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -52,6 +52,26 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
+## Admin Dashboard Enhancements (branch `feat/admin-dashboard-impeccable`, PR #19)
+
+Status flow album: `active → submitted (klien submit) → locked (admin lock)`. Galeri memperlakukan `submitted` & `locked` sebagai terkunci; submit hanya diterima saat `active`.
+
+| Fitur | Status | Catatan |
+|-------|--------|---------|
+| Search + filter status album | ✅ | Client-side (client/judul/PIN) + tab All/Active/Submitted/Locked |
+| Bulk delete album | ✅ | Mode pilih + `bulk-delete.ts` (cascade transaksi) |
+| Manual Lock / Unlock gallery | ✅ | `lock.ts` / `unlock.ts`, tombol kondisional di `AlbumDetail` |
+| **Pagination album** | ✅ | Client-side `PAGE_SIZE=12`, kontrol Prev/Next ber-`aria-label`, reset ke hal.1 saat search/filter berubah |
+| **Bulk photo select + delete** | ✅ | Mode select foto + select-all/clear + `ConfirmDialog` → `photos/bulk-delete.ts` (strong-ref cleanup, 1 transaksi) |
+| **Reorder foto (drag + keyboard)** | ✅ | Optimistic update + rollback, persist ke `album.photos` via `albums/[id]/reorder.ts` (PATCH) |
+| **Mobile-first pass (≤480px)** | ✅ | Toolbar wrap, modal full-height, target sentuh ≥44px, tabel selection scrollable |
+| Accessibility | ✅ | Focus trap (`useFocusTrap`) + `ConfirmDialog`, kontrol reorder keyboard, `prefers-reduced-motion` |
+| Admin E2E | ✅ | 4/4 pass lokal — lihat tabel "Known Stubs" |
+
+> Semua endpoint admin baru memanggil `requireAdmin()` di baris pertama + `publishAdminEvent()`/`publishAlbumEvent()` setelah aksi state-changing + log error. **Belum di-merge — keputusan merge di tangan reviewer.**
+
+---
+
 ## File Map
 
 | Path | Deskripsi |
@@ -60,7 +80,10 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 | `apps/web/src/pages/admin/` | Admin pages (login, index, upload) |
 | `apps/web/src/pages/gallery/[slug].astro` | Gallery route per album |
 | `apps/web/src/pages/api/admin/albums.ts` | CRUD album (GET list, POST create) |
-| `apps/web/src/pages/api/admin/albums/[id]/` | Album detail (GET, PUT, DELETE, POST unlock) |
+| `apps/web/src/pages/api/admin/albums/[id]/` | Album detail (GET, PUT, DELETE), lock/unlock, `reorder` (PATCH urutan `album.photos`) |
+| `apps/web/src/pages/api/admin/albums/bulk-delete.ts` | Hapus banyak album (cascade transaksi tunggal) |
+| `apps/web/src/pages/api/admin/photos/[id].ts` | Hapus satu foto (aman referensi) |
+| `apps/web/src/pages/api/admin/photos/bulk-delete.ts` | Hapus banyak foto sekaligus (strong-ref cleanup, 1 transaksi) |
 | `apps/web/src/pages/api/admin/upload.ts` | Upload foto per-file |
 | `apps/web/src/pages/api/gallery/[slug]/verify.ts` | PIN auth + album+photo data |
 | `apps/web/src/pages/api/gallery/[slug]/submit.ts` | Submit selections + lock album |
@@ -132,7 +155,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Item | File | Status |
 |------|------|--------|
 | Gallery E2E (Playwright) | `apps/web/tests/gallery.spec.ts` | ✅ Refreshed ke selektor lightbox+LQIP (PR #17), 5/5 pass via `pnpm test:e2e`; masih tidak di CI (butuh server live + seed) |
-| Admin E2E (Playwright) | `apps/web/tests/admin.spec.ts` | ❌ Gagal (pre-existing): `/admin` server-side auth-guarded (C1), butuh signed-session seed helper |
+| Admin E2E (Playwright) | `apps/web/tests/admin.spec.ts` | ✅ 4/4 pass lokal (`pnpm exec playwright test tests/admin.spec.ts`, ~14s). Signed-session seed helper `tests/helpers/adminSession.ts` mem-bypass auth-guard `/admin` (C1) via cookie HMAC valid; route API di-mock via `page.route`. Meliputi: pagination, bulk photo delete, reorder (keyboard), lock/unlock |
 | Email notifikasi | — | Tidak ada |
 | OAuth admin auth | — | Bukan OAuth, pakai email+bcrypt |
 | LQIP / Blurhash | `BlurImage.tsx` + `verify.ts` (`metadata.lqip`) | ✅ Blur-up progressive loading di grid + lightbox (PR #17) |
