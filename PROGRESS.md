@@ -128,7 +128,14 @@ Migrasi upload foto dari serverless-proxy ke **direct-to-Sanity** karena Vercel 
 
 **Konfigurasi wajib (deploy):** `SANITY_API_TOKEN` role **Editor/write** (sudah di-set user); origin app **wajib** di Sanity **CORS origins** (manage.sanity.io → API → CORS origins), tanpa "Allow credentials".
 
-**Verifikasi:** `tsc` lolos, `eslint` lolos, `vitest` 3/3, `playwright` **12/12** (admin 4 + gallery 5 + **upload 3** baru: happy path, retry transient, gagal permanen), `pnpm build` lolos. Detail: `docs/direct-sanity-upload.md`.
+**Perbaikan review bot (PR #21, Devin + Sourcery):**
+- **Devin (dataset):** `credentials.ts` semula punya fallback `SANITY_DATASET` yang tak dikenali write client → risiko biner ter-upload ke dataset berbeda dari dokumen. Diselaraskan persis ke `PUBLIC_SANITY_DATASET || "production"` (sama seperti `packages/sanity/client.ts`).
+- **Devin (orphan):** `finalize.ts` kini **verifikasi album ada** (`getDocument` + cek `_type === 'album'`) sebelum buat foto — `patch(...).append` pada dokumen hilang adalah no-op senyap yang bisa meninggalkan foto orphan.
+- **Sourcery (anti-duplikat):** `uploadWithRetry` menyimpan `assetId` antar-attempt; jika upload biner sukses tapi finalize gagal, retry hanya mengulang finalize (tidak re-upload biner → tak ada aset duplikat/orphan).
+- **Sourcery (kredensial):** kredensial di-*warm* sekali di awal batch → 3 worker paralel berbagi satu request, bukan masing-masing fetch.
+- **Sourcery (race):** `isUploading` kini pakai counter aktivitas (`beginActivity`/`endActivity`) agar tak flip ke false saat masih ada upload berjalan.
+
+**Verifikasi:** `tsc` lolos, `eslint` lolos, `vitest` 3/3, `playwright` **13/13** (admin 4 + gallery 5 + **upload 4**: happy path, retry transient, gagal permanen→Retry sukses, gagal kredensial), `pnpm build` lolos. Detail: `docs/direct-sanity-upload.md`.
 
 ---
 

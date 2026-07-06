@@ -158,6 +158,18 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   // the start of every startUpload() so a token that expired between batches is
   // never reused.
   const credsRef = useRef<UploadCredentials | null>(null);
+  // Reference-count in-flight upload activities (a batch and any per-file retries)
+  // so `isUploading` only flips back to false once *nothing* is running — avoids a
+  // per-file retry clearing the flag while a batch is still in progress.
+  const activeCountRef = useRef(0);
+  const beginActivity = useCallback(() => {
+    activeCountRef.current += 1;
+    setIsUploading(true);
+  }, []);
+  const endActivity = useCallback(() => {
+    activeCountRef.current = Math.max(0, activeCountRef.current - 1);
+    if (activeCountRef.current === 0) setIsUploading(false);
+  }, []);
 
   const getCredentials = useCallback(async (): Promise<UploadCredentials> => {
     if (credsRef.current) return credsRef.current;
@@ -245,18 +257,24 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   const uploadWithRetry = useCallback(
     async (uploadFile: UploadFile, albumId: string): Promise<{ ok: boolean; error?: string }> => {
       let lastError = 'Upload failed';
+      // Preserve the asset id across retries: if the binary upload already
+      // succeeded and only finalize failed, retry finalize alone instead of
+      // re-uploading the file (which would create a duplicate/orphan asset).
+      let assetId: string | null = null;
 
       for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
         // Reset to a clean uploading state (also clears a previous error on retry).
         setFiles(prev => prev.map(f =>
-          f.id === uploadFile.id ? { ...f, status: 'uploading', progress: 0, error: undefined } : f
+          f.id === uploadFile.id ? { ...f, status: 'uploading', progress: assetId ? 100 : 0, error: undefined } : f
         ));
 
         try {
           const creds = await getCredentials();
-          const assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
-            setFiles(prev => prev.map(f => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
-          });
+          if (!assetId) {
+            assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
+              setFiles(prev => prev.map(f => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
+            });
+          }
           await finalizePhoto(assetId, albumId, uploadFile.file.name);
           return { ok: true };
         } catch (err) {
@@ -286,28 +304,38 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
     // Refresh credentials once per batch.
     credsRef.current = null;
-    setIsUploading(true);
+    beginActivity();
+    try {
+      // Warm the credential cache once so the concurrent workers below share a
+      // single GET instead of each firing its own. A failure here is non-fatal —
+      // each file's own attempt will surface the error.
+      try {
+        await getCredentials();
+      } catch {
+        /* per-file uploads will report the credential error */
+      }
 
-    await runWithConcurrency(
-      queue,
-      async (uploadFile) => {
-        const result = await uploadWithRetry(uploadFile, selectedAlbum);
-        setFiles(prev => prev.map(f =>
-          f.id === uploadFile.id
-            ? {
-                ...f,
-                status: result.ok ? 'done' : 'error',
-                progress: result.ok ? 100 : 0,
-                error: result.ok ? undefined : result.error,
-              }
-            : f
-        ));
-      },
-      UPLOAD_CONCURRENCY
-    );
-
-    setIsUploading(false);
-  }, [selectedAlbum, files, uploadWithRetry]);
+      await runWithConcurrency(
+        queue,
+        async (uploadFile) => {
+          const result = await uploadWithRetry(uploadFile, selectedAlbum);
+          setFiles(prev => prev.map(f =>
+            f.id === uploadFile.id
+              ? {
+                  ...f,
+                  status: result.ok ? 'done' : 'error',
+                  progress: result.ok ? 100 : 0,
+                  error: result.ok ? undefined : result.error,
+                }
+              : f
+          ));
+        },
+        UPLOAD_CONCURRENCY
+      );
+    } finally {
+      endActivity();
+    }
+  }, [selectedAlbum, files, uploadWithRetry, getCredentials, beginActivity, endActivity]);
 
   // Retry one failed file on demand (independent of the main batch button).
   const retryFile = useCallback(async (id: string) => {
@@ -315,20 +343,23 @@ export default function UploadPage({ adminName }: UploadPageProps) {
     const target = files.find(f => f.id === id);
     if (!target) return;
 
-    setIsUploading(true);
-    const result = await uploadWithRetry(target, selectedAlbum);
-    setFiles(prev => prev.map(f =>
-      f.id === id
-        ? {
-            ...f,
-            status: result.ok ? 'done' : 'error',
-            progress: result.ok ? 100 : 0,
-            error: result.ok ? undefined : result.error,
-          }
-        : f
-    ));
-    setIsUploading(false);
-  }, [selectedAlbum, files, uploadWithRetry]);
+    beginActivity();
+    try {
+      const result = await uploadWithRetry(target, selectedAlbum);
+      setFiles(prev => prev.map(f =>
+        f.id === id
+          ? {
+              ...f,
+              status: result.ok ? 'done' : 'error',
+              progress: result.ok ? 100 : 0,
+              error: result.ok ? undefined : result.error,
+            }
+          : f
+      ));
+    } finally {
+      endActivity();
+    }
+  }, [selectedAlbum, files, uploadWithRetry, beginActivity, endActivity]);
 
   const pendingCount = files.filter(f => f.status === 'pending').length;
   const doneCount = files.filter(f => f.status === 'done').length;

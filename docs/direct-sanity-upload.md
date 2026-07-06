@@ -37,8 +37,10 @@ Browser                         Our server (Vercel)              Sanity
   runtime. The token is **never bundled** into client JS; only an authenticated admin
   session can obtain it. Response is `Cache-Control: no-store`.
 - **`api/admin/upload/finalize.ts`** — admin-only; receives a tiny JSON payload (well
-  under 4.5MB), creates the `photo` document referencing the uploaded asset, appends it
-  to the album's ordered `photos` array, and publishes `photo:uploaded`.
+  under 4.5MB), **verifies the album exists** (a Sanity `patch(...).append` on a missing
+  document is a silent no-op, which would otherwise orphan the photo), creates the
+  `photo` document referencing the uploaded asset, appends it to the album's ordered
+  `photos` array, and publishes `photo:uploaded`.
 - The old `api/admin/upload.ts` (serverless proxy) is **removed**.
 
 ## Performance: many-at-once vs one-by-one
@@ -72,8 +74,14 @@ Two layers:
    **Retry** button; the main action button becomes **"Retry N failed"** when only
    failed files remain. Both reuse the same upload-with-retry path.
 
-Credential handling: credentials are fetched once per batch and cached; a `401`
-mid-batch drops the cache so the next attempt re-fetches a fresh token.
+Credential handling: credentials are fetched **once per batch** (warmed up front so the
+concurrent workers share a single request) and cached; a `401` mid-batch drops the cache
+so the next attempt re-fetches a fresh token.
+
+**No duplicate assets on retry:** the uploaded `assetId` is preserved across attempts. If
+the binary upload already succeeded and only the finalize step failed, the retry re-runs
+*finalize only* — it never re-uploads the binary (which would create a duplicate/orphan
+asset in Sanity).
 
 ## Required configuration (deploy)
 
@@ -97,4 +105,5 @@ short-lived upload tokens.
 `apps/web/tests/upload.spec.ts` (Playwright, all routes mocked):
 1. Happy path — direct upload to (mocked) Sanity, then finalize → `Done: 1`.
 2. Transient failure — first Sanity call `500`, retry succeeds → `Done: 1` (asserts ≥2 attempts).
-3. Permanent failure — Sanity `400` → `Failed: 1` and a per-file **Retry** button appears.
+3. Permanent failure then manual **Retry** — Sanity `400` → `Failed: 1` + Retry button, then a click uploads successfully → `Done: 1`.
+4. Credentials failure — `credentials` returns `401` → `Failed: 1`, and the Sanity asset API is never hit.

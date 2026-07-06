@@ -64,6 +64,17 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   try {
+    // Verify the album exists BEFORE creating the photo. A Sanity
+    // `patch(id).append(...)` on a missing document is a silent no-op, so without
+    // this a stale/typo albumId would leave an orphan photo attached to nothing.
+    const album = await sanityWriteClient.getDocument(albumId);
+    if (!album || album._type !== "album") {
+      return new Response(JSON.stringify({ error: "Album not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Create the photo document referencing the already-uploaded asset.
     const photoDoc = await sanityWriteClient.create({
       _type: "photo",

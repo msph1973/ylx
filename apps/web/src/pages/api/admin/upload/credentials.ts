@@ -19,8 +19,10 @@ import { requireAdmin } from "../../../../lib/auth";
 // Bearer token, not cookies).
 
 const projectId = process.env.PUBLIC_SANITY_PROJECT_ID;
-const dataset =
-  process.env.PUBLIC_SANITY_DATASET || process.env.SANITY_DATASET || "production";
+// Resolve the dataset EXACTLY like packages/sanity/client.ts (the write client used
+// by finalize.ts). If these diverged, the browser could upload the binary to one
+// dataset while finalize creates the photo doc in another → broken photos.
+const dataset = process.env.PUBLIC_SANITY_DATASET || "production";
 const token = process.env.SANITY_API_TOKEN;
 // Matches the apiVersion used by the server-side clients in packages/sanity/client.ts.
 const apiVersion = "2024-01-01";

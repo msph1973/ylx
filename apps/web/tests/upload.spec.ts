@@ -76,17 +76,54 @@ test.describe('Direct-to-Sanity upload', () => {
     expect(attempts).toBeGreaterThanOrEqual(2);
   });
 
-  test('marks a permanent failure as error and offers a Retry button', async ({ page }) => {
+  test('marks a permanent failure as error, then Retry performs a fresh upload', async ({ page }) => {
     await stubCommon(page);
-    // 400 is non-retryable — surfaces as an error with a per-file Retry control.
+    let attempts = 0;
     await page.route('https://test.api.sanity.io/**', async (route) => {
-      await route.fulfill({ status: 400, json: { error: 'bad request' } });
+      attempts += 1;
+      // First attempt: non-retryable 400 → error + per-file Retry control.
+      if (attempts === 1) {
+        await route.fulfill({ status: 400, json: { error: 'bad request' } });
+        return;
+      }
+      // The manual Retry triggers a brand-new upload attempt that now succeeds.
+      await route.fulfill({ json: { document: { _id: 'image-abc123' } } });
     });
 
     await addOnePhotoAndSelectAlbum(page);
     await page.getByRole('button', { name: /Upload 1 photo/ }).click();
 
     await expect(page.getByText('Failed: 1')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+    const retryButton = page.getByRole('button', { name: 'Retry', exact: true });
+    await expect(retryButton).toBeVisible();
+
+    // Clicking Retry must perform another upload and move the file to Done.
+    await retryButton.click();
+    await expect(page.getByText('Done: 1')).toBeVisible();
+    await expect(page.getByText('Failed: 1')).toHaveCount(0);
+    await expect(retryButton).toHaveCount(0);
+    expect(attempts).toBeGreaterThanOrEqual(2);
+  });
+
+  test('surfaces a credentials failure as a file error', async ({ page }) => {
+    // Only the credentials endpoint fails (401) — the file should end up failed,
+    // never reaching the Sanity asset API.
+    await page.route('**/api/admin/albums', async (route) => {
+      await route.fulfill({ json: { albums: MOCK_ALBUMS } });
+    });
+    await page.route('**/api/admin/upload/credentials', async (route) => {
+      await route.fulfill({ status: 401, json: { error: 'Unauthorized' } });
+    });
+    let sanityHit = false;
+    await page.route('https://test.api.sanity.io/**', async (route) => {
+      sanityHit = true;
+      await route.fulfill({ json: { document: { _id: 'image-abc123' } } });
+    });
+
+    await addOnePhotoAndSelectAlbum(page);
+    await page.getByRole('button', { name: /Upload 1 photo/ }).click();
+
+    await expect(page.getByText('Failed: 1')).toBeVisible();
+    expect(sanityHit).toBe(false);
   });
 });
