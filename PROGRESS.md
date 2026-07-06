@@ -109,6 +109,27 @@ Penyempurnaan admin dashboard (audit admin) di atas commit `1e49b3b`. Keputusan 
 
 **Verifikasi (fresh):** `pnpm exec tsc --noEmit` lolos, `pnpm exec eslint src --max-warnings 0` lolos, `pnpm exec vitest run` 3/3, `pnpm exec playwright test` (admin 4/4 + gallery 5/5), `pnpm build` lolos.
 
+> Update: PR #19 & #20 **sudah di-merge ke `master`**.
+
+### `feat/direct-sanity-upload` — Direct-to-Sanity upload (OPEN)
+
+Migrasi upload foto dari serverless-proxy ke **direct-to-Sanity** karena Vercel Serverless membatasi body request ~4.5MB — foto full-res (>4.5MB) selalu 413 lewat `/api/admin/upload` lama.
+
+**Arsitektur baru (2 langkah):**
+1. Browser fetch kredensial dari `api/admin/upload/credentials.ts` (`requireAdmin`, token diambil runtime, `Cache-Control: no-store`, tidak di-bundle).
+2. Browser upload biner **langsung** ke Sanity Asset API (`https://<projectId>.api.sanity.io/v2024-01-01/assets/images/<dataset>`) via XHR (progress nyata) → dapat `asset._id`.
+3. Browser POST JSON kecil ke `api/admin/upload/finalize.ts` → server buat dokumen `photo` + `append` ke `album.photos` + `publishAdminEvent('photo:uploaded')`. Endpoint `upload.ts` lama dihapus.
+
+**Performa & retry (requirement):**
+- **Paralel berbatas** — `runWithConcurrency` upload `UPLOAD_CONCURRENCY = 3` file sekaligus. Sekuensial murni buang waktu tunggu jaringan; paralel tak terbatas banjiri bandwidth/memori & progress tak terbaca.
+- **Auto-retry** — tiap file `MAX_UPLOAD_ATTEMPTS = 3` (1 + 2 retry) dengan exponential backoff (800ms→1600ms). Hanya kegagalan transient yang di-retry (`status 0`/408/429/≥500); 4xx (auth/payload/validasi) permanen → tidak di-retry.
+- **Retry manual** — tombol "Retry" per-foto + tombol utama berubah "Retry N failed" saat hanya ada yang gagal; pesan error asli ditampilkan per item.
+- **Refresh kredensial per-batch**; token 401 mid-batch → cache di-drop agar attempt berikutnya fetch ulang.
+
+**Konfigurasi wajib (deploy):** `SANITY_API_TOKEN` role **Editor/write** (sudah di-set user); origin app **wajib** di Sanity **CORS origins** (manage.sanity.io → API → CORS origins), tanpa "Allow credentials".
+
+**Verifikasi:** `tsc` lolos, `eslint` lolos, `vitest` 3/3, `playwright` **12/12** (admin 4 + gallery 5 + **upload 3** baru: happy path, retry transient, gagal permanen), `pnpm build` lolos. Detail: `docs/direct-sanity-upload.md`.
+
 ---
 
 ## Post-merge Hot Fixes (on master)

@@ -20,6 +20,132 @@ interface UploadPageProps {
   adminName?: string;
 }
 
+// Credentials the browser uses to upload the binary straight to Sanity, bypassing
+// Vercel's ~4.5MB serverless body limit. Fetched at runtime from an admin-only
+// endpoint — never bundled into client JS.
+interface UploadCredentials {
+  projectId: string;
+  dataset: string;
+  apiVersion: string;
+  token: string;
+}
+
+interface RetryableError extends Error {
+  retryable?: boolean;
+  status?: number;
+}
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB (now genuinely supported — the
+// binary goes direct to Sanity, so the old ~4.5MB Vercel cap no longer applies).
+const VALID_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif'];
+
+// Upload several files at once with a small parallelism cap. Fully sequential wastes
+// time waiting on the network; unbounded parallelism floods bandwidth/memory and
+// makes progress unreadable. 3 is a good middle ground for large full-res photos.
+const UPLOAD_CONCURRENCY = 3;
+// 1 initial attempt + up to 2 retries for transient failures.
+const MAX_UPLOAD_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 800;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Network-layer failures (status 0) and transient server/rate-limit responses are
+// worth retrying; 4xx (auth, payload too large, validation) are permanent — a retry
+// would only fail again the same way.
+function isRetryableStatus(status: number): boolean {
+  return status === 0 || status === 408 || status === 429 || status >= 500;
+}
+
+function makeError(message: string, opts: { retryable: boolean; status?: number }): RetryableError {
+  const err = new Error(message) as RetryableError;
+  err.retryable = opts.retryable;
+  err.status = opts.status;
+  return err;
+}
+
+// One direct upload attempt of the raw file to Sanity's asset API. Resolves the
+// created asset id (`image-...`), or rejects with a RetryableError. XHR is used
+// (over fetch) so we get real upload-progress events for the large binary.
+function putAssetToSanity(
+  creds: UploadCredentials,
+  file: File,
+  onProgress: (pct: number) => void,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url =
+      `https://${creds.projectId}.api.sanity.io/v${creds.apiVersion}` +
+      `/assets/images/${creds.dataset}?filename=${encodeURIComponent(file.name)}`;
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    });
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const assetId = JSON.parse(xhr.responseText)?.document?._id;
+          if (typeof assetId === 'string' && assetId) {
+            resolve(assetId);
+            return;
+          }
+        } catch {
+          /* fall through to reject */
+        }
+        reject(makeError('Malformed upload response from Sanity', { retryable: true }));
+      } else {
+        reject(
+          makeError(`Sanity upload failed (${xhr.status})`, {
+            retryable: isRetryableStatus(xhr.status),
+            status: xhr.status,
+          }),
+        );
+      }
+    });
+    xhr.addEventListener('error', () =>
+      reject(makeError('Network error during upload', { retryable: true, status: 0 })),
+    );
+    xhr.addEventListener('timeout', () =>
+      reject(makeError('Upload timed out', { retryable: true, status: 0 })),
+    );
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Authorization', `Bearer ${creds.token}`);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.send(file);
+  });
+}
+
+// Small JSON call (well under 4.5MB) that wires the uploaded asset into a photo
+// document + the album's ordered `photos` array, server-side.
+async function finalizePhoto(assetId: string, albumId: string, filename: string): Promise<void> {
+  const res = await fetch('/api/admin/upload/finalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assetId, albumId, filename }),
+  });
+  if (!res.ok) {
+    throw makeError(`Finalizing photo failed (${res.status})`, {
+      retryable: isRetryableStatus(res.status),
+      status: res.status,
+    });
+  }
+}
+
+// Run `worker` over `items` with at most `concurrency` in flight at once.
+async function runWithConcurrency<T>(
+  items: T[],
+  worker: (item: T) => Promise<void>,
+  concurrency: number,
+): Promise<void> {
+  let cursor = 0;
+  const run = async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await worker(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
+}
+
 export default function UploadPage({ adminName }: UploadPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -28,6 +154,24 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Cache the direct-upload credentials for the lifetime of a batch. Refreshed at
+  // the start of every startUpload() so a token that expired between batches is
+  // never reused.
+  const credsRef = useRef<UploadCredentials | null>(null);
+
+  const getCredentials = useCallback(async (): Promise<UploadCredentials> => {
+    if (credsRef.current) return credsRef.current;
+    const res = await fetch('/api/admin/upload/credentials');
+    if (!res.ok) {
+      throw makeError(
+        res.status === 401 ? 'Your session expired — please sign in again' : 'Could not start upload',
+        { retryable: false, status: res.status },
+      );
+    }
+    const creds = (await res.json()) as UploadCredentials;
+    credsRef.current = creds;
+    return creds;
+  }, []);
 
   const fetchAlbums = useCallback(async () => {
     try {
@@ -48,9 +192,8 @@ export default function UploadPage({ adminName }: UploadPageProps) {
     const fileArray = Array.from(newFiles);
     const validFiles = fileArray.filter(file => {
       const ext = file.name.toLowerCase().split('.').pop();
-      const validExts = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif'];
-      if (!validExts.includes(ext || '')) return false;
-      if (file.size > 50 * 1024 * 1024) return false;
+      if (!VALID_EXTS.includes(ext || '')) return false;
+      if (file.size > MAX_FILE_SIZE) return false;
       return true;
     });
 
@@ -96,70 +239,102 @@ export default function UploadPage({ adminName }: UploadPageProps) {
     setFiles(prev => prev.filter(f => f.status !== 'done'));
   }, []);
 
-  const uploadSingleFile = async (uploadFile: UploadFile, albumId: string): Promise<boolean> => {
-    const formData = new FormData();
-    formData.append('file', uploadFile.file);
-    formData.append('albumId', albumId);
-    formData.append('filename', uploadFile.file.name);
+  // Upload a single file with automatic retry on transient failures. The binary
+  // goes straight to Sanity (progress tracked), then a tiny finalize call wires it
+  // to the album. Returns a result the caller writes back into file state.
+  const uploadWithRetry = useCallback(
+    async (uploadFile: UploadFile, albumId: string): Promise<{ ok: boolean; error?: string }> => {
+      let lastError = 'Upload failed';
 
-    try {
-      const xhr = new XMLHttpRequest();
+      for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
+        // Reset to a clean uploading state (also clears a previous error on retry).
+        setFiles(prev => prev.map(f =>
+          f.id === uploadFile.id ? { ...f, status: 'uploading', progress: 0, error: undefined } : f
+        ));
 
-      const result = await new Promise<boolean>((resolve, reject) => {
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            const progress = Math.round((e.loaded / e.total) * 100);
-            setFiles(prev => prev.map(f =>
-              f.id === uploadFile.id ? { ...f, progress } : f
-            ));
-          }
-        });
+        try {
+          const creds = await getCredentials();
+          const assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
+            setFiles(prev => prev.map(f => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
+          });
+          await finalizePhoto(assetId, albumId, uploadFile.file.name);
+          return { ok: true };
+        } catch (err) {
+          const e = err as RetryableError;
+          lastError = e?.message || 'Upload failed';
+          // A stale/invalid token affects every file — drop the cache so the next
+          // attempt (this file or another) re-fetches fresh credentials.
+          if (e?.status === 401) credsRef.current = null;
 
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(true);
-          } else {
-            reject(new Error(`Upload failed: ${xhr.status}`));
-          }
-        });
+          const canRetry = e?.retryable === true && attempt < MAX_UPLOAD_ATTEMPTS;
+          if (!canRetry) break;
+          // Exponential backoff: 800ms, 1600ms, ...
+          await delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        }
+      }
 
-        xhr.addEventListener('error', () => reject(new Error('Network error')));
-        xhr.open('POST', '/api/admin/upload');
-        xhr.send(formData);
-      });
+      return { ok: false, error: lastError };
+    },
+    [getCredentials]
+  );
 
-      return result;
-    } catch (err) {
-      return false;
-    }
-  };
+  const startUpload = useCallback(async () => {
+    if (!selectedAlbum) return;
+    // Process pending files and re-attempt previously failed ones in one pass.
+    const queue = files.filter(f => f.status === 'pending' || f.status === 'error');
+    if (queue.length === 0) return;
 
-  const startUpload = async () => {
-    if (!selectedAlbum || files.length === 0) return;
-
+    // Refresh credentials once per batch.
+    credsRef.current = null;
     setIsUploading(true);
-    const pendingFiles = files.filter(f => f.status === 'pending');
 
-    for (const uploadFile of pendingFiles) {
-      setFiles(prev => prev.map(f =>
-        f.id === uploadFile.id ? { ...f, status: 'uploading' } : f
-      ));
-
-      const success = await uploadSingleFile(uploadFile, selectedAlbum);
-
-      setFiles(prev => prev.map(f =>
-        f.id === uploadFile.id
-          ? { ...f, status: success ? 'done' : 'error', progress: success ? 100 : 0, error: success ? undefined : 'Upload failed' }
-          : f
-      ));
-    }
+    await runWithConcurrency(
+      queue,
+      async (uploadFile) => {
+        const result = await uploadWithRetry(uploadFile, selectedAlbum);
+        setFiles(prev => prev.map(f =>
+          f.id === uploadFile.id
+            ? {
+                ...f,
+                status: result.ok ? 'done' : 'error',
+                progress: result.ok ? 100 : 0,
+                error: result.ok ? undefined : result.error,
+              }
+            : f
+        ));
+      },
+      UPLOAD_CONCURRENCY
+    );
 
     setIsUploading(false);
-  };
+  }, [selectedAlbum, files, uploadWithRetry]);
+
+  // Retry one failed file on demand (independent of the main batch button).
+  const retryFile = useCallback(async (id: string) => {
+    if (!selectedAlbum) return;
+    const target = files.find(f => f.id === id);
+    if (!target) return;
+
+    setIsUploading(true);
+    const result = await uploadWithRetry(target, selectedAlbum);
+    setFiles(prev => prev.map(f =>
+      f.id === id
+        ? {
+            ...f,
+            status: result.ok ? 'done' : 'error',
+            progress: result.ok ? 100 : 0,
+            error: result.ok ? undefined : result.error,
+          }
+        : f
+    ));
+    setIsUploading(false);
+  }, [selectedAlbum, files, uploadWithRetry]);
 
   const pendingCount = files.filter(f => f.status === 'pending').length;
   const doneCount = files.filter(f => f.status === 'done').length;
   const errorCount = files.filter(f => f.status === 'error').length;
+  // The main button both uploads new files and retries failed ones.
+  const queuedCount = pendingCount + errorCount;
 
   return (
     <div className="upload-page">
@@ -254,9 +429,13 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                 >
                   <div className="file-info">
                     <span className="file-name">{uploadFile.file.name}</span>
-                    <span className="file-size">
-                      {(uploadFile.file.size / 1024 / 1024).toFixed(1)} MB
-                    </span>
+                    {uploadFile.status === 'error' && uploadFile.error ? (
+                      <span className="file-error-msg" role="alert">{uploadFile.error}</span>
+                    ) : (
+                      <span className="file-size">
+                        {(uploadFile.file.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                    )}
                   </div>
                   <div className="file-status">
                     {uploadFile.status === 'pending' && (
@@ -275,7 +454,16 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                       <span className="status-done">✓</span>
                     )}
                     {uploadFile.status === 'error' && (
-                      <span className="status-error">✗</span>
+                      <>
+                        <span className="status-error" aria-hidden="true">✗</span>
+                        <button
+                          className="btn-retry"
+                          onClick={() => retryFile(uploadFile.id)}
+                          disabled={isUploading}
+                        >
+                          Retry
+                        </button>
+                      </>
                     )}
                   </div>
                 </motion.div>
@@ -288,11 +476,13 @@ export default function UploadPage({ adminName }: UploadPageProps) {
             <button
               className="upload-btn"
               onClick={startUpload}
-              disabled={!selectedAlbum || pendingCount === 0 || isUploading}
+              disabled={!selectedAlbum || queuedCount === 0 || isUploading}
             >
               {isUploading
                 ? 'Uploading...'
-                : `Upload ${pendingCount} photos`
+                : errorCount > 0 && pendingCount === 0
+                  ? `Retry ${errorCount} failed`
+                  : `Upload ${queuedCount} ${queuedCount === 1 ? 'photo' : 'photos'}`
               }
             </button>
           </div>
@@ -517,6 +707,37 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         .status-error {
           color: var(--color-error);
           font-weight: var(--font-medium);
+        }
+
+        .file-error-msg {
+          font-size: var(--text-xs);
+          color: var(--color-error);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .btn-retry {
+          min-height: 32px;
+          padding: var(--space-1) var(--space-3);
+          background: none;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          color: var(--color-text);
+          font-size: var(--text-xs);
+          font-weight: var(--font-medium);
+          cursor: pointer;
+          transition: border-color var(--transition-fast), color var(--transition-fast);
+        }
+
+        .btn-retry:hover:not(:disabled) {
+          border-color: var(--color-accent);
+          color: var(--color-accent);
+        }
+
+        .btn-retry:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .upload-actions {
