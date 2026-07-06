@@ -53,6 +53,9 @@ export default defineType({
       name: "status",
       title: "Status",
       type: "string",
+      description:
+        "Lifecycle: 'active' (open for client selection) → 'submitted' (client submitted, closed) → 'locked' (admin locked; unlock resets to 'active'). " +
+        "IMPORTANT for external consumers: a closed album is anything with status !== 'active'. Do NOT test for status === 'locked' alone — that misses 'submitted' albums.",
       options: {
         list: [
           { title: "Active", value: "active" },

@@ -26,6 +26,8 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
 
 export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $albumId] {
   _id,
+  "albumId": album._ref,
+  "photoId": photo._ref,
   photo-> {
     _id,
     filename,

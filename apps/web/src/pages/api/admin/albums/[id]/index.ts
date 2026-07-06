@@ -28,6 +28,8 @@ function thumbnailUrl(image: SanityImageRef): string {
 
 interface SanitySelectionRaw {
   _id: string;
+  albumId: string;
+  photoId: string;
   photo: SanityPhotoRaw;
   selectedAt: string;
 }
@@ -96,6 +98,8 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       })),
       selections: selections.map((s) => ({
         id: s._id,
+        albumId: s.albumId,
+        photoId: s.photoId,
         photo: {
           id: s.photo._id,
           filename: s.photo.filename,
