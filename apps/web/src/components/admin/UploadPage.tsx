@@ -3,7 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
 
 interface Album {
-  _id: string;
+  // The admin albums API (/api/admin/albums) returns each album keyed as `id`
+  // (mapped from Sanity's `_id`). Using `_id` here made the field `undefined` at
+  // runtime, so the <option> value fell back to its text content and finalize
+  // received the album title instead of a real document id → 500 on getDocument.
+  id: string;
   title: string;
   clientName: string;
 }
@@ -388,7 +392,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         >
           <option value="">-- Select an album --</option>
           {albums.map(album => (
-            <option key={album._id} value={album._id}>
+            <option key={album.id} value={album.id}>
               {album.title} ({album.clientName})
             </option>
           ))}

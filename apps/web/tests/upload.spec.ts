@@ -5,8 +5,11 @@ import { seedAdminSession } from './helpers/adminSession';
 // endpoint is mocked; we only need a File the browser will send.
 const FAKE_IMAGE = Buffer.from('fake-image-bytes');
 
+// Mirror the real /api/admin/albums response shape, which keys each album as
+// `id` (mapped from Sanity's `_id`). A previous mock used `_id`, masking a bug
+// where the <option> value fell back to text and finalize got a bad albumId.
 const MOCK_ALBUMS = [
-  { _id: 'album-1', title: 'Album 1', clientName: 'Client 1' },
+  { id: 'album-1', title: 'Album 1', clientName: 'Client 1' },
 ];
 
 async function stubCommon(page: import('@playwright/test').Page) {
@@ -43,7 +46,21 @@ test.describe('Direct-to-Sanity upload', () => {
   });
 
   test('uploads a photo directly to Sanity then finalizes', async ({ page }) => {
-    await stubCommon(page);
+    // Capture the albumId finalize receives so we lock in that the selected
+    // <option> carries the real document id, not its visible text.
+    let finalizeAlbumId: unknown;
+    await page.route('**/api/admin/albums', async (route) => {
+      await route.fulfill({ json: { albums: MOCK_ALBUMS } });
+    });
+    await page.route('**/api/admin/upload/credentials', async (route) => {
+      await route.fulfill({
+        json: { projectId: 'test', dataset: 'production', apiVersion: '2024-01-01', token: 'test-token' },
+      });
+    });
+    await page.route('**/api/admin/upload/finalize', async (route) => {
+      finalizeAlbumId = route.request().postDataJSON()?.albumId;
+      await route.fulfill({ status: 201, json: { success: true, photoId: 'photo-x' } });
+    });
     // The binary goes straight to Sanity's asset API (bypassing our serverless fn).
     await page.route('https://test.api.sanity.io/**', async (route) => {
       await route.fulfill({ json: { document: { _id: 'image-abc123' } } });
@@ -54,6 +71,8 @@ test.describe('Direct-to-Sanity upload', () => {
 
     await expect(page.getByText('Done: 1')).toBeVisible();
     await expect(page.getByText('Failed: 1')).toHaveCount(0);
+    // Regression guard: finalize must get the album's document id, not its label.
+    expect(finalizeAlbumId).toBe('album-1');
   });
 
   test('retries a transient Sanity failure and eventually succeeds', async ({ page }) => {

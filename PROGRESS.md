@@ -137,6 +137,8 @@ Migrasi upload foto dari serverless-proxy ke **direct-to-Sanity** karena Vercel 
 
 **Verifikasi:** `tsc` lolos, `eslint` lolos, `vitest` 3/3, `playwright` **13/13** (admin 4 + gallery 5 + **upload 4**: happy path, retry transient, gagal permanen→Retry sukses, gagal kredensial), `pnpm build` lolos. Detail: `docs/direct-sanity-upload.md`.
 
+**Hotfix 2026-07-07 — `finalize` 500 (albumId salah):** Tes upload di preview (browser nyata, foto 18,6MB) menemukan `POST /api/admin/upload/finalize` → **500**. Biner sukses ter-upload ke Sanity (bukti batas 4.5MB benar-benar dilewati), tapi wiring foto ke album gagal. Akar masalah: `UploadPage.tsx` punya `interface Album` lokal berfield `_id`, sedangkan `/api/admin/albums` mengembalikan `id` (map dari `_id`) → `album._id` `undefined` → `<option value>` fallback ke teks konten (`"Judul (Client)"`) → `finalize` menerima judul album, bukan document id → `sanityWriteClient.getDocument(...)` melempar (id invalid) → 500. **Fix:** `UploadPage` pakai `album.id` di tipe + `key`/`value` `<option>`. Tes E2E `upload.spec.ts` sebelumnya menutupi bug karena mock album pakai `_id` (cocok dgn kode buggy) dan mem-mock finalize sukses tanpa cek payload; mock diperbaiki ke `id` + ditambah assert `finalize` menerima `albumId === 'album-1'` sebagai regression guard.
+
 ---
 
 ## Post-merge Hot Fixes (on master)
