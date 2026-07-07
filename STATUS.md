@@ -22,11 +22,11 @@ Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber keb
 
 | Layer | Tech | Catatan |
 |-------|------|---------|
-| Frontend | Astro 5 + React 18 | Island architecture, `client:load` |
+| Frontend | Astro 6 + React 18 | Island architecture, `client:load` |
 | CMS + DB | Sanity v4 | Semua data di Sanity, **tidak ada Prisma** |
 | Auth | Email + bcrypt (12 rounds) | Bukan OAuth — admin tunggal |
 | Realtime | Ably | `publishAdminEvent` di server, `useRealtime` / `useAdminRealtime` di client |
-| Deploy | Vercel Serverless | `@astrojs/vercel` v8, Node 22, `rootDirectory: apps/web` |
+| Deploy | Vercel Serverless | `@astrojs/vercel` v10, Node 22, `rootDirectory: apps/web` |
 | Monorepo | Turborepo + pnpm workspaces | `--force` flag di build command |
 | Mastra | **Dihapus** | Package & endpoint `api/admin/workflow.ts` sudah dihapus (tidak dipakai) |
 
@@ -222,7 +222,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 ### Vercel deployment
 - `buildCommand` di-set di project settings Vercel: `cd ../.. && pnpm turbo build --filter=@ylx/web --force`
-- `rootDirectory: apps/web`, `framework: astro`, `nodeVersion: 22.x` (cocok dengan `@astrojs/vercel` v8 runtime `nodejs22.x`)
+- `rootDirectory: apps/web`, `framework: astro`, `nodeVersion: 22.x` (adapter `@astrojs/vercel` v10 memilih runtime dari versi Node build → pastikan setelan proyek Vercel Node 22.x)
 - `--force` flag wajib untuk menghindari Turbo cache hit yang membuat `.vercel/output` tidak ter-generate
 
 ### Sanity patterns
