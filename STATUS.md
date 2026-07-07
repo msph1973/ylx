@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-06 | Branch: `feat/admin-dashboard-impeccable` (PR #19, OPEN — belum merge; + impeccable polish pass)
+> Last updated: 2026-07-06 | Branch: `feat/direct-sanity-upload` (direct-to-Sanity upload; PR #19 & #20 sudah MERGED ke `master`)
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -36,7 +36,7 @@ Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber keb
 
 ```
 Photographer creates album      ✅  AlbumFormModal.tsx (CRUD: create/edit/delete)
-Photographer uploads photos     ✅  UploadPage.tsx — album list auto-populate on mount
+Photographer uploads photos     ✅  UploadPage.tsx — direct-to-Sanity (lewati 4.5MB Vercel), paralel 3x + auto-retry
 Photographer copies share link  ✅  AlbumDetail — "Copy Gallery Link" + "Copy PIN"
 Client opens homepage           ✅  index.astro — form "Access Your Gallery" + redirect
 Client enters PIN               ✅  PinEntry.tsx + rate limiter 5x/15min per IP
@@ -84,7 +84,8 @@ Status flow album: `active → submitted (klien submit) → locked (admin lock)`
 | `apps/web/src/pages/api/admin/albums/bulk-delete.ts` | Hapus banyak album (cascade transaksi tunggal) |
 | `apps/web/src/pages/api/admin/photos/[id].ts` | Hapus satu foto (aman referensi) |
 | `apps/web/src/pages/api/admin/photos/bulk-delete.ts` | Hapus banyak foto sekaligus (strong-ref cleanup, 1 transaksi) |
-| `apps/web/src/pages/api/admin/upload.ts` | Upload foto per-file |
+| `apps/web/src/pages/api/admin/upload/credentials.ts` | Beri kredensial upload (admin-only, token runtime) untuk **direct-to-Sanity** upload dari browser (lewati batas ~4.5MB Vercel) |
+| `apps/web/src/pages/api/admin/upload/finalize.ts` | Wiring pasca-upload: buat dokumen `photo` + `append` ke `album.photos` (payload JSON kecil) |
 | `apps/web/src/pages/api/gallery/[slug]/verify.ts` | PIN auth + album+photo data |
 | `apps/web/src/pages/api/gallery/[slug]/submit.ts` | Submit selections + lock album |
 | `apps/web/src/pages/api/auth/` | Login, logout, create-admin |
@@ -113,6 +114,11 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 ```
 
 > ⚠️ Token Sanity di `CONTEXT.md` sudah **di-revoke** — jangan pakai. Generate token baru dari https://www.sanity.io/manage/project/741sif2l/api
+>
+> ⚠️ **Direct-to-Sanity upload (upload foto):** biner di-upload langsung dari browser ke Sanity Asset API supaya lepas dari batas body ~4.5MB Vercel Serverless. Konsekuensi konfigurasi:
+> - `SANITY_API_TOKEN` **wajib role Editor/write** (bukan Viewer) — dipakai untuk `assets.upload` + create/patch.
+> - Origin aplikasi (domain produksi + preview) **wajib ditambahkan** ke Sanity **CORS origins** (manage.sanity.io → API → CORS origins). Tanpa ini, upload dari browser diblok CORS. "Allow credentials" **tidak** perlu (auth via Bearer token, bukan cookie).
+> - Token hanya diambil runtime oleh admin terautentikasi via `/api/admin/upload/credentials` (tidak di-bundle ke JS klien).
 
 ---
 
