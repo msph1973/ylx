@@ -386,7 +386,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .form-input {
           padding: var(--space-2-5) var(--space-3);
-          min-height: 44px;
+          min-height: var(--tap-target-min);
           background-color: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
@@ -418,7 +418,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .btn-primary {
           padding: var(--space-2-5) var(--space-5);
-          min-height: 44px;
+          min-height: var(--tap-target-min);
           background-color: var(--color-accent);
           color: var(--color-bg);
           border: none;
@@ -440,7 +440,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
         .btn-secondary {
           padding: var(--space-2-5) var(--space-5);
-          min-height: 44px;
+          min-height: var(--tap-target-min);
           background-color: transparent;
           color: var(--color-text-muted);
           border: 1px solid var(--color-border);
