@@ -249,8 +249,9 @@ export default function UploadPage({ adminName }: UploadPageProps) {
     // Build a concise, human-readable summary of anything that was dropped.
     const parts: string[] = [];
     if (invalidCount > 0) {
+      const maxMb = Math.round(MAX_FILE_SIZE / (1024 * 1024));
       parts.push(
-        `${invalidCount} file${invalidCount === 1 ? '' : 's'} skipped — unsupported format or larger than 50MB`,
+        `${invalidCount} file${invalidCount === 1 ? '' : 's'} skipped — unsupported format or larger than ${maxMb}MB`,
       );
     }
     if (duplicateCount > 0) {
@@ -511,16 +512,19 @@ export default function UploadPage({ adminName }: UploadPageProps) {
               <div className="batch-progress-label">
                 <span>Uploaded {doneCount} of {files.length}</span>
               </div>
+              {/* The bar tracks *settled* attempts (done + failed) so it reaches
+                  100% once nothing is in flight, even when some uploads failed;
+                  the label still reports successful uploads. */}
               <div
                 className="batch-progress"
                 role="progressbar"
                 aria-valuemin={0}
                 aria-valuemax={files.length}
-                aria-valuenow={doneCount}
+                aria-valuenow={doneCount + errorCount}
               >
                 <div
                   className="batch-progress-fill"
-                  style={{ transform: `scaleX(${files.length > 0 ? doneCount / files.length : 0})` }}
+                  style={{ transform: `scaleX(${files.length > 0 ? (doneCount + errorCount) / files.length : 0})` }}
                 />
               </div>
             </div>

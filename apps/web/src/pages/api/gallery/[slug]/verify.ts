@@ -134,8 +134,12 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
       id: photo._id,
       filename: photo.filename,
       thumbnailUrl: thumb1x,
-      thumbnailSrcSet: `${thumb1x} 1x, ${thumb2x} 2x`,
-      url: urlFor(photo.image).width(1600).auto("format").quality(80).url(),
+      // Width descriptors (paired with the grid's `sizes`) let the browser pick by
+      // actual layout width *and* density, rather than density alone (`1x/2x`).
+      thumbnailSrcSet: `${thumb1x} 400w, ${thumb2x} 800w`,
+      // Keep the original 1200px full-size — `.auto("format").quality()` already
+      // trims bytes; widening to 1600 would have added bandwidth per photo.
+      url: urlFor(photo.image).width(1200).auto("format").quality(80).url(),
       lqip: photo.lqip ?? null,
     };
   });
