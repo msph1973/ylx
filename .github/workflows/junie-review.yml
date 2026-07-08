@@ -1,0 +1,39 @@
+name: Junie Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: |
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(github.event.comment.body, '@junie-agent') &&
+        contains(github.event.comment.body, 'code-review')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Junie code review
+        uses: JetBrains/junie-github-action@3f199e1f3449f01ca19cfa4ba7ff911588e90999 # v0
+        continue-on-error: true
+        with:
+          junie_api_key: ${{ secrets.JUNIE_API_KEY }}
+          prompt: |
+            code-review
+            junie-args: --model=gpt-5.3-codex
+          use_single_comment: true
+          model: gpt-codex
