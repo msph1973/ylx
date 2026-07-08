@@ -8,6 +8,14 @@ Full-Stack Photo Proofing Gallery Platform for wedding photographers. Clients se
 
 `STATUS.md` is the single source of truth for current project state. Read it before making any changes.
 
+## Session Protocol (keep context across sessions)
+
+Junie's in-session history is compressed by the harness and cross-session memory is easy to lose, so keep a durable external record — do not rely on the context window.
+
+- **Session start:** read `STATUS.md` first, then the newest entry in `~/.junie/memory/notes.md`. If `~/.junie/memory/checkpoint.md` conflicts with `STATUS.md`, trust `STATUS.md` (checkpoint can be stale).
+- **Session end (every task that changes the project or its state):** append one dated entry `## [YYYY-MM-DDTHH:MMZ] <task>` to `~/.junie/memory/notes.md` (what changed, PR/commit, key decisions) and sync `STATUS.md`.
+- **Never write raw secrets** (tokens, PATs, passwords, bypass secrets) into any memory/doc file — reference the env var or CLI that holds them instead.
+
 ## Architecture (Actual, not original spec)
 
 - **Frontend:** Astro 6 (island architecture) + React 18 interactive components via `client:load`
@@ -32,6 +40,18 @@ Full-Stack Photo Proofing Gallery Platform for wedding photographers. Clients se
 - Check Astro docs for `client:load` island patterns
 - Check Sanity docs for GROQ query syntax (note: subqueries use `^._id`)
 - Run `pnpm exec tsc --noEmit` and `pnpm exec eslint src --max-warnings 0` before every commit
+
+## Skills — Always Use the Relevant One
+
+Before starting any task, scan the available Agent Skills and use **every** skill that matches the task's domain (open its doc first). Skipping a matching skill is not allowed unless the user says otherwise. Common matches in this repo: `astro` (framework), `sanity-best-practices` / `sanity-migration` / `content-modeling-best-practices` (CMS + GROQ), `impeccable` (UI/UX audit + fix), `compose:*` (`plan` / `tdd` / `subagent` / `review` / `verify`), `kernel-*` + `debug-browser-session` (browser E2E).
+
+## Token Efficiency (mandatory)
+
+Always minimize token usage with these installed tools:
+
+- **caveman** (`caveman.so/docs`, skill `~/.junie/skills/caveman`): default answer/summary style — ultra-compressed (~75% fewer tokens) while keeping full technical accuracy. Sub-skills: `caveman-review` (PR feedback), `caveman-compress` (shrink memory files).
+- **ponytail** (skill `~/.junie/skills/ponytail`): write the minimal YAGNI-first code; `ponytail-review` / `ponytail-audit` hunt over-engineering to delete.
+- **RTK** — Rust Token Killer (`rtk`, installed at `~/.local/bin/rtk`): wrap the noisy shell commands you run so their output is filtered/compressed (~60–90% fewer tokens) before entering context. Route the verification pipeline and git/gh through it: `rtk pnpm ...`, `rtk tsc`, `rtk lint`, `rtk vitest`, `rtk playwright`, `rtk git diff`, `rtk gh`, `rtk read <file>`. (This complements — does not replace — Junie's dedicated search tools.)
 
 ## Non-Negotiable Code Rules
 
