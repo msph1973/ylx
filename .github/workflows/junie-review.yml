@@ -35,4 +35,4 @@ jobs:
           junie_api_key: ${{ secrets.JUNIE_API_KEY }}
           prompt: code-review
           use_single_comment: true
-          model: gpt-5.3-codex
+          model: gemini-flash
