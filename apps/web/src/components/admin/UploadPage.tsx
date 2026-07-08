@@ -157,6 +157,10 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  // Human-readable summary of files dropped from the last add (bad format/size or
+  // duplicate filenames). Null when nothing was skipped. Surfaced as a dismissible
+  // banner so rejections aren't silent.
+  const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Cache the direct-upload credentials for the lifetime of a batch. Refreshed at
   // the start of every startUpload() so a token that expired between batches is
@@ -206,22 +210,57 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles);
-    const validFiles = fileArray.filter(file => {
-      const ext = file.name.toLowerCase().split('.').pop();
-      if (!VALID_EXTS.includes(ext || '')) return false;
-      if (file.size > MAX_FILE_SIZE) return false;
-      return true;
-    });
+    // Names already queued — used to reject duplicate filenames (case-insensitive).
+    const existingNames = new Set(files.map(f => f.file.name.toLowerCase()));
+    // Names accepted within this same drop batch, so a batch that contains the
+    // same filename twice only keeps the first occurrence.
+    const seenInBatch = new Set<string>();
 
-    const uploadFiles: UploadFile[] = validFiles.map(file => ({
+    let invalidCount = 0; // unsupported format or larger than MAX_FILE_SIZE
+    let duplicateCount = 0; // filename already queued or repeated in this batch
+    const accepted: File[] = [];
+
+    for (const file of fileArray) {
+      const ext = file.name.toLowerCase().split('.').pop();
+      if (!VALID_EXTS.includes(ext || '') || file.size > MAX_FILE_SIZE) {
+        invalidCount++;
+        continue;
+      }
+      const key = file.name.toLowerCase();
+      if (existingNames.has(key) || seenInBatch.has(key)) {
+        duplicateCount++;
+        continue;
+      }
+      seenInBatch.add(key);
+      accepted.push(file);
+    }
+
+    const uploadFiles: UploadFile[] = accepted.map(file => ({
       file,
       id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       status: 'pending',
       progress: 0,
     }));
 
-    setFiles(prev => [...prev, ...uploadFiles]);
-  }, []);
+    if (uploadFiles.length > 0) {
+      setFiles(prev => [...prev, ...uploadFiles]);
+    }
+
+    // Build a concise, human-readable summary of anything that was dropped.
+    const parts: string[] = [];
+    if (invalidCount > 0) {
+      const maxMb = Math.round(MAX_FILE_SIZE / (1024 * 1024));
+      parts.push(
+        `${invalidCount} file${invalidCount === 1 ? '' : 's'} skipped — unsupported format or larger than ${maxMb}MB`,
+      );
+    }
+    if (duplicateCount > 0) {
+      parts.push(
+        `${duplicateCount} duplicate filename${duplicateCount === 1 ? '' : 's'} skipped`,
+      );
+    }
+    setSkippedNotice(parts.length > 0 ? `${parts.join('; ')}.` : null);
+  }, [files]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -435,6 +474,22 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         </div>
       </div>
 
+      {/* Skipped-files notice */}
+      {skippedNotice && (
+        <div className="skipped-notice" role="status">
+          <span className="skipped-notice-text">{skippedNotice}</span>
+          <button
+            className="skipped-notice-dismiss"
+            aria-label="Dismiss"
+            onClick={() => setSkippedNotice(null)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* File List */}
       {files.length > 0 && (
         <div className="file-list-section">
@@ -451,6 +506,29 @@ export default function UploadPage({ adminName }: UploadPageProps) {
               </button>
             </div>
           </div>
+
+          {(isUploading || doneCount + errorCount > 0) && (
+            <div className="batch-progress-section">
+              <div className="batch-progress-label">
+                <span>Uploaded {doneCount} of {files.length}</span>
+              </div>
+              {/* The bar tracks *settled* attempts (done + failed) so it reaches
+                  100% once nothing is in flight, even when some uploads failed;
+                  the label still reports successful uploads. */}
+              <div
+                className="batch-progress"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={files.length}
+                aria-valuenow={doneCount + errorCount}
+              >
+                <div
+                  className="batch-progress-fill"
+                  style={{ transform: `scaleX(${files.length > 0 ? (doneCount + errorCount) / files.length : 0})` }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="file-list">
             <AnimatePresence>
@@ -828,6 +906,68 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
         .stat.error {
           color: var(--color-error);
+        }
+
+        .skipped-notice {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-3);
+          padding: var(--space-3) var(--space-4);
+          margin-bottom: var(--space-6);
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+        }
+
+        .skipped-notice-text {
+          font-size: var(--text-sm);
+          color: var(--color-text-muted);
+        }
+
+        .skipped-notice-dismiss {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: var(--tap-target-min);
+          min-width: var(--tap-target-min);
+          background: none;
+          border: none;
+          color: var(--color-text-muted);
+          cursor: pointer;
+          padding: var(--space-1);
+        }
+
+        .skipped-notice-dismiss:hover {
+          color: var(--color-text);
+        }
+
+        .batch-progress-section {
+          padding: var(--space-3) var(--space-4);
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .batch-progress-label {
+          font-size: var(--text-sm);
+          color: var(--color-text-muted);
+          margin-bottom: var(--space-2);
+        }
+
+        .batch-progress {
+          width: 100%;
+          height: 6px;
+          background-color: var(--color-border);
+          border-radius: var(--radius-full);
+          overflow: hidden;
+        }
+
+        .batch-progress-fill {
+          height: 100%;
+          width: 100%;
+          background-color: var(--color-accent);
+          transform-origin: left;
+          transform: scaleX(0);
+          transition: transform var(--transition-fast);
         }
       `}</style>
     </div>

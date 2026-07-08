@@ -176,6 +176,27 @@ Dibuat dari `master` **setelah** PR #22 (Astro 5→6) di-merge, jadi berjalan di
 
 ---
 
+## Performance + Upload/Gallery Hardening
+
+### `feat/gallery-upload-improvements` — peningkatan #1/#3/#4/#5 + grid mobile-first
+
+Dibuat dari `master` (di atas Astro 6). Menindaklanjuti laporan "peluang peningkatan" — mengerjakan item **#1, #3, #4, #5** + grid admin mobile-first. Semua tanpa mengubah alur/logika bisnis.
+
+- **#1 Optimasi gambar Sanity CDN (lintas galeri + admin):** URL gambar sebelumnya hanya `.width().height().fit("crop")` — tanpa `.auto("format")` (tak ada WebP/AVIF) & tanpa `.quality()`. Ditambahkan:
+  - `api/gallery/[slug]/verify.ts` — thumbnail `400` (`quality 75`) + varian `800` (`quality 70`) → field baru `thumbnailSrcSet` (`"url400 1x, url800 2x"`); full url `1200`→`1600` `auto/format` `quality 80`.
+  - `api/admin/albums/[id]/index.ts` — helper `thumbnailUrl()` + full `url` foto & selection kini `auto("format")` + `quality`.
+  - `BlurImage.tsx` — prop opsional `srcSet`/`sizes`; `GalleryPage` mengirim `srcSet={photo.thumbnailSrcSet}` + `sizes` responsif (retina tajam tanpa semua device menanggung 2×). Field `thumbnailSrcSet?` ditambahkan ke tipe bersama `Photo`.
+- **#3 File yang ditolak tak lagi hilang senyap (`UploadPage.tsx`):** `addFiles` mengklasifikasi accepted / invalid (format/ukuran >50MB) / duplikat, menampilkan banner `role="status"` yang bisa ditutup (mis. "2 files skipped — unsupported format or larger than 50MB; 1 duplicate filename skipped.").
+- **#4 Anti-konflik tulis saat upload paralel (`finalize.ts`):** `patch(albumId).append("photos", ...)` dibungkus `commitWithConflictRetry` — retry backoff (100→800ms + jitter) hanya pada 409 mutation conflict, sehingga 3 upload paralel yang meng-append album sama ter-serialkan tanpa kehilangan foto; error non-konflik tetap dilempar.
+- **#5 Progress agregat + dedup (`UploadPage.tsx`):** progress bar batch `Uploaded {done} of {N}` (`role="progressbar"`) di samping progress per-file; deteksi duplikat filename (case-insensitive) di dalam batch & terhadap antrean berjalan.
+- **Grid mobile-first (`AlbumDetail.tsx`):** grid foto admin di `@media (max-width:480px)` sebelumnya `grid-template-columns: 1fr` (satu kolom besar) → kini `repeat(auto-fill, minmax(96px, 1fr))` (grid thumbnail kompak ~3 kolom di HP). Grid galeri klien (`GalleryPage` 2→3→4) & daftar album (`AlbumList` 1→2→3) sudah mobile-first (tak berubah).
+
+**Model eksekusi:** implementasi backend/galeri/grid oleh orchestrator; `UploadPage` (#3+#5) didelegasikan ke satu sub-agent (file disjoint) lalu diverifikasi.
+
+**Verifikasi (fresh):** `npx impeccable detect --json apps/web/src` **0 temuan** (setelah menghapus `border-left` accent "side-tab" pada banner notice); `pnpm exec tsc --noEmit` lolos; `pnpm exec eslint src --max-warnings 0` lolos; `pnpm exec vitest run` 3/3; `pnpm exec playwright test` 12 pass + 1 flaky (paginasi lama, lolos saat retry); `pnpm build` lolos.
+
+---
+
 ## Post-merge Hot Fixes (on master)
 
 - **Sanity schema deploy:** `packages/sanity` upgraded to v4 — added `react`/`react-dom` as devDependencies to fix Vite Rollup "cannot resolve react" error during `sanity deploy`

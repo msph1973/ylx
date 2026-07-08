@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-08 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`. Branch aktif: **`feat/impeccable-touch-targets`** (adopsi impeccable CLI + fix-all target sentuh, belum merge).
+> Last updated: 2026-07-08 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`, **#23** impeccable CLI + fix target sentuh `68515c0`, **#25** junie review workflow `40ddb50`. Branch aktif: **`feat/gallery-upload-improvements`** (optimasi gambar CDN + robustness upload + grid mobile-first, belum merge).
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -104,7 +104,7 @@ Status flow album: `active → submitted (klien submit) → locked (admin lock)`
 
 ---
 
-## impeccable CLI + Touch-Target Fix-All (`feat/impeccable-touch-targets`, belum merge)
+## impeccable CLI + Touch-Target Fix-All (PR #23 — MERGED ke `master`, `68515c0`)
 
 Adopsi **impeccable CLI** (`pbakaus/impeccable`) sebagai tooling detector permanen + memperbaiki semua target sentuh tombol di bawah 44px (audit `button mobile first`, 17/20).
 
@@ -119,6 +119,22 @@ Adopsi **impeccable CLI** (`pbakaus/impeccable`) sebagai tooling detector perman
 | P3 polish | `color: white` → `var(--color-bg)`; hover `opacity` → `var(--color-accent-hover)` (delete: `color-mix` merah gelap) |
 
 > Verifikasi hijau: detector 0 actionable, `tsc`, `eslint --max-warnings 0`, `vitest` 3/3, `playwright` 12 pass + 1 flaky (paginasi lama), `pnpm build`.
+
+---
+
+## Performance + Upload/Gallery Hardening (`feat/gallery-upload-improvements`, belum merge)
+
+Menindaklanjuti laporan "peluang peningkatan" — item **#1/#3/#4/#5** + grid admin mobile-first. Tanpa perubahan logika bisnis.
+
+| Aspek | Detail |
+|-------|--------|
+| #1 Gambar CDN | `verify.ts` + admin `[id]/index.ts` kini `auto("format")` + `quality` (WebP/AVIF, ~30-60% lebih ringan); thumbnail galeri punya `thumbnailSrcSet` 1×/2× + `BlurImage` menerima `srcSet`/`sizes` (retina tajam) |
+| #3 File ditolak | `UploadPage.addFiles` — banner `role="status"` yang bisa ditutup untuk file format/ukuran tak didukung & duplikat (sebelumnya dibuang senyap) |
+| #4 Anti-konflik | `finalize.ts` — `patch().append()` dibungkus retry-on-409 (`commitWithConflictRetry`) agar upload paralel ke album sama tak kehilangan foto |
+| #5 Progress + dedup | `UploadPage` — progress bar batch `Uploaded X of N` + deteksi duplikat filename (case-insensitive) |
+| Grid mobile-first | `AlbumDetail` grid foto ≤480px: `1fr` → `repeat(auto-fill, minmax(96px,1fr))` (grid kompak, bukan 1 kolom). Galeri klien & daftar album sudah mobile-first |
+
+> Verifikasi hijau: detector **0 temuan**, `tsc`, `eslint --max-warnings 0`, `vitest` 3/3, `playwright` 12 pass + 1 flaky (paginasi lama), `pnpm build`.
 
 ---
 
