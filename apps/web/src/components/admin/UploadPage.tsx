@@ -647,6 +647,9 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         }
 
         .btn-text {
+          display: inline-flex;
+          align-items: center;
+          min-height: var(--tap-target-min);
           background: none;
           border: none;
           color: var(--color-text-muted);
@@ -706,6 +709,11 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         }
 
         .btn-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: var(--tap-target-min);
+          min-width: var(--tap-target-min);
           background: none;
           border: none;
           color: var(--color-text-muted);
@@ -753,7 +761,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         }
 
         .btn-retry {
-          min-height: 32px;
+          min-height: var(--tap-target-min);
           padding: var(--space-1) var(--space-3);
           background: none;
           border: 1px solid var(--color-border);

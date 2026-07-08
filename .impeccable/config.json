@@ -1,0 +1,9 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [
+      "apps/web/src/components/gallery/BlurImage.tsx"
+    ],
+    "ignoreValues": []
+  }
+}

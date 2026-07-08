@@ -31,3 +31,21 @@ Desktop.ini
 
 # Sensitive scripts (contain default credentials — run locally only)
 scripts/seed-admin.mjs
+
+# evolver
+.evolver/
+memory/
+
+# impeccable-ignore-start
+# impeccable (pbakaus/impeccable) — commit .impeccable/config.json (shared detector
+# config / source of truth); everything below is per-developer or ephemeral. The CLI
+# detector runs via `npx impeccable detect` (downloads on demand), so the vendored
+# skill/hook install is not committed. Junie is not a supported provider, so the
+# editor-native hook is intentionally skipped.
+.impeccable/config.local.json
+.impeccable/live/
+.impeccable/*.cache.json
+.impeccable/hook.cache.json
+.github/skills/impeccable/
+.github/hooks/impeccable.json
+# impeccable-ignore-end

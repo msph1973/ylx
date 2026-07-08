@@ -285,6 +285,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
         .submit-btn {
           padding: var(--space-2) var(--space-4);
+          min-height: var(--tap-target-min);
           background-color: var(--color-accent);
           color: var(--color-bg);
           border-radius: var(--radius-md);

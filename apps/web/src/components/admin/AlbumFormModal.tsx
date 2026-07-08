@@ -420,7 +420,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           padding: var(--space-2-5) var(--space-5);
           min-height: 44px;
           background-color: var(--color-accent);
-          color: white;
+          color: var(--color-bg);
           border: none;
           border-radius: var(--radius-md);
           font-size: var(--text-sm);
