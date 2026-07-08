@@ -141,6 +141,17 @@ Migrasi upload foto dari serverless-proxy ke **direct-to-Sanity** karena Vercel 
 
 ---
 
+## Dependency / Security Upgrades
+
+### `chore/upgrade-astro-6` — Astro 5 → 6 (security advisories)
+- **Motivasi:** menutup advisory `pnpm audit` di jalur Astro: 2 HIGH (host-header **SSRF** di prerendered error page `<6.4.6`, reflected **XSS** via unescaped slot name `<6.3.3`) + moderate Astro (`define:vars` `<6.1.6`, spread-props attr `<6.4.6`) + adapter `@astrojs/vercel` path-override `x-astro-path` `<10.0.2`. Astro 5.x tak punya backport → wajib naik ke 6.x.
+- **Bumps:** `astro` `^5.18.2` → `^6.4.8`; `@astrojs/vercel` `^8.2.11` → `^10.0.8` (peer `astro@^6`); `@astrojs/react` `^4.4.2` → `^5.0.7` (engine Node `>=22.12`, peer React 18 tetap OK); root `engines.node` `>=20` → `>=22.12.0` (samakan dgn engine `astro@6.4.8` & `@astrojs/react@5.0.7` yang butuh Node `>=22.12`).
+- **Breaking-change audit (pra-upgrade):** proyek **tidak** memakai API berat yang dihapus/diubah Astro 6 — tak ada content collections/`astro:content`, `<ViewTransitions/>`, `Astro.glob()`, `astro:assets`/`getImage()`, `zod`, `getStaticPaths()`, `trailingSlash`, atau `import.meta.env` untuk rahasia (rahasia via `process.env`; `import.meta.env.PROD` hanya boolean). Tes vitest render komponen **React** (jsdom+RTL), bukan Astro Container API. **Tidak ada perubahan kode aplikasi yang diperlukan** — murni bump versi.
+- **Verifikasi:** `astro sync` + `tsc --noEmit` lolos, `eslint --max-warnings 0` lolos, `vitest` 3/3, `playwright` 12 tests passed + 1 flaky (tes paginasi lama, lolos saat retry), `pnpm build` lolos (adapter Vercel v10).
+- **Catatan runtime Node:** `@astrojs/vercel` v10 memilih runtime fungsi dari versi Node build. Di sandbox lokal (Node 25) build menulis `nodejs24.x` (Node 25 belum didukung Vercel); di build Vercel runtime mengikuti setelan proyek (Node 22). Pastikan setelan Node.js proyek Vercel = **22.x**.
+
+---
+
 ## Post-merge Hot Fixes (on master)
 
 - **Sanity schema deploy:** `packages/sanity` upgraded to v4 — added `react`/`react-dom` as devDependencies to fix Vite Rollup "cannot resolve react" error during `sanity deploy`

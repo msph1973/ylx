@@ -10,11 +10,11 @@ Full-Stack Photo Proofing Gallery Platform for wedding photographers. Clients se
 
 ## Architecture (Actual, not original spec)
 
-- **Frontend:** Astro 5 (island architecture) + React 18 interactive components via `client:load`
+- **Frontend:** Astro 6 (island architecture) + React 18 interactive components via `client:load`
 - **CMS + DB:** Sanity v4 — all data stored here; **no Prisma**
 - **Auth:** Email + bcrypt (12 rounds) — single admin, not OAuth
 - **Realtime:** Ably — `publishAdminEvent()` server-side, `useRealtime`/`useAdminRealtime` client-side
-- **Deployment:** Vercel Serverless (`@astrojs/vercel` v8), Node 22, `rootDirectory: apps/web`
+- **Deployment:** Vercel Serverless (`@astrojs/vercel` v10), Node 22, `rootDirectory: apps/web`
 - **Monorepo:** Turborepo + pnpm workspaces
 - **Mastra:** Removed entirely — package and the `api/admin/workflow.ts` stub are both deleted
 
