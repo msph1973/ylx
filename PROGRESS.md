@@ -152,6 +152,30 @@ Migrasi upload foto dari serverless-proxy ke **direct-to-Sanity** karena Vercel 
 
 ---
 
+## Tooling + UI/A11y
+
+### `feat/impeccable-touch-targets` — impeccable CLI adoption + button touch-target fix-all
+
+Dibuat dari `master` **setelah** PR #22 (Astro 5→6) di-merge, jadi berjalan di atas Astro 6.
+
+**1. Adopsi impeccable CLI (pbakaus/impeccable) sebagai tooling permanen:**
+- `.impeccable/config.json` **di-commit** sebagai sumber kebenaran detector bersama (`detector.ignoreFiles`). Detector dijalankan via `npx impeccable detect --json apps/web/src` (unduh on-demand, CI-friendly), jadi skill/hook harness **tidak** di-vendor.
+- **Junie bukan provider yang didukung** impeccable (Cursor/Claude/Copilot/Gemini/Codex/dll.) → hook editor-native sengaja dilewati; hanya CLI detector + config bersama yang dipakai.
+- Blok `# impeccable-ignore-start/end` ditambahkan ke `.gitignore`: meng-*ignore* `.impeccable/config.local.json`, `.impeccable/live/`, cache, dan install harness `.github/skills/impeccable/` + `.github/hooks/impeccable.json` (ephemeral/provider-specific). `PRODUCT.md`/`DESIGN.md` sudah ada & dipelihara manual (ramp amber `#b8864e`) → tidak ditimpa oleh `init`.
+- **Triase false positive (baseline 3 → 0 actionable):** `broken-image` di `BlurImage.tsx` (`src` runtime) di-ignore via `config.json` `ignoreFiles`; `overused-font`/`single-font` di `BaseLayout.astro` di-*waive* via komentar inline rule-scoped `<!-- impeccable-disable overused-font, single-font -->` (Inter memang dipasangkan dgn Playfair Display — keduanya dimuat baris 20; detector hanya mem-parse family pertama).
+
+**2. Fix-all target sentuh (gabungan detector + audit `button mobile first`, skor 17/20):**
+- **Foundation (anti-drift):** token `--tap-target-min: 44px` di `variables.css`; base rule `button { min-height: var(--tap-target-min) }` di `global.css`. Kontrol kecil-di-dalam-input dikecualikan (`.search-clear` → `min-height: 0`, tetap 36×36).
+- **P1 Upload** (`UploadPage.tsx`): `.btn-text` & `.btn-icon` → inline-flex + center + `min-height` 44 (icon juga `min-width` 44, ikon 16px tetap); `.btn-retry` `32px` → token.
+- **P2** ≥44px: `.submit-btn` (galeri), `.btn-new-album`+`.logout-btn` (AdminPage), `.copy-btn` (CopyFilenames), `.btn-cancel`+`.btn-confirm-delete` (ConfirmDialog) + `@media (max-width:480px)` stacked/full-width (pola `AlbumFormModal`).
+- **P3 polish:** `color: white` → `var(--color-bg)` di `AdminPage`/`ConfirmDialog`/`AlbumFormModal`/`AlbumDetail`; hover `opacity` → `var(--color-accent-hover)` (AdminPage), delete-hover → merah gelap `color-mix(in srgb, var(--color-error) 85%, var(--color-bg))` (residual detector `design-system-color` `#000` ditutup dgn pakai token `--color-bg`, bukan literal).
+
+**Model eksekusi:** Orchestrator + tim sub-agent paralel (`compose:subagent`): Foundation sekuensial (sync point 1) → 4 implementer paralel di file **disjoint** (A Upload / B Gallery / C Admin+Copy / D Dialogs, sync point 2) → integrasi + residual + gate akhir.
+
+**Verifikasi (fresh):** `npx impeccable detect --json apps/web/src` **0 temuan actionable**; `pnpm exec tsc --noEmit` lolos; `pnpm exec eslint src --max-warnings 0` lolos; `pnpm exec vitest run` 3/3; `pnpm exec playwright test` 12 pass + 1 flaky (tes paginasi lama, lolos saat retry); `pnpm build` lolos.
+
+---
+
 ## Post-merge Hot Fixes (on master)
 
 - **Sanity schema deploy:** `packages/sanity` upgraded to v4 — added `react`/`react-dom` as devDependencies to fix Vite Rollup "cannot resolve react" error during `sanity deploy`

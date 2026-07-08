@@ -155,6 +155,7 @@ export function ConfirmDialog({
 
             .btn-cancel {
               padding: var(--space-2-5) var(--space-5);
+              min-height: var(--tap-target-min);
               background-color: transparent;
               color: var(--color-text-muted);
               border: 1px solid var(--color-border);
@@ -172,24 +173,36 @@ export function ConfirmDialog({
 
             .btn-confirm-delete {
               padding: var(--space-2-5) var(--space-5);
+              min-height: var(--tap-target-min);
               background-color: var(--color-error);
-              color: white;
+              color: var(--color-bg);
               border: none;
               border-radius: var(--radius-md);
               font-size: var(--text-sm);
               font-weight: var(--font-medium);
               cursor: pointer;
-              transition: opacity var(--transition-fast);
+              transition: background-color var(--transition-fast);
             }
 
             .btn-confirm-delete:hover:not(:disabled) {
-              opacity: 0.88;
+              background-color: color-mix(in srgb, var(--color-error) 85%, var(--color-bg));
             }
 
             .btn-cancel:disabled,
             .btn-confirm-delete:disabled {
               opacity: 0.5;
               cursor: not-allowed;
+            }
+
+            @media (max-width: 480px) {
+              .confirm-actions {
+                flex-direction: column;
+              }
+
+              .btn-cancel,
+              .btn-confirm-delete {
+                width: 100%;
+              }
             }
           `}</style>
         </motion.div>

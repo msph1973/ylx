@@ -963,7 +963,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
           .photo-delete:hover, .photo-delete:focus-visible {
             background-color: var(--color-error);
-            color: white;
+            color: var(--color-bg);
             outline: none;
           }
 

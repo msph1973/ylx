@@ -70,6 +70,16 @@ button {
   cursor: pointer;
   border: none;
   background: none;
+  /* Global tap-target floor (WCAG 2.5.5/2.5.8) so new buttons stay tappable and
+     touch sizing can't drift per-component again. Buttons taller than this are
+     unaffected; intentionally-compact controls opt out below. */
+  min-height: var(--tap-target-min);
+}
+
+/* Opt-out: small controls that live inside an input are intentionally compact
+   (e.g. the search-field clear button, 36×36, well above the 24px AA floor). */
+.search-clear {
+  min-height: 0;
 }
 
 /* Inputs */
