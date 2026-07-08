@@ -6,6 +6,10 @@ interface BlurImageProps {
   lqip?: string | null;
   className?: string;
   loading?: 'lazy' | 'eager';
+  /** Responsive candidates (e.g. "url400 1x, url800 2x"). When set, the browser
+   *  picks the right density/width so retina screens aren't served a soft image. */
+  srcSet?: string;
+  sizes?: string;
 }
 
 /**
@@ -15,7 +19,7 @@ interface BlurImageProps {
  * is what makes the blur-up actually show — an opacity:0 <img> would also hide
  * its own background. Falls back to a plain fade-in when no LQIP is present.
  */
-export function BlurImage({ src, alt, lqip, className, loading = 'lazy' }: BlurImageProps) {
+export function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet, sizes }: BlurImageProps) {
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLImageElement>(null);
 
@@ -35,6 +39,8 @@ export function BlurImage({ src, alt, lqip, className, loading = 'lazy' }: BlurI
       <img
         ref={ref}
         src={src}
+        srcSet={srcSet}
+        sizes={sizes}
         alt={alt}
         loading={loading}
         className={`blur-img${loaded ? ' loaded' : ''}`}

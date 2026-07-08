@@ -213,6 +213,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             >
               <BlurImage
                 src={photo.thumbnailUrl}
+                srcSet={photo.thumbnailSrcSet ?? undefined}
+                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
                 lqip={photo.lqip}
                 alt={`Photo ${index + 1} of ${album.photos.length}`}
               />

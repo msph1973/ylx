@@ -111,13 +111,34 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     });
   }
 
-  const photos = (album.photos ?? []).map((photo) => ({
-    id: photo._id,
-    filename: photo.filename,
-    thumbnailUrl: urlFor(photo.image).width(400).height(400).fit("crop").url(),
-    url: urlFor(photo.image).width(1200).url(),
-    lqip: photo.lqip ?? null,
-  }));
+  const photos = (album.photos ?? []).map((photo) => {
+    // `.auto("format")` negotiates WebP/AVIF per client (typically 30-60% smaller
+    // than the original JPEG) and `.quality()` tunes compression — both were
+    // missing, so the CDN served full-quality originals. The 2x thumbnail feeds a
+    // srcset so retina phones get a sharp tile without every device paying for it.
+    const thumb1x = urlFor(photo.image)
+      .width(400)
+      .height(400)
+      .fit("crop")
+      .auto("format")
+      .quality(75)
+      .url();
+    const thumb2x = urlFor(photo.image)
+      .width(800)
+      .height(800)
+      .fit("crop")
+      .auto("format")
+      .quality(70)
+      .url();
+    return {
+      id: photo._id,
+      filename: photo.filename,
+      thumbnailUrl: thumb1x,
+      thumbnailSrcSet: `${thumb1x} 1x, ${thumb2x} 2x`,
+      url: urlFor(photo.image).width(1600).auto("format").quality(80).url(),
+      lqip: photo.lqip ?? null,
+    };
+  });
 
   return new Response(
     JSON.stringify({

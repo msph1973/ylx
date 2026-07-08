@@ -21,9 +21,18 @@ interface SanityPhotoRaw {
   lqip?: string | null;
 }
 
-/** Build a square, cropped thumbnail URL for an uploaded photo. */
+/** Build a square, cropped thumbnail URL for an uploaded photo.
+ *  `.auto("format")` serves WebP/AVIF where supported and `.quality()` tunes
+ *  compression — both were missing, so the admin grid downloaded full-quality
+ *  originals for tiles that only render ~100-130px. */
 function thumbnailUrl(image: SanityImageRef): string {
-  return urlFor(image).width(400).height(400).fit("crop").url();
+  return urlFor(image)
+    .width(400)
+    .height(400)
+    .fit("crop")
+    .auto("format")
+    .quality(75)
+    .url();
 }
 
 interface SanitySelectionRaw {
@@ -92,7 +101,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       photos: (album.photos ?? []).map((p) => ({
         id: p._id,
         filename: p.filename,
-        url: urlFor(p.image).url(),
+        url: urlFor(p.image).auto("format").quality(80).url(),
         thumbnailUrl: thumbnailUrl(p.image),
         lqip: p.lqip ?? null,
       })),
@@ -103,7 +112,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
         photo: {
           id: s.photo._id,
           filename: s.photo.filename,
-          url: urlFor(s.photo.image).url(),
+          url: urlFor(s.photo.image).auto("format").quality(80).url(),
           thumbnailUrl: thumbnailUrl(s.photo.image),
           lqip: s.photo.lqip ?? null,
         },

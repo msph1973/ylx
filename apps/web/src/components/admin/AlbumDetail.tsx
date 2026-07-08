@@ -1047,8 +1047,12 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
               grid-template-columns: 1fr;
             }
 
+            /* Mobile-first: keep a compact multi-column thumbnail grid on phones
+               instead of collapsing to a single full-width column (which forced
+               endless scrolling to manage an album). ~96px tiles give ~3 columns
+               on a typical phone while the base grid handles larger screens. */
             .photo-grid {
-              grid-template-columns: 1fr;
+              grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
               padding-left: var(--space-4);
               padding-right: var(--space-4);
             }

@@ -18,6 +18,36 @@ interface FinalizeBody {
   filename?: unknown;
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A Sanity transaction that mutates a document commits with optimistic
+// concurrency: two `patch(...).append(...)` calls racing on the SAME album (which
+// happens because the browser uploads photos in parallel, UPLOAD_CONCURRENCY=3)
+// can collide and the loser is rejected with a 409 mutation conflict. Retrying the
+// losing append a few times with backoff serialises them without slowing the heavy
+// (parallel) binary uploads. Non-conflict errors propagate immediately.
+function isConflict(err: unknown): boolean {
+  const status =
+    (err as { statusCode?: number })?.statusCode ??
+    (err as { response?: { statusCode?: number } })?.response?.statusCode;
+  return status === 409;
+}
+
+async function commitWithConflictRetry<T>(
+  commit: () => Promise<T>,
+  attempts = 5,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await commit();
+    } catch (err) {
+      if (!isConflict(err) || attempt >= attempts) throw err;
+      // 100ms, 200ms, 400ms, 800ms — small jittered backoff before re-appending.
+      await delay(100 * 2 ** (attempt - 1) + Math.floor(Math.random() * 50));
+    }
+  }
+}
+
 export const POST: APIRoute = async ({ request, cookies }) => {
   const session = requireAdmin(cookies);
   if (!session) {
@@ -94,13 +124,17 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     // Attach the photo to the album's ordered `photos` array — the single source
     // of truth the gallery, submit validation, and admin grid all read from.
-    await sanityWriteClient
-      .patch(albumId)
-      .setIfMissing({ photos: [] })
-      .append("photos", [
-        { _type: "reference", _ref: photoDoc._id, _key: photoDoc._id },
-      ])
-      .commit();
+    // Wrapped in a conflict retry so parallel uploads appending to the same album
+    // don't lose a photo to a 409 mutation conflict.
+    await commitWithConflictRetry(() =>
+      sanityWriteClient
+        .patch(albumId)
+        .setIfMissing({ photos: [] })
+        .append("photos", [
+          { _type: "reference", _ref: photoDoc._id, _key: photoDoc._id },
+        ])
+        .commit()
+    );
 
     publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
 
