@@ -285,7 +285,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `DESIGN.md` | Design tokens, warna, typography |
 | `PRODUCT.md` | Product requirements |
 | `AGENTS.md` | Architecture overview (perlu update — lihat catatan di bawah) |
-| `PROGRESS.md` | History PR dan bug fixes yang sudah diselesaikan |
+| `new-audit.md` | Temuan security audit belum di-fix (M-1 sampai L-6) | Baru |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
 
