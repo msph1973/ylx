@@ -138,7 +138,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
 
     publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
-    void invalidateCache(CACHE_KEYS.albumsList()); // photoCount changed
+    await invalidateCache(CACHE_KEYS.albumsList()); // photoCount changed
 
     return new Response(
       JSON.stringify({ success: true, photoId: photoDoc._id }),

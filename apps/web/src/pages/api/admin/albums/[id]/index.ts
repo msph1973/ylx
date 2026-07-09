@@ -219,7 +219,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     } catch (eventError) {
       console.error("[Albums] PUT publish event failed:", eventError);
     }
-    void invalidateCache(CACHE_KEYS.albumsList());
+    await invalidateCache(CACHE_KEYS.albumsList());
 
     return new Response(
       JSON.stringify({
@@ -265,8 +265,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     await cascadeDeleteAlbums([albumId]);
 
     publishAdminEvent("album:deleted", { albumId });
-    void invalidateCache(CACHE_KEYS.albumsList());
-    void invalidateCache(CACHE_KEYS.albumSelections(albumId));
+    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
 
     return new Response(
       JSON.stringify({ success: true }),

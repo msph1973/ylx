@@ -145,7 +145,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   }
   // Status flipped to "submitted" above, so the cached admin albums list
   // (which includes status) must be invalidated too, not just selections.
-  void invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);
+  await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),

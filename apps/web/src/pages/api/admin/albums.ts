@@ -125,7 +125,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     });
 
     publishAdminEvent("album:created", { albumId: doc._id });
-    void invalidateCache(CACHE_KEYS.albumsList());
+    await invalidateCache(CACHE_KEYS.albumsList());
 
     return new Response(
       JSON.stringify({

@@ -35,7 +35,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     // A single realtime event lets every open dashboard refetch once.
     publishAdminEvent("album:deleted", { albumIds: ids });
     // One bulk DEL instead of one invalidateCache call per album.
-    void invalidateCache([CACHE_KEYS.albumsList(), ...ids.map((id) => CACHE_KEYS.albumSelections(id))]);
+    await invalidateCache([CACHE_KEYS.albumsList(), ...ids.map((id) => CACHE_KEYS.albumSelections(id))]);
 
     return new Response(
       JSON.stringify({ success: true, deleted: ids.length }),

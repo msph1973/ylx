@@ -38,8 +38,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
     publishAdminEvent("album:locked", { albumId });
     publishAlbumEvent(albumId, "album:locked");
-    void invalidateCache(CACHE_KEYS.albumsList());
-    void invalidateCache(CACHE_KEYS.albumSelections(albumId));
+    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
 
     return new Response(JSON.stringify({ success: true, id: albumId }), {
       status: 200,

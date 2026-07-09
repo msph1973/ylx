@@ -84,8 +84,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       publishAdminEvent("selection:changed", { albumId });
     }
     publishAlbumEvent(albumId, "photo:deleted", { photoIds: uniquePhotoIds });
-    void invalidateCache(CACHE_KEYS.albumsList());
-    void invalidateCache(CACHE_KEYS.albumSelections(albumId));
+    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
 
     return new Response(
       JSON.stringify({ success: true, deletedCount: uniquePhotoIds.length, removedSelections: selectionIds.length }),

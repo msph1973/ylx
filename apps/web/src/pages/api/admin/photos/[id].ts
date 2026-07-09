@@ -81,8 +81,9 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     if (albumId) {
       publishAlbumEvent(albumId, "photo:deleted", { photoId });
     }
-    void invalidateCache(CACHE_KEYS.albumsList());
-    if (albumId) void invalidateCache(CACHE_KEYS.albumSelections(albumId));
+    await invalidateCache(
+      albumId ? [CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)] : CACHE_KEYS.albumsList()
+    );
 
     return new Response(
       JSON.stringify({ success: true, removedSelections: selectionIds.length }),
