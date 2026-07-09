@@ -3,7 +3,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminPage from '../../components/admin/AdminPage';
 import { requireAdmin } from '../../lib/auth';
 
-const session = requireAdmin(Astro.cookies);
+const session = await requireAdmin(Astro.cookies);
 
 if (!session) {
   return Astro.redirect('/admin/login');

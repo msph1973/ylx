@@ -57,7 +57,7 @@ interface SanityAlbumDetailRaw {
 }
 
 export const GET: APIRoute = async ({ params, cookies }) => {
-  const session = requireAdmin(cookies);
+  const session = await requireAdmin(cookies);
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -142,7 +142,7 @@ interface UpdateAlbumBody {
 }
 
 export const PUT: APIRoute = async ({ params, cookies, request }) => {
-  const session = requireAdmin(cookies);
+  const session = await requireAdmin(cookies);
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -244,7 +244,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
 };
 
 export const DELETE: APIRoute = async ({ params, cookies }) => {
-  const session = requireAdmin(cookies);
+  const session = await requireAdmin(cookies);
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
