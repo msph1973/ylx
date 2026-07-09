@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-09 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`, **#23** impeccable CLI + fix target sentuh `68515c0`, **#25** junie review workflow `40ddb50`, **#26** image CDN perf + upload robustness + mobile grid (`feat/gallery-upload-improvements`, `65f256c`). Branch aktif: **`feat/long-term-audit-improvements`** (CSP/HSTS middleware + hybrid rendering + Upstash KV cache, belum merge — lihat `AUDIT.md` untuk audit lengkap yang melahirkan branch ini).
+> Last updated: 2026-07-10 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`, **#23** impeccable CLI + fix target sentuh `68515c0`, **#25** junie review workflow `40ddb50`, **#26** image CDN perf + upload robustness + mobile grid (`feat/gallery-upload-improvements`, `65f256c`), **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache). PR **#28** admin login rate-limit (H-1) — **open**. Branch aktif: **`fix/admin-login-rate-limit`**.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -205,8 +205,9 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Sanity dataset **private** — read anon tidak bocorkan PIN (C3) | ✅ |
 | Submit verifikasi photo ownership + atomic lock (H3/M1) | ✅ |
 | `selections.ts` GET `requireAdmin` | ✅ |
+| Admin login rate-limited 10/IP + 20/email per 15min (H-1) | ✅ PR #28 |
 
-> Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) selesai — lihat `PROGRESS.md` bagian "Security Audit 2026-07-02". Realtime browser sekarang auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` karena dataset sudah private.
+> Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) + threat model 2026-07-10 (H-1) selesai — lihat `PROGRESS.md` bagian "Security Audit 2026-07-02". Realtime browser sekarang auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` karena dataset sudah private.
 
 ---
 
@@ -362,3 +363,20 @@ Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
 - Branch `feat/long-term-audit-improvements` **dihapus** baik di lokal maupun di `origin` setelah merge. Local checkout dipindah ke `master` dan di-fast-forward (10 commit masuk).
 - Semua pekerjaan long-term audit (CSP/HSTS middleware, hybrid rendering, Upstash KV cache SWR, seluruh fix bot review) kini sudah ada di `master`.
 - File tak terkait yang masih ada di working tree (`.output.txt` terhapus, `AUDIT.md`, `test-foto.JPG`, `apps/web/.astro/types.d.ts` modified, plan file lain) tetap sengaja tidak disentuh — di luar scope task ini.
+
+---
+
+## PR #28 — Admin Login Rate Limiting (H-1) (2026-07-10)
+
+**Dari hasil Threat Modeling & Security Audit komprehensif — temuan HIGH H-1: admin login tanpa rate limiting.**
+
+| Aspek | Detail |
+|-------|--------|
+| Problem | Endpoint `api/auth/login` tidak punya proteksi brute-force — hanya PIN galeri yang di-rate-limit. Akun admin tunggal (email publik di `REVIEW.md`) bisa di-scripting dengan rockyou.txt tanpa pembatas berarti selain bcrypt 12 rounds |
+| Fix | `apps/web/src/pages/api/auth/login.ts` — pasang rate limiter per-IP (10/15min) + per-email global (20 failed/15min), `recordFailedAttempt` hanya increment pada failed login (bukan setiap request). Gunakan `clientAddress` platform (bukan `X-Forwarded-For`). Fail-closed di prod jika Upstash error |
+| Fix round-2 (bot feedback) | Sourcery: reject prod request jika `clientAddress` kosong (mencegah bucket kolusi `"unknown"`). Junie: `String(email)` instead of `as string` |
+| Branch | `fix/admin-login-rate-limit` |
+| Commit | `b28d3eb` (initial), `f290b45` (bot feedback fix) |
+| PR | https://github.com/msph1973/ylx/pull/28 — status: **open**, bot reviews: ✅ Sourcery, ✅ Devin, ✅ Junie, ✅ CodeQL, ✅ Vercel. Merge state: MERGEABLE + CLEAN |
+| Testing | Diverifikasi langsung ke Vercel Preview deployment via curl: HTTP 401 untuk 10 req pertama, HTTP 429 + Retry-After: 900 mulai req ke-11. Login page (/admin/login) HTTP 200. Per-IP limit memblokir cross-email dari IP yang sama |
+| Verification | `tsc --noEmit` ✅, `eslint --max-warnings 0` ✅ (test/build pre-existing native binding issue — confirmed same on clean master) |
