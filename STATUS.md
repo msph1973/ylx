@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-08 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`, **#23** impeccable CLI + fix target sentuh `68515c0`, **#25** junie review workflow `40ddb50`. Branch aktif: **`feat/gallery-upload-improvements`** (optimasi gambar CDN + robustness upload + grid mobile-first, belum merge).
+> Last updated: 2026-07-09 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`, **#23** impeccable CLI + fix target sentuh `68515c0`, **#25** junie review workflow `40ddb50`, **#26** image CDN perf + upload robustness + mobile grid (`feat/gallery-upload-improvements`, `65f256c`). Branch aktif: **`feat/long-term-audit-improvements`** (CSP/HSTS middleware + hybrid rendering + Upstash KV cache, belum merge — lihat `AUDIT.md` untuk audit lengkap yang melahirkan branch ini).
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -287,3 +287,24 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `PROGRESS.md` | History PR dan bug fixes yang sudah diselesaikan |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
+
+---
+
+## Upstash KV Cache Layer — Admin Sanity Reads (2026-07-09, branch `feat/long-term-audit-improvements`)
+
+- Baru `apps/web/src/lib/cache.ts`: `getCached()`/`invalidateCache()`/`CACHE_KEYS`, SWR di atas Upstash Redis REST (raw-fetch, gaya sama seperti `ratelimit.ts`), tapi **fail OPEN** (bukan fail-closed) — ini optimasi performa, bukan security control.
+- Dipasang di `api/admin/albums.ts` GET (ttl=30/stale=120) + `api/gallery/[slug]/selections.ts` GET (admin-only, ttl=15/stale=60), keduanya kirim `Cache-Control: private, ...` (bukan `public`, respons bawa PIN).
+- Invalidasi cache ditaruh di samping tiap `publishAdminEvent()` yang sudah ada di semua endpoint mutasi album/foto/upload/submit terkait. `reorder.ts` sengaja tidak invalidasi (`allAlbumsQuery` cuma `photoCount`, bukan urutan foto).
+- Verifikasi: `pnpm --filter @ylx/web typecheck/lint/test` semua pass. Commit `a90bb9d`. Detail lengkap: `~/.junie/memory/notes.md` entri `2026-07-09T13:09Z`.
+
+---
+
+## CSP/HSTS Middleware + Hybrid Rendering (2026-07-09, branch `feat/long-term-audit-improvements`)
+
+Dikerjakan paralel dengan cache layer di atas (file terpisah, tanpa konflik). Commit `a218532`.
+
+- **Baru:** `apps/web/src/middleware.ts` (`onRequest` via `astro:middleware`) — set `Content-Security-Policy` + `Strict-Transport-Security` di setiap response SSR. String CSP/HSTS di `apps/web/src/lib/securityHeaders.ts` (source of truth untuk sisi SSR).
+- **`vercel.json`** dapat entri CSP+HSTS yang identik — perlu, karena middleware Astro TIDAK jalan untuk halaman prerendered (lihat poin berikut).
+- **Hybrid rendering:** `export const prerender = true` di `index.astro` (homepage) & `admin/login.astro` (form login). `admin/index.astro`/`admin/upload.astro` (pakai `requireAdmin`) dan `gallery/[slug].astro` (dynamic route tanpa `getStaticPaths`) tetap SSR — sudah benar, diverifikasi lewat `astro build` (log prerendering static routes cuma nunjukkan 2 file itu yang di-emit statis).
+- **Keputusan CSP (trade-off, sudah diverifikasi, bukan asumsi):** `script-src`/`style-src` pakai `'unsafe-inline'`. Sempat dipertimbangkan ganti ke fitur bawaan Astro 6 `security.csp` (auto-hash, stable sejak `astro@6.0.0`) supaya `unsafe-inline` bisa dihapus — **tapi ditolak** setelah verifikasi kode: `UploadPage.tsx` pakai `style={{ transform: 'scaleX(...)' }}` (progress bar dinamis) yang tak bisa di-hash statis, dan spec CSP membatalkan `unsafe-inline` begitu ada hash apa pun di directive yang sama → mengaktifkan fitur itu berisiko memblokir progress bar upload di produksi, tak bisa diverifikasi visual di sandbox ini (Playwright dev server timeout). Kesimpulan: `unsafe-inline` yang terdokumentasi lebih aman daripada hash-CSP yang berisiko regresi tak-teruji. **Follow-up kandidat masa depan:** aktifkan `security.csp` di `astro.config.mjs` DAN pindahkan progress bar `UploadPage.tsx` dari inline `style` ke CSS custom-property/class-based, lalu verifikasi visual via Playwright sebelum enable.
+- **Verifikasi:** `pnpm --filter @ylx/web typecheck/lint/test/build` semua pass (dijalankan ulang gabungan dengan commit cache di atas — tidak ada konflik).
