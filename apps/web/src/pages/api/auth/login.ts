@@ -25,8 +25,14 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     // Rate limiting: per-IP (10 attempts / 15 min) + global per-email (20 failed
     // attempts / 15 min). Mirrors the gallery PIN limiter pattern from verify.ts.
     // Uses `clientAddress` (platform socket peer, not a client-supplied header).
+    if (!clientAddress && import.meta.env.PROD) {
+      return new Response(
+        JSON.stringify({ error: "Unable to resolve client address" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
     const ip = clientAddress ?? "unknown";
-    const emailKey = `login:${(email as string).toLowerCase()}`;
+    const emailKey = `login:${String(email).toLowerCase()}`;
 
     const [ipLimited, emailLimited] = await Promise.all([
       isRateLimited(`login-ip:${ip}`, MAX_ATTEMPTS_PER_IP),
