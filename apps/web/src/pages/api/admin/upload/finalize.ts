@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
 // Second half of the direct-to-Sanity upload flow.
 //
@@ -137,6 +138,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
 
     publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
+    await invalidateCache(CACHE_KEYS.albumsList()); // photoCount changed
 
     return new Response(
       JSON.stringify({ success: true, photoId: photoDoc._id }),

@@ -4,6 +4,7 @@ import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
 import { generateUniqueSlug } from "../../../lib/slug";
 import { publishAdminEvent } from "../../../lib/ably";
+import { getCached, invalidateCache, CACHE_KEYS } from "../../../lib/cache";
 
 interface SanityAlbumRaw {
   _id: string;
@@ -25,7 +26,9 @@ export const GET: APIRoute = async ({ cookies }) => {
   }
 
   try {
-    const albums = await sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery);
+    const albums = await getCached(CACHE_KEYS.albumsList(), 30, 120, () =>
+      sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery)
+    );
 
     const formatted = albums.map((album) => ({
       id: album._id,
@@ -38,9 +41,14 @@ export const GET: APIRoute = async ({ cookies }) => {
       photoCount: album.photoCount,
     }));
 
+    // Response carries each album's PIN (sensitive) so it must never be cached
+    // by a shared/CDN cache — `private` restricts reuse to the requesting client.
     return new Response(JSON.stringify({ albums: formatted }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "private, max-age=0, stale-while-revalidate=30",
+      },
     });
   } catch (error) {
     console.error("[Albums] GET failed:", error);
@@ -117,6 +125,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     });
 
     publishAdminEvent("album:created", { albumId: doc._id });
+    await invalidateCache(CACHE_KEYS.albumsList());
 
     return new Response(
       JSON.stringify({

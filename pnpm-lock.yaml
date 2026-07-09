@@ -53,12 +53,15 @@ importers:
       '@types/react-dom':
         specifier: ^18.2.19
         version: 18.3.7(@types/react@18.3.31)
+      '@vercel/functions':
+        specifier: ^3.7.5
+        version: 3.7.5
       ably:
         specifier: ^2.23.0
         version: 2.23.0(react-dom@18.3.1)(react@18.3.1)
       astro:
         specifier: ^6.4.8
-        version: 6.4.8
+        version: 6.4.8(@vercel/functions@3.7.5)
       framer-motion:
         specifier: ^11.0.3
         version: 11.18.2(react-dom@18.3.1)(react@18.3.1)
@@ -371,7 +374,7 @@ packages:
       '@vercel/functions': 3.7.5
       '@vercel/nft': 1.10.2
       '@vercel/routing-utils': 5.3.3
-      astro: 6.4.8
+      astro: 6.4.8(@vercel/functions@3.7.5)
       esbuild: 0.27.7
       tinyglobby: 0.2.17
     transitivePeerDependencies:
@@ -5937,7 +5940,7 @@ packages:
       - supports-color
     dev: true
 
-  /astro@6.4.8:
+  /astro@6.4.8(@vercel/functions@3.7.5):
     resolution: {integrity: sha512-KK5lX90uU9EeVaTjINyj3sy9/NFXVa59aowaqbWBDDKLXZh4rr7GwIaCFYVetE22MJtsCNFerQXn0vlCLmpP/Q==}
     engines: {node: '>=22.12.0', npm: '>=9.6.5', pnpm: '>=7.1.0'}
     hasBin: true
@@ -5990,7 +5993,7 @@ packages:
       ultrahtml: 1.6.0
       unifont: 0.7.4
       unist-util-visit: 5.1.0
-      unstorage: 1.17.5
+      unstorage: 1.17.5(@vercel/functions@3.7.5)
       vfile: 6.0.3
       vite: 7.3.6(@types/node@20.19.43)(jiti@2.7.0)
       vitefu: 1.1.3(vite@7.3.6)
@@ -12182,7 +12185,7 @@ packages:
     resolution: {integrity: sha512-TmnEAEAsBJVZM/AADELsK76llnwcf9vMKuPz8JflO1frO8Lchitr0fNaN9d+Ap0BjKtqWqd/J17qeDnXh8CL2A==}
     dev: false
 
-  /unstorage@1.17.5:
+  /unstorage@1.17.5(@vercel/functions@3.7.5):
     resolution: {integrity: sha512-0i3iqvRfx29hkNntHyQvJTpf5W9dQ9ZadSoRU8+xVlhVtT7jAX57fazYO9EHvcRCfBCyi5YRya7XCDOsbTgkPg==}
     peerDependencies:
       '@azure/app-configuration': ^1.8.0
@@ -12244,6 +12247,7 @@ packages:
       uploadthing:
         optional: true
     dependencies:
+      '@vercel/functions': 3.7.5
       anymatch: 3.1.3
       chokidar: 5.0.0
       destr: 2.0.5

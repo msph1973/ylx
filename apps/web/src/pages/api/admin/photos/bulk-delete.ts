@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../lib/ably";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
 interface BulkDeleteBody {
   albumId?: string;
@@ -83,6 +84,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       publishAdminEvent("selection:changed", { albumId });
     }
     publishAlbumEvent(albumId, "photo:deleted", { photoIds: uniquePhotoIds });
+    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
 
     return new Response(
       JSON.stringify({ success: true, deletedCount: uniquePhotoIds.length, removedSelections: selectionIds.length }),

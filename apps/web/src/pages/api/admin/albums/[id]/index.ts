@@ -8,6 +8,7 @@ import { requireAdmin } from "../../../../../lib/auth";
 import { generateUniqueSlug } from "../../../../../lib/slug";
 import { publishAdminEvent } from "../../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
+import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 
 interface SanityImageRef {
   _type: string;
@@ -218,6 +219,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     } catch (eventError) {
       console.error("[Albums] PUT publish event failed:", eventError);
     }
+    await invalidateCache(CACHE_KEYS.albumsList());
 
     return new Response(
       JSON.stringify({
@@ -263,6 +265,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     await cascadeDeleteAlbums([albumId]);
 
     publishAdminEvent("album:deleted", { albumId });
+    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
 
     return new Response(
       JSON.stringify({ success: true }),

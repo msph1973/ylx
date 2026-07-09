@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-08 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`, **#23** impeccable CLI + fix target sentuh `68515c0`, **#25** junie review workflow `40ddb50`. Branch aktif: **`feat/gallery-upload-improvements`** (optimasi gambar CDN + robustness upload + grid mobile-first, belum merge).
+> Last updated: 2026-07-09 | PR MERGED ke `master`: **#19** admin dashboard + impeccable polish `4a99688`, **#20** harden PIN rate-limit `086af93`, **#21** direct-to-Sanity upload `75c62f5`, **#22** upgrade Astro 5→6 `0015cb6`, **#23** impeccable CLI + fix target sentuh `68515c0`, **#25** junie review workflow `40ddb50`, **#26** image CDN perf + upload robustness + mobile grid (`feat/gallery-upload-improvements`, `65f256c`). Branch aktif: **`feat/long-term-audit-improvements`** (CSP/HSTS middleware + hybrid rendering + Upstash KV cache, belum merge — lihat `AUDIT.md` untuk audit lengkap yang melahirkan branch ini).
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -287,3 +287,69 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `PROGRESS.md` | History PR dan bug fixes yang sudah diselesaikan |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
+
+---
+
+## Upstash KV Cache Layer — Admin Sanity Reads (2026-07-09, branch `feat/long-term-audit-improvements`)
+
+- Baru `apps/web/src/lib/cache.ts`: `getCached()`/`invalidateCache()`/`CACHE_KEYS`, SWR di atas Upstash Redis REST (raw-fetch, gaya sama seperti `ratelimit.ts`), tapi **fail OPEN** (bukan fail-closed) — ini optimasi performa, bukan security control.
+- Dipasang di `api/admin/albums.ts` GET (ttl=30/stale=120) + `api/gallery/[slug]/selections.ts` GET (admin-only, ttl=15/stale=60), keduanya kirim `Cache-Control: private, ...` (bukan `public`, respons bawa PIN).
+- Invalidasi cache ditaruh di samping tiap `publishAdminEvent()` yang sudah ada di semua endpoint mutasi album/foto/upload/submit terkait. `reorder.ts` sengaja tidak invalidasi (`allAlbumsQuery` cuma `photoCount`, bukan urutan foto).
+- Verifikasi: `pnpm --filter @ylx/web typecheck/lint/test` semua pass. Commit `a90bb9d`. Detail lengkap: `~/.junie/memory/notes.md` entri `2026-07-09T13:09Z`.
+
+---
+
+## CSP/HSTS Middleware + Hybrid Rendering (2026-07-09, branch `feat/long-term-audit-improvements`)
+
+Dikerjakan paralel dengan cache layer di atas (file terpisah, tanpa konflik). Commit `a218532`.
+
+- **Baru:** `apps/web/src/middleware.ts` (`onRequest` via `astro:middleware`) — set `Content-Security-Policy` + `Strict-Transport-Security` di setiap response SSR. String CSP/HSTS di `apps/web/src/lib/securityHeaders.ts` (source of truth untuk sisi SSR).
+- **`vercel.json`** dapat entri CSP+HSTS yang identik — perlu, karena middleware Astro TIDAK jalan untuk halaman prerendered (lihat poin berikut).
+- **Hybrid rendering:** `export const prerender = true` di `index.astro` (homepage) & `admin/login.astro` (form login). `admin/index.astro`/`admin/upload.astro` (pakai `requireAdmin`) dan `gallery/[slug].astro` (dynamic route tanpa `getStaticPaths`) tetap SSR — sudah benar, diverifikasi lewat `astro build` (log prerendering static routes cuma nunjukkan 2 file itu yang di-emit statis).
+- **Keputusan CSP (trade-off, sudah diverifikasi, bukan asumsi):** `script-src`/`style-src` pakai `'unsafe-inline'`. Sempat dipertimbangkan ganti ke fitur bawaan Astro 6 `security.csp` (auto-hash, stable sejak `astro@6.0.0`) supaya `unsafe-inline` bisa dihapus — **tapi ditolak** setelah verifikasi kode: `UploadPage.tsx` pakai `style={{ transform: 'scaleX(...)' }}` (progress bar dinamis) yang tak bisa di-hash statis, dan spec CSP membatalkan `unsafe-inline` begitu ada hash apa pun di directive yang sama → mengaktifkan fitur itu berisiko memblokir progress bar upload di produksi, tak bisa diverifikasi visual di sandbox ini (Playwright dev server timeout). Kesimpulan: `unsafe-inline` yang terdokumentasi lebih aman daripada hash-CSP yang berisiko regresi tak-teruji. **Follow-up kandidat masa depan:** aktifkan `security.csp` di `astro.config.mjs` DAN pindahkan progress bar `UploadPage.tsx` dari inline `style` ke CSS custom-property/class-based, lalu verifikasi visual via Playwright sebelum enable.
+- **Verifikasi:** `pnpm --filter @ylx/web typecheck/lint/test/build` semua pass (dijalankan ulang gabungan dengan commit cache di atas — tidak ada konflik).
+
+---
+
+## Upstash Credentials — Live Verified (2026-07-09)
+
+- `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` (production Upstash instance, region us-east-1) sudah terisi nyata di `.env` (root) dan `apps/web/.env.local` — kedua file di-gitignore (`.env*` di `.gitignore`), tidak pernah ke-commit.
+- Live smoke test langsung ke Upstash REST (`SET ... EX` / `GET` / `DEL`) dan ke fungsi asli `getCached()`/`invalidateCache()` di `src/lib/cache.ts` (dijalankan via Node 22 type-stripping, bukan disimulasikan) mengonfirmasi seluruh siklus SWR bekerja nyata: hard miss → fetch+store, fresh hit → no refetch, stale hit → return nilai lama + background refresh, post-refresh fresh hit, invalidate → hard miss lagi. Ini menutup catatan "belum diuji live" dari sesi sebelumnya.
+- **QStash** (`QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`) ditambahkan sebagai cadangan ("jaga-jaga") ke `.env` dan `apps/web/.env.local` saja (bukan ke `.env.example`, atas permintaan eksplisit — supaya nama variabel tidak muncul di GitHub). **Tidak ada kode yang memakainya** — belum ada fitur async/scheduled job yang butuh QStash.
+
+---
+
+## PR #27 — Long-term Audit Improvements (2026-07-09)
+
+- Branch `feat/long-term-audit-improvements` di-push ke `origin` dan PR **#27** dibuat ke base `master` (default branch repo ini, dikonfirmasi via `git remote show origin`, BUKAN `main`).
+- Berisi 4 commit: `a90bb9d` (KV cache), `a218532` (CSP/HSTS + hybrid rendering), `680daeb` + `65c5208` (docs `STATUS.md`).
+- URL: https://github.com/msph1973/ylx/pull/27 — status: open, belum ada review/merge.
+
+---
+
+## PR #27 — Fix Bot Review Findings (2026-07-09, branch `feat/long-term-audit-improvements`, belum di-commit)
+
+Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
+
+| # | Sumber | Temuan | Fix |
+|---|--------|--------|-----|
+| 1 | Devin | `submit.ts:146` — status album `active→submitted` tidak invalidasi `CACHE_KEYS.albumsList()`, dashboard admin stale sampai 2 menit walau realtime event sudah jalan | `submit.ts` sekarang invalidasi `[albumsList(), albumSelections(albumId)]` sekaligus |
+| 2 | Devin | Background SWR refresh bisa terpotong di serverless (runtime frozen setelah response terkirim) — fail-open jadi degradasi ke TTL-only | `cache.ts` bungkus refresh background dengan `waitUntil()` dari `@vercel/functions` (dependency baru) — ambient, tak perlu threading context, no-op aman di luar Vercel |
+| 3 | Sourcery + Junie | `albums/bulk-delete.ts` invalidasi `albumSelections` per album dalam loop sekuensial | `invalidateCache()` sekarang terima `string \| string[]` → satu `DEL` multi-key sekali round-trip; `bulk-delete.ts` pakai array |
+| 4 | Sourcery | Semua error Upstash di `cache.ts` disembunyikan di balik satu `console.warn` generik, sulit ditelusuri saat ada isu sporadis | Setiap `console.warn` di `cache.ts` kini sertakan cache key + jenis operasi (GET/refresh/store/invalidate) |
+| 5 | Sourcery (`cache.ts:69-70`) | Entry cache corrupt bikin `JSON.parse` gagal berulang sampai key expired | `getCached()` tangkap `JSON.parse` error, hapus key corrupt via `invalidateCache`, treat sebagai hard miss (self-heal) |
+| 6 | Junie (`cache.ts:78`) | `getCached` tidak ada request dedup untuk background refresh — banyak request stale bersamaan bisa trigger banyak fetch paralel ke Sanity | `inFlightRefreshes` Map keyed by cache key — refresh kedua untuk key yang sama di-skip selama yang pertama masih jalan |
+| 7 | Junie (`securityHeaders.ts:1`) | Nilai CSP/HSTS di-duplikasi manual antara `securityHeaders.ts` dan `vercel.json`, bisa drift | Test baru `apps/web/src/lib/securityHeaders.test.ts` (vitest) baca kedua sumber & `expect().toBe()` — gagal CI begitu drift, tanpa perlu codegen JSON |
+
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint/test/build` semua pass (build tetap emit `index.html` + `admin/login/index.html` sebagai static). Commit `ed0b69a`, sudah di-push ke PR #27 (dikonfirmasi via `git log`/GitHub — bukan lagi pending).
+
+---
+
+## PR #27 — Bug Nyata Ditemukan via E2E Browser Sungguhan + Fix Round-2 Bot (2026-07-09)
+
+- **Monitoring pasca-push** (`ed0b69a`): Devin menandai temuannya "✅ Resolved"; Sourcery & Junie Review lulus bersih tanpa komentar baru (tidak ada temuan tambahan pada commit ini).
+- **Temuan baru via e2e browser sungguhan (kernel + Playwright) terhadap Vercel Preview deployment PR (bukan cuma `pnpm dev`):** `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `X-XSS-Protection` **hilang total** di dua halaman prerendered (`/`, `/admin/login`) di production — cuma `Strict-Transport-Security` yang muncul (itu pun karena Vercel platform default, independen dari `vercel.json`).
+- **Root cause:** `vercel.json` ada di root monorepo, padahal Vercel Root Directory project ini `apps/web` (lihat `AGENTS.md`) — Vercel cuma baca `vercel.json` relatif ke Root Directory, jadi konfigurasi `headers` di root **tidak pernah terbaca** untuk halaman statis. Rute SSR tetap aman karena header itu datang dari `middleware.ts`, bukan `vercel.json`.
+- **Fix (commit `bffdf65`):** pindahkan file ke `apps/web/vercel.json` (`buildCommand`/`installCommand` `cd ../..` tidak berubah, tetap benar relatif Root Directory). `securityHeaders.test.ts` (drift guard) disesuaikan path-nya. **Diverifikasi live setelah redeploy:** semua header sekarang muncul benar di kedua halaman statis.
+- **Fix round-2 bot findings (commit `662a47a`):** Junie Review menandai 6 titik lagi dengan `void invalidateCache(...)` (fire-and-forget) dan/atau panggilan sekuensial terpisah alih-alih satu array — di `albums.ts` POST, `albums/[id]/index.ts` PUT+DELETE, `lock.ts`, `unlock.ts`, `photos/[id].ts`, `photos/bulk-delete.ts`, `upload/finalize.ts`. Semua diubah jadi `await invalidateCache([...])` (jaminan cache ter-invalidasi sebelum response terkirim + satu round-trip Upstash per handler).
+- **Verifikasi setelah kedua fix:** `pnpm --filter @ylx/web typecheck/lint/test(5/5)/build` semua pass tiap kali; setelah push kedua, semua bot (Sourcery/Junie/Devin/CodeQL) lulus bersih tanpa komentar baru. PR #27 `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, masih **open** (belum diminta merge).

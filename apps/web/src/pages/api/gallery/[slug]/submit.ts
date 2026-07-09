@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { publishAdminEvent } from "../../../../lib/ably";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
@@ -142,6 +143,9 @@ export const POST: APIRoute = async ({ params, request }) => {
   } catch (err) {
     console.error("[Submit] publishAdminEvent failed:", err);
   }
+  // Status flipped to "submitted" above, so the cached admin albums list
+  // (which includes status) must be invalidated too, not just selections.
+  await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),
