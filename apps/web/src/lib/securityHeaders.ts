@@ -1,7 +1,10 @@
 // Shared CSP/HSTS values, applied via two independent paths that don't share
-// runtime: `middleware.ts` (SSR responses) and `vercel.json` (static/prerendered
-// pages, which never hit Astro middleware). Keep the CSP string identical in
-// both places — this file is the source of truth for the SSR side.
+// runtime: `middleware.ts` (SSR responses) and `apps/web/vercel.json`
+// (static/prerendered pages, which never hit Astro middleware). Keep the CSP
+// string identical in both places — this file is the source of truth for the
+// SSR side. `vercel.json` MUST stay inside `apps/web` (Vercel's Root
+// Directory for this project) — a copy at the monorepo root is silently
+// never read for headers on static output (confirmed live in production).
 // `securityHeaders.test.ts` (same directory) fails CI if the two ever drift.
 //
 // - img-src needs cdn.sanity.io (photo delivery) and data: (base64 LQIP blur-up
