@@ -341,4 +341,15 @@ Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
 | 6 | Junie (`cache.ts:78`) | `getCached` tidak ada request dedup untuk background refresh — banyak request stale bersamaan bisa trigger banyak fetch paralel ke Sanity | `inFlightRefreshes` Map keyed by cache key — refresh kedua untuk key yang sama di-skip selama yang pertama masih jalan |
 | 7 | Junie (`securityHeaders.ts:1`) | Nilai CSP/HSTS di-duplikasi manual antara `securityHeaders.ts` dan `vercel.json`, bisa drift | Test baru `apps/web/src/lib/securityHeaders.test.ts` (vitest) baca kedua sumber & `expect().toBe()` — gagal CI begitu drift, tanpa perlu codegen JSON |
 
-> Verifikasi: `pnpm --filter @ylx/web typecheck/lint/test/build` semua pass (build tetap emit `index.html` + `admin/login/index.html` sebagai static). Belum di-commit/push — menunggu konfirmasi user.
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint/test/build` semua pass (build tetap emit `index.html` + `admin/login/index.html` sebagai static). Commit `ed0b69a`, sudah di-push ke PR #27 (dikonfirmasi via `git log`/GitHub — bukan lagi pending).
+
+---
+
+## PR #27 — Bug Nyata Ditemukan via E2E Browser Sungguhan + Fix Round-2 Bot (2026-07-09)
+
+- **Monitoring pasca-push** (`ed0b69a`): Devin menandai temuannya "✅ Resolved"; Sourcery & Junie Review lulus bersih tanpa komentar baru (tidak ada temuan tambahan pada commit ini).
+- **Temuan baru via e2e browser sungguhan (kernel + Playwright) terhadap Vercel Preview deployment PR (bukan cuma `pnpm dev`):** `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `X-XSS-Protection` **hilang total** di dua halaman prerendered (`/`, `/admin/login`) di production — cuma `Strict-Transport-Security` yang muncul (itu pun karena Vercel platform default, independen dari `vercel.json`).
+- **Root cause:** `vercel.json` ada di root monorepo, padahal Vercel Root Directory project ini `apps/web` (lihat `AGENTS.md`) — Vercel cuma baca `vercel.json` relatif ke Root Directory, jadi konfigurasi `headers` di root **tidak pernah terbaca** untuk halaman statis. Rute SSR tetap aman karena header itu datang dari `middleware.ts`, bukan `vercel.json`.
+- **Fix (commit `bffdf65`):** pindahkan file ke `apps/web/vercel.json` (`buildCommand`/`installCommand` `cd ../..` tidak berubah, tetap benar relatif Root Directory). `securityHeaders.test.ts` (drift guard) disesuaikan path-nya. **Diverifikasi live setelah redeploy:** semua header sekarang muncul benar di kedua halaman statis.
+- **Fix round-2 bot findings (commit `662a47a`):** Junie Review menandai 6 titik lagi dengan `void invalidateCache(...)` (fire-and-forget) dan/atau panggilan sekuensial terpisah alih-alih satu array — di `albums.ts` POST, `albums/[id]/index.ts` PUT+DELETE, `lock.ts`, `unlock.ts`, `photos/[id].ts`, `photos/bulk-delete.ts`, `upload/finalize.ts`. Semua diubah jadi `await invalidateCache([...])` (jaminan cache ter-invalidasi sebelum response terkirim + satu round-trip Upstash per handler).
+- **Verifikasi setelah kedua fix:** `pnpm --filter @ylx/web typecheck/lint/test(5/5)/build` semua pass tiap kali; setelah push kedua, semua bot (Sourcery/Junie/Devin/CodeQL) lulus bersih tanpa komentar baru. PR #27 `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, masih **open** (belum diminta merge).
