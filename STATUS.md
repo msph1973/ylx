@@ -353,3 +353,12 @@ Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
 - **Fix (commit `bffdf65`):** pindahkan file ke `apps/web/vercel.json` (`buildCommand`/`installCommand` `cd ../..` tidak berubah, tetap benar relatif Root Directory). `securityHeaders.test.ts` (drift guard) disesuaikan path-nya. **Diverifikasi live setelah redeploy:** semua header sekarang muncul benar di kedua halaman statis.
 - **Fix round-2 bot findings (commit `662a47a`):** Junie Review menandai 6 titik lagi dengan `void invalidateCache(...)` (fire-and-forget) dan/atau panggilan sekuensial terpisah alih-alih satu array — di `albums.ts` POST, `albums/[id]/index.ts` PUT+DELETE, `lock.ts`, `unlock.ts`, `photos/[id].ts`, `photos/bulk-delete.ts`, `upload/finalize.ts`. Semua diubah jadi `await invalidateCache([...])` (jaminan cache ter-invalidasi sebelum response terkirim + satu round-trip Upstash per handler).
 - **Verifikasi setelah kedua fix:** `pnpm --filter @ylx/web typecheck/lint/test(5/5)/build` semua pass tiap kali; setelah push kedua, semua bot (Sourcery/Junie/Devin/CodeQL) lulus bersih tanpa komentar baru. PR #27 `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`, masih **open** (belum diminta merge).
+
+---
+
+## PR #27 — Merged & Branch Dibersihkan (2026-07-09)
+
+- PR #27 di-**merge** ke `master` via merge commit `938eca6` (metode `merge`, konsisten dengan histori PR sebelumnya di repo ini — bukan squash/rebase).
+- Branch `feat/long-term-audit-improvements` **dihapus** baik di lokal maupun di `origin` setelah merge. Local checkout dipindah ke `master` dan di-fast-forward (10 commit masuk).
+- Semua pekerjaan long-term audit (CSP/HSTS middleware, hybrid rendering, Upstash KV cache SWR, seluruh fix bot review) kini sudah ada di `master`.
+- File tak terkait yang masih ada di working tree (`.output.txt` terhapus, `AUDIT.md`, `test-foto.JPG`, `apps/web/.astro/types.d.ts` modified, plan file lain) tetap sengaja tidak disentuh — di luar scope task ini.
