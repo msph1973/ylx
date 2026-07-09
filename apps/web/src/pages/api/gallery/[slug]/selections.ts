@@ -11,7 +11,7 @@ import { getCached, CACHE_KEYS } from "../../../../lib/cache";
 // under the `gallery/[slug]` route — the admin dashboard uses it to poll a
 // single album's selections.
 export const GET: APIRoute = async ({ params, cookies }) => {
-  if (!requireAdmin(cookies)) {
+  if (!(await requireAdmin(cookies))) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
