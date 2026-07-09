@@ -2,6 +2,7 @@
 // runtime: `middleware.ts` (SSR responses) and `vercel.json` (static/prerendered
 // pages, which never hit Astro middleware). Keep the CSP string identical in
 // both places — this file is the source of truth for the SSR side.
+// `securityHeaders.test.ts` (same directory) fails CI if the two ever drift.
 //
 // - img-src needs cdn.sanity.io (photo delivery) and data: (base64 LQIP blur-up
 //   background, see BlurImage.tsx).

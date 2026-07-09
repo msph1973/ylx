@@ -143,7 +143,9 @@ export const POST: APIRoute = async ({ params, request }) => {
   } catch (err) {
     console.error("[Submit] publishAdminEvent failed:", err);
   }
-  void invalidateCache(CACHE_KEYS.albumSelections(album._id));
+  // Status flipped to "submitted" above, so the cached admin albums list
+  // (which includes status) must be invalidated too, not just selections.
+  void invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),

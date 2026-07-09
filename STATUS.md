@@ -324,3 +324,21 @@ Dikerjakan paralel dengan cache layer di atas (file terpisah, tanpa konflik). Co
 - Branch `feat/long-term-audit-improvements` di-push ke `origin` dan PR **#27** dibuat ke base `master` (default branch repo ini, dikonfirmasi via `git remote show origin`, BUKAN `main`).
 - Berisi 4 commit: `a90bb9d` (KV cache), `a218532` (CSP/HSTS + hybrid rendering), `680daeb` + `65c5208` (docs `STATUS.md`).
 - URL: https://github.com/msph1973/ylx/pull/27 — status: open, belum ada review/merge.
+
+---
+
+## PR #27 — Fix Bot Review Findings (2026-07-09, branch `feat/long-term-audit-improvements`, belum di-commit)
+
+Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
+
+| # | Sumber | Temuan | Fix |
+|---|--------|--------|-----|
+| 1 | Devin | `submit.ts:146` — status album `active→submitted` tidak invalidasi `CACHE_KEYS.albumsList()`, dashboard admin stale sampai 2 menit walau realtime event sudah jalan | `submit.ts` sekarang invalidasi `[albumsList(), albumSelections(albumId)]` sekaligus |
+| 2 | Devin | Background SWR refresh bisa terpotong di serverless (runtime frozen setelah response terkirim) — fail-open jadi degradasi ke TTL-only | `cache.ts` bungkus refresh background dengan `waitUntil()` dari `@vercel/functions` (dependency baru) — ambient, tak perlu threading context, no-op aman di luar Vercel |
+| 3 | Sourcery + Junie | `albums/bulk-delete.ts` invalidasi `albumSelections` per album dalam loop sekuensial | `invalidateCache()` sekarang terima `string \| string[]` → satu `DEL` multi-key sekali round-trip; `bulk-delete.ts` pakai array |
+| 4 | Sourcery | Semua error Upstash di `cache.ts` disembunyikan di balik satu `console.warn` generik, sulit ditelusuri saat ada isu sporadis | Setiap `console.warn` di `cache.ts` kini sertakan cache key + jenis operasi (GET/refresh/store/invalidate) |
+| 5 | Sourcery (`cache.ts:69-70`) | Entry cache corrupt bikin `JSON.parse` gagal berulang sampai key expired | `getCached()` tangkap `JSON.parse` error, hapus key corrupt via `invalidateCache`, treat sebagai hard miss (self-heal) |
+| 6 | Junie (`cache.ts:78`) | `getCached` tidak ada request dedup untuk background refresh — banyak request stale bersamaan bisa trigger banyak fetch paralel ke Sanity | `inFlightRefreshes` Map keyed by cache key — refresh kedua untuk key yang sama di-skip selama yang pertama masih jalan |
+| 7 | Junie (`securityHeaders.ts:1`) | Nilai CSP/HSTS di-duplikasi manual antara `securityHeaders.ts` dan `vercel.json`, bisa drift | Test baru `apps/web/src/lib/securityHeaders.test.ts` (vitest) baca kedua sumber & `expect().toBe()` — gagal CI begitu drift, tanpa perlu codegen JSON |
+
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint/test/build` semua pass (build tetap emit `index.html` + `admin/login/index.html` sebagai static). Belum di-commit/push — menunggu konfirmasi user.

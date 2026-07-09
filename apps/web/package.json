@@ -19,6 +19,7 @@
     "@sanity/client": "^6.15.5",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
+    "@vercel/functions": "^3.7.5",
     "ably": "^2.23.0",
     "astro": "^6.4.8",
     "framer-motion": "^11.0.3",
