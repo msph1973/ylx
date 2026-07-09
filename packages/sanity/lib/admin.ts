@@ -9,6 +9,7 @@ interface AdminUser {
   name: string;
   role: string;
   password?: string;
+  sessionVersion?: number;
 }
 
 interface SanityAdminDoc {
@@ -18,6 +19,7 @@ interface SanityAdminDoc {
   name: string;
   role: string;
   password?: string;
+  sessionVersion?: number;
 }
 
 export async function getAdminByEmail(email: string): Promise<AdminUser | null> {
@@ -26,11 +28,36 @@ export async function getAdminByEmail(email: string): Promise<AdminUser | null> 
     email,
     name,
     role,
-    password
+    password,
+    sessionVersion
   }`;
 
   const result = await sanityClient.fetch<AdminUser | null>(query, { email });
   return result ?? null;
+}
+
+// Current session version for an admin doc, used by `getSession()` to reject
+// cookies signed with an older version (i.e. revoked via logout). Returns
+// null if the admin doc no longer exists (deleted admin -> reject).
+export async function getAdminSessionVersion(adminId: string): Promise<number | null> {
+  const query = `*[_type == "admin" && _id == $adminId][0]{ sessionVersion }`;
+  const result = await sanityClient.fetch<{ sessionVersion?: number } | null>(query, { adminId });
+  if (result === null) {
+    return null; // admin doc was deleted -> caller must reject the session
+  }
+  return result.sessionVersion ?? 0; // legacy admin doc predating this field
+}
+
+// Bumps the session version, immediately invalidating every previously
+// issued cookie for this admin (stolen or otherwise) once `getSession()`
+// re-checks against Sanity. Called on logout; will also apply to a future
+// password-change endpoint.
+export async function incrementSessionVersion(adminId: string): Promise<void> {
+  await sanityWriteClient
+    .patch(adminId)
+    .setIfMissing({ sessionVersion: 0 })
+    .inc({ sessionVersion: 1 })
+    .commit();
 }
 
 export async function validateAdminPassword(
@@ -70,6 +97,7 @@ export async function createAdmin(data: {
     password: hashedPassword,
     name: data.name,
     role: data.role ?? "photographer",
+    sessionVersion: 0,
   });
 
   const { password: _pw, ...adminWithoutPassword } = result;

@@ -160,4 +160,5 @@ export async function invalidateCache(keys: string | string[]): Promise<void> {
 export const CACHE_KEYS = {
   albumsList: (): string => "cache:admin:albums:list",
   albumSelections: (albumId: string): string => `cache:admin:selections:${albumId}`,
+  adminSessionVersion: (adminId: string): string => `cache:admin:session-version:${adminId}`,
 };

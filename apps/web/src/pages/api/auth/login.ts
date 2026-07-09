@@ -69,6 +69,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
       name: validated.name,
       role: validated.role,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      sessionVersion: validated.sessionVersion ?? 0,
     });
 
     cookies.set("admin_session", session, {
