@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../lib/albumDeletion";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
 interface BulkDeleteBody {
   ids?: unknown;
@@ -33,6 +34,8 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 
     // A single realtime event lets every open dashboard refetch once.
     publishAdminEvent("album:deleted", { albumIds: ids });
+    void invalidateCache(CACHE_KEYS.albumsList());
+    for (const id of ids) void invalidateCache(CACHE_KEYS.albumSelections(id));
 
     return new Response(
       JSON.stringify({ success: true, deleted: ids.length }),

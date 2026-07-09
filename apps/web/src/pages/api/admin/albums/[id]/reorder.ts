@@ -94,6 +94,9 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
 
     await sanityWriteClient.patch(albumId).set({ photos: reorderedReferences }).commit();
 
+    // No cache invalidation here: `allAlbumsQuery` (cached list) only returns
+    // `photoCount`, not photo order/refs, and the per-album detail/selections
+    // caches don't carry ordering either — reorder can't make either stale.
     publishAdminEvent("album:updated", { albumId, action: "reorder-photos" });
     publishAlbumEvent(albumId, "album:updated", { action: "reorder-photos" });
 

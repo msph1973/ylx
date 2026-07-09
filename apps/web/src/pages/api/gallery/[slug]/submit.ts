@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { publishAdminEvent } from "../../../../lib/ably";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
@@ -142,6 +143,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   } catch (err) {
     console.error("[Submit] publishAdminEvent failed:", err);
   }
+  void invalidateCache(CACHE_KEYS.albumSelections(album._id));
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../lib/ably";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
 interface PhotoRaw {
   _id: string;
@@ -80,6 +81,8 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     if (albumId) {
       publishAlbumEvent(albumId, "photo:deleted", { photoId });
     }
+    void invalidateCache(CACHE_KEYS.albumsList());
+    if (albumId) void invalidateCache(CACHE_KEYS.albumSelections(albumId));
 
     return new Response(
       JSON.stringify({ success: true, removedSelections: selectionIds.length }),

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
+import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 
 export const POST: APIRoute = async ({ params, cookies }) => {
   const session = requireAdmin(cookies);
@@ -41,6 +42,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
     publishAdminEvent("album:unlocked", { albumId });
     publishAlbumEvent(albumId, "album:unlocked");
+    void invalidateCache(CACHE_KEYS.albumsList());
+    void invalidateCache(CACHE_KEYS.albumSelections(albumId));
 
     return new Response(JSON.stringify({ success: true, id: result.results[0]?.id ?? albumId }), {
       status: 200,
