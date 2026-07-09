@@ -15,6 +15,14 @@ function signAdminSession(): string {
     name: 'Playwright Admin',
     role: 'admin',
     expiresAt: Date.now() + 60 * 60 * 1000,
+    // NOTE (M-1 session revocation, see new-audit.md / STATUS.md): `getSession()`
+    // now also verifies this against the `playwright-admin` doc's current
+    // `sessionVersion` in Sanity. There is no such doc in a real project, so
+    // this fake cookie will only pass `getSession()` against a test/staging
+    // Sanity dataset that has a matching admin doc seeded with `sessionVersion: 0`.
+    // Known gap — not fixed in this change; e2e specs relying on this helper to
+    // reach server-rendered admin pages need that fixture added separately.
+    sessionVersion: 0,
   })).toString('base64url');
 
   return `${payload}.${hmac(payload)}`;
