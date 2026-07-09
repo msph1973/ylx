@@ -316,3 +316,11 @@ Dikerjakan paralel dengan cache layer di atas (file terpisah, tanpa konflik). Co
 - `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` (production Upstash instance, region us-east-1) sudah terisi nyata di `.env` (root) dan `apps/web/.env.local` — kedua file di-gitignore (`.env*` di `.gitignore`), tidak pernah ke-commit.
 - Live smoke test langsung ke Upstash REST (`SET ... EX` / `GET` / `DEL`) dan ke fungsi asli `getCached()`/`invalidateCache()` di `src/lib/cache.ts` (dijalankan via Node 22 type-stripping, bukan disimulasikan) mengonfirmasi seluruh siklus SWR bekerja nyata: hard miss → fetch+store, fresh hit → no refetch, stale hit → return nilai lama + background refresh, post-refresh fresh hit, invalidate → hard miss lagi. Ini menutup catatan "belum diuji live" dari sesi sebelumnya.
 - **QStash** (`QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`) ditambahkan sebagai cadangan ("jaga-jaga") ke `.env` dan `apps/web/.env.local` saja (bukan ke `.env.example`, atas permintaan eksplisit — supaya nama variabel tidak muncul di GitHub). **Tidak ada kode yang memakainya** — belum ada fitur async/scheduled job yang butuh QStash.
+
+---
+
+## PR #27 — Long-term Audit Improvements (2026-07-09)
+
+- Branch `feat/long-term-audit-improvements` di-push ke `origin` dan PR **#27** dibuat ke base `master` (default branch repo ini, dikonfirmasi via `git remote show origin`, BUKAN `main`).
+- Berisi 4 commit: `a90bb9d` (KV cache), `a218532` (CSP/HSTS + hybrid rendering), `680daeb` + `65c5208` (docs `STATUS.md`).
+- URL: https://github.com/msph1973/ylx/pull/27 — status: open, belum ada review/merge.
