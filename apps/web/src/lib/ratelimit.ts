@@ -87,6 +87,14 @@ async function upstashLimited(
   return count > maxAttempts;
 }
 
+// In-memory limits are per-instance and reset on cold start, so they are not
+// an effective rate limit across serverless instances.  When Upstash is
+// unavailable in production (M-4), degrade to a tighter in-memory cap rather
+// than failing closed and blocking all traffic — the reduced cap (half of the
+// normal limit) still throttles brute-force attempts while avoiding a
+// self-inflicted DoS if Upstash has an outage.
+const IN_MEMORY_PROD_CAP_DIVISOR = 2;
+
 export async function isRateLimited(key: string, maxAttempts: number): Promise<boolean> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -95,21 +103,15 @@ export async function isRateLimited(key: string, maxAttempts: number): Promise<b
     try {
       return await upstashLimited(key, maxAttempts, url, token);
     } catch (err) {
-      console.warn("[RateLimit] Upstash unavailable; failing closed:", err);
-      return true; // fail closed on infra error
+      console.warn("[RateLimit] Upstash unavailable; degrading to in-memory:", err);
     }
   }
 
-  // The in-memory Map is per-instance and resets on cold start, so it is not
-  // an effective limit on serverless. Only allow it outside production.
-  if (import.meta.env.PROD) {
-    console.error(
-      "[RateLimit] UPSTASH_REDIS_REST_URL/TOKEN not configured in production; failing closed."
-    );
-    return true;
-  }
-
-  return memoryLimited(key, maxAttempts);
+  // In production without Upstash, use in-memory with a tighter cap.
+  const cap = import.meta.env.PROD
+    ? Math.max(1, Math.floor(maxAttempts / IN_MEMORY_PROD_CAP_DIVISOR))
+    : maxAttempts;
+  return memoryLimited(key, cap);
 }
 
 // Read-only check: true once the counter for `key` has reached `maxAttempts`.
@@ -123,19 +125,14 @@ export async function isLimitReached(key: string, maxAttempts: number): Promise<
       const data = await upstashPipeline([["GET", `rl:${key}`]], url, token);
       return Number(data?.[0]?.result ?? 0) >= maxAttempts;
     } catch (err) {
-      console.warn("[RateLimit] Upstash unavailable; failing closed:", err);
-      return true; // fail closed on infra error
+      console.warn("[RateLimit] Upstash unavailable; degrading to in-memory:", err);
     }
   }
 
-  if (import.meta.env.PROD) {
-    console.error(
-      "[RateLimit] UPSTASH_REDIS_REST_URL/TOKEN not configured in production; failing closed."
-    );
-    return true;
-  }
-
-  return memoryCount(key) >= maxAttempts;
+  const cap = import.meta.env.PROD
+    ? Math.max(1, Math.floor(maxAttempts / IN_MEMORY_PROD_CAP_DIVISOR))
+    : maxAttempts;
+  return memoryCount(key) >= cap;
 }
 
 // Increment the counter for `key` (fixed 15-minute window). Errors are logged

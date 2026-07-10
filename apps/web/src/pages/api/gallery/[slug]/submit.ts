@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
+import { hasAlbumAccess } from "../../../../lib/gallerySession";
 import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
@@ -14,7 +15,7 @@ interface SubmitAlbum {
   photos?: { _id: string }[];
 }
 
-export const POST: APIRoute = async ({ params, request }) => {
+export const POST: APIRoute = async ({ params, request, cookies }) => {
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -47,6 +48,16 @@ export const POST: APIRoute = async ({ params, request }) => {
   if (album.status !== "active") {
     return new Response(JSON.stringify({ error: "Album is locked" }), {
       status: 409,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // L-1: Verify the submitter proved PIN knowledge for this album. Without
+  // this, anyone who discovers a slug and valid photo IDs could submit
+  // selections without ever verifying the PIN.
+  if (!hasAlbumAccess(cookies, album._id)) {
+    return new Response(JSON.stringify({ error: "PIN verification required" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }

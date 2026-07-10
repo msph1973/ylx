@@ -83,6 +83,19 @@ export async function getSession(cookies: AstroCookies): Promise<AdminSession | 
     return null;
   }
 
+  // Validate essential fields to guard against a signed payload with missing
+  // or wrong types (e.g. if SESSION_SECRET leaked and an attacker crafted a
+  // minimal payload, or if a future code path accidentally signs an object
+  // without the expected shape). Silent rejection is safe — requireAdmin
+  // already treats null as unauthenticated.
+  if (
+    typeof session.id !== "string" ||
+    typeof session.role !== "string" ||
+    typeof session.expiresAt !== "number"
+  ) {
+    return null;
+  }
+
   if (session.expiresAt < Date.now()) {
     return null;
   }
