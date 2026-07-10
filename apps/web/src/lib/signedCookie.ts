@@ -6,6 +6,11 @@ import crypto from "node:crypto";
 const SECRET = process.env.SESSION_SECRET ?? "";
 
 function hmac(payload: string): string {
+  // Not a password hash: this HMAC-signs a cookie payload (session/PIN-access
+  // data), not a user password — bcrypt is used for actual password storage in
+  // packages/sanity/lib/admin.ts. Same false positive already dismissed at the
+  // pre-refactor location (auth.ts, code scanning alert #3).
+  //codeql[js/insufficient-password-hash]
   return crypto.createHmac("sha256", SECRET).update(payload).digest("base64url");
 }
 
