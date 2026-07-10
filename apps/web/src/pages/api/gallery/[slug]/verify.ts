@@ -62,6 +62,12 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   // logins by many guests never lock the album. `clientAddress` is the
   // socket peer address resolved by the platform adapter, not a
   // client-supplied header.
+  if (!clientAddress && import.meta.env.PROD) {
+    return new Response(JSON.stringify({ error: "Unable to determine client address" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   const ip = clientAddress ?? "unknown";
   const albumKey = `album:${slug}`;
 
