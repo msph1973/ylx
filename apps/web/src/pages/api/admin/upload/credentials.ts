@@ -28,7 +28,7 @@ const token = process.env.SANITY_API_TOKEN;
 const apiVersion = "2024-01-01";
 
 export const GET: APIRoute = async ({ cookies }) => {
-  const session = requireAdmin(cookies);
+  const session = await requireAdmin(cookies);
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

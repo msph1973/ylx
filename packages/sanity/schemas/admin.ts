@@ -36,6 +36,16 @@ export default defineType({
       },
       initialValue: "photographer",
     }),
+    defineField({
+      name: "sessionVersion",
+      title: "Session Version",
+      description:
+        "Incremented on every logout (and future password change) to revoke all previously issued session cookies signed with an older version.",
+      type: "number",
+      initialValue: 0,
+      readOnly: true,
+      hidden: true,
+    }),
   ],
   preview: {
     select: {

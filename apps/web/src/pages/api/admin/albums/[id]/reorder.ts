@@ -18,7 +18,7 @@ interface AlbumReferences {
 }
 
 export const PATCH: APIRoute = async ({ params, cookies, request }) => {
-  const session = requireAdmin(cookies);
+  const session = await requireAdmin(cookies);
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

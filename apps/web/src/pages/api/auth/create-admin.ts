@@ -6,7 +6,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   // Admin-only, unconditionally (REVIEW.md §2.1 — no auth bypass on this route).
   // The first admin is seeded out-of-band via scripts/seed-admin.mjs (CLI), so
   // there is no chicken-and-egg problem and this endpoint stays fully guarded.
-  if (!requireAdmin(cookies)) {
+  if (!(await requireAdmin(cookies))) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

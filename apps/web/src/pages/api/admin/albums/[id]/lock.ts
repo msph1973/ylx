@@ -5,7 +5,7 @@ import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 
 export const POST: APIRoute = async ({ params, cookies }) => {
-  const session = requireAdmin(cookies);
+  const session = await requireAdmin(cookies);
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

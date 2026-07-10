@@ -19,7 +19,7 @@ export const GET: APIRoute = async ({ cookies }) => {
   const capability: Record<string, string[]> = {
     "album:*": ["subscribe"],
   };
-  if (requireAdmin(cookies)) {
+  if (await requireAdmin(cookies)) {
     capability["admin:updates"] = ["subscribe"];
   }
 

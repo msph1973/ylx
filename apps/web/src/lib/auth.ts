@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 import type { AstroCookies } from "astro";
+import { getAdminSessionVersion } from "@ylx/sanity/lib/admin";
+import { getCached, invalidateCache, CACHE_KEYS } from "./cache";
 
 export interface AdminSession {
   id: string;
@@ -7,6 +9,33 @@ export interface AdminSession {
   name: string;
   role: string;
   expiresAt: number;
+  // Must match the admin doc's current `sessionVersion` in Sanity or the
+  // session is treated as revoked (see M-1 in new-audit.md: stateless HMAC
+  // cookies had no revocation list, so logout never actually invalidated a
+  // stolen cookie until it expired 24h later).
+  sessionVersion: number;
+}
+
+// Session version is re-checked against Sanity on every request, so it's
+// cached briefly (perf, not security — invalidated explicitly on logout for
+// immediate revocation rather than relying on this TTL to expire).
+const SESSION_VERSION_TTL_SECONDS = 20;
+const SESSION_VERSION_STALE_TTL_SECONDS = 60;
+
+async function getCurrentSessionVersion(adminId: string): Promise<number | null> {
+  return getCached(
+    CACHE_KEYS.adminSessionVersion(adminId),
+    SESSION_VERSION_TTL_SECONDS,
+    SESSION_VERSION_STALE_TTL_SECONDS,
+    () => getAdminSessionVersion(adminId)
+  );
+}
+
+// Called on logout (and, in future, password change) right after bumping the
+// admin doc's sessionVersion, so the very next request re-reads Sanity
+// instead of trusting a cached pre-bump value for up to the TTL above.
+export function invalidateSessionVersionCache(adminId: string): Promise<void> {
+  return invalidateCache(CACHE_KEYS.adminSessionVersion(adminId));
 }
 
 const SESSION_SECRET = process.env.SESSION_SECRET ?? "";
@@ -26,7 +55,7 @@ export function signSession(session: AdminSession): string {
   return `${payload}.${hmac(payload)}`;
 }
 
-export function getSession(cookies: AstroCookies): AdminSession | null {
+export async function getSession(cookies: AstroCookies): Promise<AdminSession | null> {
   const sessionCookie = cookies.get("admin_session");
   if (!sessionCookie || !SESSION_SECRET) {
     return null;
@@ -45,21 +74,32 @@ export function getSession(cookies: AstroCookies): AdminSession | null {
     return null;
   }
 
+  let session: AdminSession;
   try {
-    const session = JSON.parse(
+    session = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8")
     ) as AdminSession;
-    if (session.expiresAt < Date.now()) {
-      return null;
-    }
-    return session;
   } catch {
     return null;
   }
+
+  if (session.expiresAt < Date.now()) {
+    return null;
+  }
+
+  // Revocation check: a validly-signed, non-expired cookie can still be
+  // stale if the admin logged out (or changed password) since it was
+  // issued — the version bump on that admin's doc makes it fail here.
+  const currentVersion = await getCurrentSessionVersion(session.id);
+  if (currentVersion === null || currentVersion !== session.sessionVersion) {
+    return null;
+  }
+
+  return session;
 }
 
-export function requireAdmin(cookies: AstroCookies): AdminSession | null {
-  const session = getSession(cookies);
+export async function requireAdmin(cookies: AstroCookies): Promise<AdminSession | null> {
+  const session = await getSession(cookies);
   if (!session || (session.role !== "admin" && session.role !== "photographer")) {
     return null;
   }
