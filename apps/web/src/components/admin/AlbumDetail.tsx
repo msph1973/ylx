@@ -379,6 +379,15 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
         </div>
 
+        {album.shareCount !== undefined && (
+          <div className="share-stats">
+            <span className="stat-label">Shares:</span> {album.shareCount}
+            {album.lastAccessedAt && (
+              <> · <span className="stat-label">Last viewed:</span> {formatDate(new Date(album.lastAccessedAt))}</>
+            )}
+          </div>
+        )}
+
         <div className="share-actions">
           <button className="share-btn" onClick={() => { void handleCopyLink(); }} disabled={!album.slug} aria-label="Copy gallery link to clipboard">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -421,7 +430,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
         </div>
 
-        <SelectionTable selections={album.selections} />
+        <SelectionTable selections={album.selections} onReplySaved={fetchAlbum} />
 
         <div className="section-header photos-section-header">
           <h3 className="photos-title">All Photos ({photos.length})</h3>
@@ -571,6 +580,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             photoCount: photos.length,
             pin: album.pin,
             maxSelections: album.maxSelections,
+            customSlug: album.customSlug,
           }}
         />
 
@@ -710,6 +720,13 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .metadata-label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
           .metadata-value { font-size: var(--text-base); font-weight: var(--font-medium); color: var(--color-text); }
           .metadata-value.pin { font-family: var(--font-mono, monospace); letter-spacing: 0.1em; }
+
+          .share-stats {
+            font-size: var(--text-sm);
+            color: var(--color-text-muted);
+            margin-top: var(--space-2);
+          }
+          .stat-label { font-weight: 500; }
 
           .share-actions {
             display: flex;

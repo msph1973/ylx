@@ -1,14 +1,36 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 
 interface SelectionTableProps {
   selections: Selection[];
+  onReplySaved?: () => void;
 }
 
-export function SelectionTable({ selections }: SelectionTableProps) {
+export function SelectionTable({ selections, onReplySaved }: SelectionTableProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveReply = useCallback(async (selectionId: string) => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/admin/selections/${selectionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photographerReply: replyText }),
+      });
+      if (!response.ok) throw new Error('Failed to save reply');
+      setReplyingTo(null);
+      setReplyText('');
+      onReplySaved?.();
+    } catch {
+    } finally {
+      setIsSaving(false);
+    }
+  }, [replyText, onReplySaved]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -39,12 +61,14 @@ export function SelectionTable({ selections }: SelectionTableProps) {
       <div className="table-header" role="row">
         <span className="col-thumb" role="columnheader" aria-label="Preview" />
         <span className="col-filename" role="columnheader">Filename</span>
+        <span className="col-notes" role="columnheader">Notes</span>
         <span className="col-date" role="columnheader">Selected</span>
       </div>
 
       <motion.div className="table-body" role="rowgroup" variants={containerVariants} initial="hidden" animate="show">
         {selections.map((selection) => {
           const thumbnailUrl = selection.photo.thumbnailUrl;
+          const isReplying = replyingTo === selection.id;
           return (
             <motion.div
               key={selection.id}
@@ -61,6 +85,55 @@ export function SelectionTable({ selections }: SelectionTableProps) {
                 )}
               </span>
               <span className="col-filename filename" role="cell">{selection.photo.filename}</span>
+              <span className="col-notes notes-cell" role="cell">
+                {selection.notes && (
+                  <div className="note-line">
+                    <span className="note-label">Client:</span> {selection.notes}
+                  </div>
+                )}
+                {selection.photographerReply && (
+                  <div className="note-line reply-line">
+                    <span className="note-label">You:</span> {selection.photographerReply}
+                  </div>
+                )}
+                {!selection.photographerReply && !isReplying && (
+                  <button
+                    className="reply-btn"
+                    onClick={() => {
+                      setReplyingTo(selection.id);
+                      setReplyText('');
+                    }}
+                  >
+                    Reply
+                  </button>
+                )}
+                {isReplying && (
+                  <div className="reply-form">
+                    <input
+                      className="reply-input"
+                      type="text"
+                      placeholder="Your reply…"
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      disabled={isSaving}
+                    />
+                    <button
+                      className="reply-save"
+                      onClick={() => void handleSaveReply(selection.id)}
+                      disabled={isSaving || !replyText.trim()}
+                    >
+                      {isSaving ? '…' : 'Save'}
+                    </button>
+                    <button
+                      className="reply-cancel"
+                      onClick={() => { setReplyingTo(null); setReplyText(''); }}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </span>
               <span className="col-date date" role="cell">{formatDate(selection.selectedAt)}</span>
             </motion.div>
           );
@@ -90,7 +163,7 @@ export function SelectionTable({ selections }: SelectionTableProps) {
         .table-header,
         .table-row {
           display: grid;
-          grid-template-columns: 44px 1fr minmax(92px, 132px);
+          grid-template-columns: 44px 1fr 1fr minmax(92px, 132px);
           gap: var(--space-3);
           align-items: center;
           padding: var(--space-2) var(--space-4);
@@ -147,6 +220,92 @@ export function SelectionTable({ selections }: SelectionTableProps) {
 
         .date {
           font-size: var(--text-sm);
+          color: var(--color-text-muted);
+        }
+
+        .notes-cell {
+          font-size: var(--text-sm);
+          color: var(--color-text);
+          min-width: 0;
+        }
+
+        .note-line {
+          margin-bottom: var(--space-1);
+          line-height: 1.4;
+        }
+
+        .note-label {
+          font-weight: var(--font-medium);
+          color: var(--color-text-muted);
+        }
+
+        .reply-line {
+          color: var(--color-accent);
+        }
+
+        .reply-btn {
+          min-height: 32px;
+          padding: var(--space-1) var(--space-2);
+          background: none;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          color: var(--color-text-muted);
+          font-size: var(--text-xs);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .reply-btn:hover {
+          border-color: var(--color-accent);
+          color: var(--color-accent);
+        }
+
+        .reply-form {
+          display: flex;
+          gap: var(--space-1);
+          flex-wrap: wrap;
+        }
+
+        .reply-input {
+          flex: 1;
+          min-width: 100px;
+          min-height: 32px;
+          padding: var(--space-1) var(--space-2);
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          color: var(--color-text);
+          font-size: var(--text-sm);
+          outline: none;
+        }
+
+        .reply-input:focus {
+          border-color: var(--color-accent);
+        }
+
+        .reply-save,
+        .reply-cancel {
+          min-height: 32px;
+          padding: var(--space-1) var(--space-2);
+          border-radius: var(--radius-sm);
+          font-size: var(--text-xs);
+          cursor: pointer;
+          border: 1px solid var(--color-border);
+        }
+
+        .reply-save {
+          background-color: var(--color-accent);
+          color: var(--color-bg);
+          border-color: var(--color-accent);
+        }
+
+        .reply-save:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .reply-cancel {
+          background: none;
           color: var(--color-text-muted);
         }
       `}</style>

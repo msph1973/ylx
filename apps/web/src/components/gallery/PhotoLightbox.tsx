@@ -8,6 +8,8 @@ interface PhotoLightboxProps {
   currentIndex: number;
   isSelected: boolean;
   isDisabled: boolean;
+  note?: string;
+  onNoteChange?: (note: string) => void;
   onClose: () => void;
   onNavigate: (index: number) => void;
   onToggleSelect: (photoId: string) => void;
@@ -18,6 +20,8 @@ export function PhotoLightbox({
   currentIndex,
   isSelected,
   isDisabled,
+  note,
+  onNoteChange,
   onClose,
   onNavigate,
   onToggleSelect,
@@ -84,6 +88,16 @@ export function PhotoLightbox({
           >
             ←
           </button>
+          {!isDisabled && onNoteChange && (
+            <input
+              className="lightbox-note-input"
+              type="text"
+              placeholder="Add a note…"
+              value={note ?? ''}
+              onChange={(e) => onNoteChange(e.target.value)}
+              aria-label={`Note for photo ${currentIndex + 1}`}
+            />
+          )}
           {!isDisabled && (
             <button
               className={`lightbox-select ${isSelected ? 'selected' : ''}`}
