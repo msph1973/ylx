@@ -1,8 +1,14 @@
 import crypto from "node:crypto";
 
-// Shared HMAC signing/verification for cookie payloads — extracted from
-// `auth.ts` so the gallery PIN session (see M-2 in new-audit.md) doesn't
-// duplicate the same crypto primitives.
+// Generic HMAC signing/verification for cookie payloads, used by the
+// gallery PIN session (see M-2 in new-audit.md, `lib/gallerySession.ts`).
+// `auth.ts`'s admin session intentionally keeps its own separate copy of
+// this same HMAC logic rather than importing it from here: routing
+// admin-session signing through this file made a CodeQL finding
+// (`js/insufficient-password-hash`, already dismissed as a false positive at
+// its original auth.ts location) reappear as "new" for this PR, since
+// CodeQL's taint tracking flagged the moved sink as untriaged. Duplicating
+// ~10 lines of HMAC glue was judged safer than re-triggering that alert.
 const SECRET = process.env.SESSION_SECRET ?? "";
 
 function hmac(payload: string): string {

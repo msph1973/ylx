@@ -11,9 +11,12 @@ let clientInstanceAlbumId: string | null = null;
 // request/renewal so the server can scope the token's capability to just
 // that album's channel (see M-2 in new-audit.md). Only the first call per
 // page load actually creates the client (every page navigation is a fresh
-// module instance); subsequent calls on the same page must agree with that
-// first call's albumId or this throws, since mixing scopes on one singleton
-// would silently ignore the new value.
+// module instance). A later call with no albumId reuses the existing scope
+// as-is; a later call that *adds* an albumId (e.g. a page combining
+// `useAdminRealtime()` + `useRealtime(albumId, ...)`) re-authorizes the same
+// connection with that albumId instead of silently ignoring it. Two
+// different non-null albumIds on one singleton is a genuine conflict and
+// throws, since the singleton can only carry one album's capability.
 export function getAblyClient(albumId?: string): Ably.Realtime {
   if (typeof window === "undefined") {
     throw new Error("getAblyClient() must only be called in browser context");
@@ -29,11 +32,16 @@ export function getAblyClient(albumId?: string): Ably.Realtime {
       authUrl: "/api/ably/token",
       authParams: requestedAlbumId ? { albumId: requestedAlbumId } : undefined,
     });
-  } else if (clientInstanceAlbumId !== requestedAlbumId) {
-    throw new Error(
-      `getAblyClient() already initialized with albumId=${JSON.stringify(clientInstanceAlbumId)}; ` +
-        `cannot reuse the singleton with albumId=${JSON.stringify(requestedAlbumId)}`
-    );
+  } else if (requestedAlbumId !== null && requestedAlbumId !== clientInstanceAlbumId) {
+    if (clientInstanceAlbumId === null) {
+      clientInstanceAlbumId = requestedAlbumId;
+      void clientInstance.auth.authorize({}, { authParams: { albumId: requestedAlbumId } });
+    } else {
+      throw new Error(
+        `getAblyClient() already initialized with albumId=${JSON.stringify(clientInstanceAlbumId)}; ` +
+          `cannot reuse the singleton with a different albumId=${JSON.stringify(requestedAlbumId)}`
+      );
+    }
   }
   return clientInstance;
 }

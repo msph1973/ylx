@@ -407,8 +407,8 @@ Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
 | Fix | `verify.ts` sekarang panggil `grantAlbumAccess(cookies, album._id)` setelah PIN sukses — menulis cookie `gallery_pin_session` (HMAC-signed, `httpOnly`, 24 jam, maks 8 album per browser) via `lib/gallerySession.ts` (baru) |
 | Token endpoint | `api/ably/token.ts` baca `?albumId=` dari query, hanya beri `album:<id>: ["subscribe"]` jika `hasAlbumAccess()` true untuk album itu — tidak lagi wildcard |
 | Client | `lib/ably.ts` — `getAblyClient(albumId?)` kirim `albumId` sebagai Ably `authParams`; `useRealtime.ts` (dipakai `GalleryPage` pasca-verifikasi PIN) sudah diupdate. `useAdminRealtime` tidak berubah (tak butuh capability album) |
-| Refactor pendukung | HMAC sign/verify di `auth.ts` diekstrak ke `lib/signedCookie.ts` (dipakai bersama oleh `admin_session` & `gallery_pin_session`, hindari duplikasi) |
+| Refactor pendukung | `lib/signedCookie.ts` (baru) — HMAC sign/verify generik, dipakai HANYA oleh `gallery_pin_session`. `auth.ts` sengaja TETAP pakai HMAC-nya sendiri (bukan diarahkan ke file ini): percobaan pertama mengalihkan `admin_session` ke sini membuat temuan CodeQL `js/insufficient-password-hash` yang sudah di-dismiss sebagai false positive di lokasi lamanya (`auth.ts`) muncul lagi sebagai "baru" untuk PR ini (taint tracking CodeQL ikut lokasi sink, bukan cuma isi kode) — duplikasi ~10 baris HMAC dianggap lebih aman daripada memicu ulang alert itu |
 | Test baru | `lib/gallerySession.test.ts` (6 test: grant/check per album, tak leak ke album lain, akumulasi multi-album, cap eviction, cookie di-tamper ditolak, default-deny tanpa cookie) |
 | Verifikasi | `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest termasuk 6 baru)/`build` semua pass |
-| PR | https://github.com/msph1973/ylx/pull/30 → base `master`, status: open, belum di-review bot/merge |
+| PR | https://github.com/msph1973/ylx/pull/30 → base `master`, status: open, semua check bot hijau (Sourcery/Junie Review/Devin/CodeQL x3/CI), belum merge |
 | Di luar scope | `submit.ts` belum di-bind ke sesi PIN (itu L-1, temuan terpisah level LOW) |
