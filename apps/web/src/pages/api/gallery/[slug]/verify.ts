@@ -8,6 +8,7 @@ import {
   RATE_LIMIT_RETRY_AFTER,
   recordFailedAttempt,
 } from "../../../../lib/ratelimit";
+import { grantAlbumAccess } from "../../../../lib/gallerySession";
 
 interface SanityImageRef {
   _type: string;
@@ -46,7 +47,7 @@ function pinMatches(expected: string, provided: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export const POST: APIRoute = async ({ params, request, clientAddress }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, cookies }) => {
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -110,6 +111,11 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Record that this browser proved knowledge of this album's PIN, so
+  // /api/ably/token can scope its realtime capability to just this album
+  // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe.
+  grantAlbumAccess(cookies, album._id);
 
   const photos = (album.photos ?? []).map((photo) => {
     // `.auto("format")` negotiates WebP/AVIF per client (typically 30-60% smaller

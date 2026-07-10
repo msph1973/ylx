@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-10 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1). Branch aktif: **`master`**.
+> Last updated: 2026-07-10 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1). PR open: **#30** Ably realtime album scoping (M-2). Branch aktif: **`master`**.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -206,7 +206,8 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Submit verifikasi photo ownership + atomic lock (H3/M1) | ✅ |
 | `selections.ts` GET `requireAdmin` | ✅ |
 | Admin login rate-limited 10/IP + 20/email per 15min (H-1) | ✅ MERGED #28 |
-| Session revocation list — `sessionVersion` counter, logout bumps it, `getSession` checks it (M-1 dari `new-audit.md`) | ✅ branch `fix/session-revocation-m1` (belum merge) |
+| Session revocation list — `sessionVersion` counter, logout bumps it, `getSession` checks it (M-1 dari `new-audit.md`) | ✅ MERGED #29 |
+| Ably realtime capability discope per album via PIN session cookie, bukan `album:*` wildcard (M-2 dari `new-audit.md`) | ✅ PR #30 (open, belum merge) |
 
 > Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) + threat model 2026-07-10 (H-1) selesai — lihat `PROGRESS.md` bagian "Security Audit 2026-07-02". Realtime browser sekarang auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` karena dataset sudah private.
 >
@@ -386,3 +387,36 @@ Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
 | PR | https://github.com/msph1973/ylx/pull/28 — **MERGED** ke master via `b46083d` |
 | Testing | Diverifikasi langsung ke Vercel Preview deployment via curl: HTTP 401 untuk 10 req pertama, HTTP 429 + Retry-After: 900 mulai req ke-11. Login page (/admin/login) HTTP 200. Per-IP limit memblokir cross-email dari IP yang sama |
 | Verification | `tsc --noEmit` ✅, `eslint --max-warnings 0` ✅ (test/build pre-existing native binding issue — confirmed same on clean master) |
+
+---
+
+## PR #29 — Session Revocation (M-1) — MERGED (2026-07-10)
+
+- Di-merge via `gh pr merge 29 --merge --delete-branch`; local `master` fast-forward `0ad565a..22ec28e` (24 file berubah, termasuk `auth.ts` async + `sessionVersion`).
+- Branch `fix/session-revocation-m1` sudah dihapus di lokal & `origin` (dikonfirmasi `git branch -a` + `git fetch --prune`).
+- Sebelum merge, fix sudah diverifikasi live di preview deployment PR (Kernel cloud browser + Playwright, kredensial admin asli): cookie lama langsung 401 setelah logout (bukan nunggu 24 jam), revocation berlaku global per-admin (semua device/tab), login ulang tetap berhasil (bukan lockout permanen). Detail: `~/.junie/memory/notes.md`.
+
+---
+
+## PR #30 — Ably Realtime Album Scoping (M-2) (2026-07-10, branch `fix/ably-album-scope-m2`)
+
+**Dari `new-audit.md` M-2:** `/api/ably/token` dulu memberi capability `album:*: ["subscribe"]` ke SEMUA pengunjung tanpa verifikasi PIN — siapapun bisa dengar event realtime (`photo:uploaded`, `album:unlocked`, dll.) di album manapun tanpa pernah tahu PIN-nya.
+
+| Aspek | Detail |
+|-------|--------|
+| Fix | `verify.ts` sekarang panggil `grantAlbumAccess(cookies, album._id)` setelah PIN sukses — menulis cookie `gallery_pin_session` (HMAC-signed, `httpOnly`, 24 jam, maks 8 album per browser) via `lib/gallerySession.ts` (baru) |
+| Token endpoint | `api/ably/token.ts` baca `?albumId=` dari query, hanya beri `album:<id>: ["subscribe"]` jika `hasAlbumAccess()` true untuk album itu — tidak lagi wildcard |
+| Client | `lib/ably.ts` — `getAblyClient(albumId?)` kirim `albumId` sebagai Ably `authParams`; `useRealtime.ts` (dipakai `GalleryPage` pasca-verifikasi PIN) sudah diupdate. `useAdminRealtime` tidak berubah (tak butuh capability album) |
+| Refactor pendukung | `lib/signedCookie.ts` (baru) — HMAC sign/verify generik, dipakai HANYA oleh `gallery_pin_session`. `auth.ts` sengaja TETAP pakai HMAC-nya sendiri (bukan diarahkan ke file ini): percobaan pertama mengalihkan `admin_session` ke sini membuat temuan CodeQL `js/insufficient-password-hash` yang sudah di-dismiss sebagai false positive di lokasi lamanya (`auth.ts`) muncul lagi sebagai "baru" untuk PR ini (taint tracking CodeQL ikut lokasi sink, bukan cuma isi kode) — duplikasi ~10 baris HMAC dianggap lebih aman daripada memicu ulang alert itu |
+| Test baru | `lib/gallerySession.test.ts` (6 test: grant/check per album, tak leak ke album lain, akumulasi multi-album, cap eviction, cookie di-tamper ditolak, default-deny tanpa cookie) |
+| Verifikasi | `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest termasuk 6 baru)/`build` semua pass |
+| PR | https://github.com/msph1973/ylx/pull/30 → base `master`, status: open, `mergeStateStatus: CLEAN`, belum merge |
+| Di luar scope | `submit.ts` belum di-bind ke sesi PIN (itu L-1, temuan terpisah level LOW) |
+
+**Riwayat review PR #30 (4 putaran, semua ditindaklanjuti):**
+1. CodeQL menandai `js/insufficient-password-hash` di `signedCookie.ts` — false positive yang sama persis dengan yang sudah di-dismiss di lokasi lama (`auth.ts:44`); ternyata memindahkan sink HMAC ke file baru membuat CodeQL menganggapnya "baru". Fix: `auth.ts` dikembalikan 100% identik dengan `master` (HMAC-nya sendiri, tidak lagi pakai `signedCookie.ts`), sehingga `signedCookie.ts` hanya dipakai `gallery_pin_session` (tidak ada taint dari data admin/password).
+2. Sourcery + Junie Review: `readEntries()` di `gallerySession.ts` bisa crash kalau payload cookie bukan array (mis. cookie `admin_session` tertukar posisi, sama-sama pakai `SESSION_SECRET`) → ditambah guard `Array.isArray()`. Singleton `getAblyClient()` mengunci `albumId` panggilan pertama tanpa validasi → ditambah pelacakan `clientInstanceAlbumId` + throw kalau ada konflik.
+3. Junie Review: throw tadi terlalu ketat untuk transisi `null → albumId` (skenario admin melihat galeri di halaman yang sama) → diubah jadi re-`authorize()` alih-alih throw untuk kasus itu spesifik; komentar/dokumentasi yang salah klaim (`auth.ts` "direfactor pakai `signedCookie.ts`") diperbaiki di kode + `STATUS.md`.
+4. Junie Review: panggilan `authorize()` fire-and-forget tanpa `.catch()` → ditambah log `console.warn`. Devin: `albumId` dari query string di `api/ably/token.ts` diinterpolasi langsung ke capability key Ably tanpa validasi format (Ably capability mendukung wildcard `*`) → ditambah validasi charset `/^[a-zA-Z0-9_.-]+$/` sebagai defense-in-depth di atas cek `hasAlbumAccess()`.
+
+Setelah putaran ke-4, tidak ada temuan baru lagi — semua 11 review thread di PR sudah resolved/outdated/ditandai "Addressed".

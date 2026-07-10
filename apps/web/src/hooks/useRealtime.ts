@@ -26,7 +26,7 @@ export function useRealtime(
   useEffect(() => {
     if (!albumId) return;
 
-    const ably = getAblyClient();
+    const ably = getAblyClient(albumId);
     const channelName = getChannelName(albumId);
     const channel = ably.channels.get(channelName);
 
