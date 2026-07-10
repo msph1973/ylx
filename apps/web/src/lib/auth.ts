@@ -89,6 +89,7 @@ export async function getSession(cookies: AstroCookies): Promise<AdminSession | 
   // without the expected shape). Silent rejection is safe — requireAdmin
   // already treats null as unauthenticated.
   if (
+    !session ||
     typeof session.id !== "string" ||
     typeof session.email !== "string" ||
     typeof session.name !== "string" ||

@@ -3,7 +3,7 @@ import { CONTENT_SECURITY_POLICY, STRICT_TRANSPORT_SECURITY } from "./lib/securi
 
 const CSRF_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
-function hasValidCsrfOrigin(request: Request): boolean {
+function hasValidCsrfOrigin(request: Request, requestUrl: string): boolean {
   const origin = request.headers.get("origin");
   const referer = request.headers.get("referer");
 
@@ -15,7 +15,7 @@ function hasValidCsrfOrigin(request: Request): boolean {
   if (origin) {
     try {
       const u = new URL(origin);
-      return u.origin === new URL(request.url).origin;
+      return u.origin === new URL(requestUrl).origin;
     } catch {
       return false;
     }
@@ -24,7 +24,7 @@ function hasValidCsrfOrigin(request: Request): boolean {
   if (referer) {
     try {
       const u = new URL(referer);
-      return u.origin === new URL(request.url).origin;
+      return u.origin === new URL(requestUrl).origin;
     } catch {
       return false;
     }
@@ -59,7 +59,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     (path.startsWith("/api/admin") ||
       path.startsWith("/api/gallery/") ||
       path.startsWith("/api/auth/"));
-  if (isProtectedWrite && !hasValidCsrfOrigin(context.request)) {
+  if (isProtectedWrite && !hasValidCsrfOrigin(context.request, context.url.href)) {
     return csrfForbidden();
   }
 
