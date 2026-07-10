@@ -441,3 +441,21 @@ PR ini dibuat user sendiri (bukan hasil sesi ini), berisi fitur selection notes/
 - **Catatan penting:** overall check `DeepSource: JavaScript` di PR ini **sudah gagal sejak SEBELUM sesi ini** (dikonfirmasi via status commit sebelum perbaikan apapun) — pemeriksaannya menyisir SELURUH repo (bukan cuma diff PR), jadi kegagalan gate ini pre-existing & di luar scope realistis task ini untuk dituntaskan penuh tanpa akses dashboard DeepSource.
 
 > Verifikasi: `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest)/`build` semua pass di setiap commit (`09acd34`, `d38dad4`). Sourcery/Devin/CodeQL/CI semua hijau pasca-fix. PR #32 masih **open, belum di-merge** — merge tidak diminta.
+
+---
+
+## PR #32 — Fix Semua Temuan CodeRabbit Tersisa (2026-07-10, commit `d91a9cb`)
+
+User mencabut integrasi DeepSource dari repo (tidak akan review lagi), lalu minta perbaiki semua temuan CodeRabbit yang masih tersisa dari review putaran ke-2 (8 item, sudah divalidasi valid semua di sesi sebelumnya).
+
+| # | Temuan CodeRabbit | Fix |
+|---|---|---|
+| 1 | `slug.ts`/`albums/[id]/index.ts` — race condition: cek keunikan slug/customSlug (`count(...)`) dan penulisannya adalah 2 langkah terpisah, dua request bersamaan bisa lolos cek bersamaan | **Redesign atomik**: dokumen baru `slugLock` (`packages/sanity/schemas/slugLock.ts`) dengan `_id` deterministik dari nilai slug (`slugLock.<slug>`). `.create()` Sanity gagal 409 kalau ID sudah ada → dipakai sebagai primitif "reserve" anti-race. `generateUniqueSlug`/`resolveCustomSlug` di `lib/slug.ts` sekarang pakai `reserveSlug()`/`releaseSlugLock()`; juga ada guard tambahan (non-racy) terhadap slug album lama yang belum punya lock (sebelum mekanisme ini ada) |
+| 2 | `selections/[id].ts` — `request.json()` dipanggil di luar `try/catch`, body JSON rusak → unhandled rejection alih-alih 400 | `request.json()` dipindah ke dalam `try` dengan `catch` khusus yang mengembalikan 400 rapi |
+| 3 | `verify.ts` — update `shareCount`/`lastAccessedAt` di-`await` sebelum response dikirim, menambah latency ke alur PIN-verify klien padahal cuma data informatif admin | Update di-fire lewat `waitUntil()` (`@vercel/functions`, pola sama seperti background refresh di `cache.ts`) — tidak lagi diblokir response |
+| 4 | `SelectionTable.tsx` (bug nyata) — state draft balasan (`replyingTo`/`replyText`) level-tabel dipakai bersama semua baris; klik "Reply" di baris lain diam-diam menghapus draft belum tersimpan di baris lain | State balasan (`isReplying`/`replyText`/`isSaving`/`replyError`) dipindah jadi lokal per baris di `SelectionRow.tsx`; `SelectionTable` hanya menyediakan fungsi `onSaveReply(selectionId, replyText)` |
+| 5 | `AlbumFormModal.tsx` — `handleCustomSlugChange` cuma filter karakter terlarang, tidak merapikan tanda hubung ganda/di awal, gagal validasi saat submit dengan pesan menyesatkan | Normalisasi tambahan: `.replace(/-{2,}/g, '-')` + `.replace(/^-+/, '')` saat mengetik (tanda hubung di akhir sengaja dibiarkan, biar tidak mengganggu saat sedang mengetik) |
+| 6 (nitpick) | Batas 500 karakter untuk notes/reply diduplikasi manual di 4 tempat | Konstanta `MAX_TEXT_LENGTH` baru di `packages/sanity/lib/constants.ts`, dipakai di `schemas/selection.ts`, `selections/[id].ts`, `submit.ts`, `SelectionRow.tsx`, `PhotoLightbox.tsx` |
+| 7 (nitpick) | Regex custom-slug diduplikasi di 3 tempat | Konstanta `CUSTOM_SLUG_PATTERN` di file yang sama, dipakai di `schemas/album.ts`, `lib/slug.ts`, `AlbumFormModal.tsx` |
+
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass; `packages/sanity` `tsc --noEmit` juga bersih. Commit `d91a9cb` sudah di-push ke PR #32. DeepSource tidak lagi jadi bagian review (dicabut user) — tidak ada tindak lanjut lebih jauh untuk temuannya di luar yang sudah selesai di `d38dad4`.
