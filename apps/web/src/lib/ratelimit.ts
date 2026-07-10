@@ -1,8 +1,9 @@
 // Fixed-window rate limiter. Uses Upstash Redis (REST) when configured so the
 // limit persists across serverless cold-starts and instances; otherwise falls
-// back to an in-memory Map (per-instance, dev only — production without
-// Upstash fails closed, since a per-instance limiter is trivially bypassed
-// across serverless instances).
+// back to an in-memory Map (per-instance).  In production without Upstash the
+// in-memory fallback is still applied with a tighter cap — it is not
+// effective across instances, but it prevents a total bypass of rate limiting
+// when the backing store is temporarily unavailable.
 //
 // Configure with UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (no SDK).
 
@@ -136,7 +137,7 @@ export async function isLimitReached(key: string, maxAttempts: number): Promise<
 }
 
 // Increment the counter for `key` (fixed 15-minute window). Errors are logged
-// and swallowed: the paired `isLimitReached` already fails closed on outages.
+// and swallowed: the paired `isLimitReached` already handles degradation.
 export async function recordFailedAttempt(key: string): Promise<void> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -152,14 +153,13 @@ export async function recordFailedAttempt(key: string): Promise<void> {
         token
       );
     } catch (err) {
-      console.warn("[RateLimit] Upstash unavailable; failed attempt not recorded:", err);
+      console.warn("[RateLimit] Upstash unavailable; recording to in-memory fallback:", err);
+      memoryRecord(key);
     }
     return;
   }
 
-  if (!import.meta.env.PROD) {
-    memoryRecord(key);
-  }
+  memoryRecord(key);
 }
 
 export const RATE_LIMIT_RETRY_AFTER = String(WINDOW_SECONDS);

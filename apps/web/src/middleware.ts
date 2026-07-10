@@ -8,7 +8,10 @@ function hasValidCsrfOrigin(request: Request): boolean {
   const referer = request.headers.get("referer");
 
   // Same-origin requests carry the Origin header on cross-site submissions
-  // but same-site navigations may omit it while including Referer.
+  // but same-site navigations may omit it while including Referer.  When both
+  // are absent the request is likely a same-origin form POST from a non-browser
+  // HTTP client (e.g. curl, server-to-server) — sameSite=lax already blocks
+  // cross-origin cookie transmission, so allowing this path is safe.
   if (origin) {
     try {
       const u = new URL(origin);
@@ -27,10 +30,18 @@ function hasValidCsrfOrigin(request: Request): boolean {
     }
   }
 
-  // No Origin or Referer — likely a same-origin form submission from a
-  // non-browser HTTP client. Allow it; the session cookie + method check
-  // already gate access.
   return true;
+}
+
+function csrfForbidden(): Response {
+  return new Response(JSON.stringify({ error: "CSRF validation failed" }), {
+    status: 403,
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+      "Strict-Transport-Security": STRICT_TRANSPORT_SECURITY,
+    },
+  });
 }
 
 // Runs on every SSR request (prerendered pages bypass this — see vercel.json
@@ -42,13 +53,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // cookie layer, but this adds a server-side Origin/Referer check on top so
   // a future endpoint that mutates on GET, or a non-compliant browser, cannot
   // bypass the cookie defence.
-  if (context.url.pathname.startsWith("/api/admin") && CSRF_METHODS.has(context.request.method)) {
-    if (!hasValidCsrfOrigin(context.request)) {
-      return new Response(JSON.stringify({ error: "CSRF validation failed" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  const path = context.url.pathname;
+  const isProtectedWrite =
+    CSRF_METHODS.has(context.request.method) &&
+    (path.startsWith("/api/admin") || path.startsWith("/api/gallery/"));
+  if (isProtectedWrite && !hasValidCsrfOrigin(context.request)) {
+    return csrfForbidden();
   }
 
   const response = await next();

@@ -90,8 +90,11 @@ export async function getSession(cookies: AstroCookies): Promise<AdminSession | 
   // already treats null as unauthenticated.
   if (
     typeof session.id !== "string" ||
+    typeof session.email !== "string" ||
+    typeof session.name !== "string" ||
     typeof session.role !== "string" ||
-    typeof session.expiresAt !== "number"
+    !Number.isFinite(session.expiresAt) ||
+    typeof session.sessionVersion !== "number"
   ) {
     return null;
   }
