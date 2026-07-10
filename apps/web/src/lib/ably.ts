@@ -35,7 +35,9 @@ export function getAblyClient(albumId?: string): Ably.Realtime {
   } else if (requestedAlbumId !== null && requestedAlbumId !== clientInstanceAlbumId) {
     if (clientInstanceAlbumId === null) {
       clientInstanceAlbumId = requestedAlbumId;
-      void clientInstance.auth.authorize({}, { authParams: { albumId: requestedAlbumId } });
+      clientInstance.auth
+        .authorize({}, { authParams: { albumId: requestedAlbumId } })
+        .catch((err) => console.warn("[Ably] re-authorize with albumId failed:", err));
     } else {
       throw new Error(
         `getAblyClient() already initialized with albumId=${JSON.stringify(clientInstanceAlbumId)}; ` +
