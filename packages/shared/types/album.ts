@@ -5,6 +5,9 @@ export interface Album {
   id: string;
   title: string;
   slug?: string;
+  customSlug?: string;
+  shareCount?: number;
+  lastAccessedAt?: string;
   clientName: string;
   pin?: string;
   maxSelections: number;
@@ -19,6 +22,9 @@ export interface AlbumSummary {
   id: string;
   title: string;
   slug?: string;
+  customSlug?: string;
+  shareCount?: number;
+  lastAccessedAt?: string;
   clientName: string;
   pin?: string;
   maxSelections: number;

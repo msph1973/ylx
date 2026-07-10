@@ -21,6 +21,9 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   eventDate,
   pin,
   status,
+  customSlug,
+  shareCount,
+  lastAccessedAt,
   "photoCount": count(photos)
 }`;
 
@@ -34,7 +37,9 @@ export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $
     image,
     "lqip": image.asset->metadata.lqip
   },
-  selectedAt
+  selectedAt,
+  notes,
+  photographerReply
 }`;
 
 export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][0] {
@@ -53,4 +58,11 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
     "lqip": image.asset->metadata.lqip
   },
   "selections": *[_type == "selection" && album._ref == ^._id]._id
+}`;
+
+export const albumByCustomSlugQuery = `*[_type == "album" && customSlug == $customSlug][0] {
+  _id,
+  title,
+  slug,
+  customSlug
 }`;

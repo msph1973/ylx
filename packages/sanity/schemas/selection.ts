@@ -25,5 +25,17 @@ export default defineType({
       type: "datetime",
       initialValue: () => new Date().toISOString(),
     }),
+    defineField({
+      name: "notes",
+      title: "Client Notes",
+      type: "text",
+      description: "Optional note from the client about this photo",
+    }),
+    defineField({
+      name: "photographerReply",
+      title: "Photographer Reply",
+      type: "text",
+      description: "Photographer's response to the client's note",
+    }),
   ],
 });

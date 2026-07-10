@@ -6,6 +6,8 @@ export interface Selection {
   photoId: string;
   photo: Photo;
   selectedAt: Date;
+  notes?: string;
+  photographerReply?: string;
 }
 
 export interface Submission {
