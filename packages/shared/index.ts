@@ -8,6 +8,7 @@ export type {
   SelectionChangedData,
   SubmissionReceivedData,
   AlbumUnlockedData,
+  SelectionRepliedData,
 } from "./types/realtime.js";
 
 export { validatePin } from "./utils/pin.js";

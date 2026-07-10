@@ -2,7 +2,8 @@ export type RealtimeEventType =
   | "photo:uploaded"
   | "selection:changed"
   | "submission:received"
-  | "album:unlocked";
+  | "album:unlocked"
+  | "selection:replied";
 
 export interface RealtimeEvent<T = unknown> {
   type: RealtimeEventType;
@@ -29,4 +30,9 @@ export interface SubmissionReceivedData {
 
 export interface AlbumUnlockedData {
   lockedBy?: string;
+}
+
+export interface SelectionRepliedData {
+  selectionId: string;
+  albumId: string;
 }
