@@ -12,7 +12,7 @@ function slugBaseFromTitle(title: string): string {
   );
 }
 
-async function countAlbumsUsingSlug(slug: string, excludeId?: string): Promise<number> {
+function countAlbumsUsingSlug(slug: string, excludeId?: string): Promise<number> {
   const query = excludeId
     ? "count(*[_type == 'album' && slug.current == $slug && _id != $id])"
     : "count(*[_type == 'album' && slug.current == $slug])";

@@ -36,6 +36,26 @@ function getLocalTodayString(): string {
   return new Date().toLocaleDateString('en-CA');
 }
 
+/** Returns an error message for the first invalid field, or `null` if the
+ *  form is valid. Kept separate from `handleSubmit` so each rule reads as
+ *  one guard clause instead of piling onto a single function's complexity. */
+function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayString: string): string | null {
+  if (!/^\d{4}$/.test(form.pin)) {
+    return 'PIN must be exactly 4 digits';
+  }
+  if (form.customSlug && !CUSTOM_SLUG_PATTERN.test(form.customSlug)) {
+    return 'Custom slug must contain only lowercase letters, numbers, and hyphens';
+  }
+  const maxSelectionsNum = form.maxSelections === '' ? NaN : Number(form.maxSelections);
+  if (isNaN(maxSelectionsNum) || maxSelectionsNum < 1 || !Number.isInteger(maxSelectionsNum)) {
+    return 'Max selections must be a whole number of at least 1';
+  }
+  if (!isEdit && form.eventDate < todayString) {
+    return 'Event date cannot be in the past';
+  }
+  return null;
+}
+
 export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormModalProps) {
   const shouldReduceMotion = useReducedMotion();
   const isEdit = Boolean(album);
@@ -91,24 +111,12 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     e.preventDefault();
     setError(null);
 
-    // Client-side validation
-    if (!/^\d{4}$/.test(form.pin)) {
-      setError('PIN must be exactly 4 digits');
+    const validationError = validateAlbumForm(form, isEdit, todayString);
+    if (validationError) {
+      setError(validationError);
       return;
     }
-    if (form.customSlug && !CUSTOM_SLUG_PATTERN.test(form.customSlug)) {
-      setError('Custom slug must contain only lowercase letters, numbers, and hyphens');
-      return;
-    }
-    const maxSelectionsNum = form.maxSelections === '' ? NaN : Number(form.maxSelections);
-    if (isNaN(maxSelectionsNum) || maxSelectionsNum < 1 || !Number.isInteger(maxSelectionsNum)) {
-      setError('Max selections must be a whole number of at least 1');
-      return;
-    }
-    if (!isEdit && form.eventDate < todayString) {
-      setError('Event date cannot be in the past');
-      return;
-    }
+    const maxSelectionsNum = Number(form.maxSelections);
 
     setIsSubmitting(true);
 

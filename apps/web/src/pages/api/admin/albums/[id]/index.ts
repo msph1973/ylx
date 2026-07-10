@@ -152,6 +152,50 @@ interface UpdateAlbumBody {
   customSlug?: string;
 }
 
+function validatePinAndMaxSelections(pin?: string, maxSelections?: number): string | null {
+  if (pin !== undefined && !/^\d{4}$/.test(pin)) {
+    return "PIN must be exactly 4 digits";
+  }
+  if (maxSelections !== undefined && (typeof maxSelections !== "number" || maxSelections < 1)) {
+    return "maxSelections must be a positive number";
+  }
+  return null;
+}
+
+/** `undefined` = leave the field untouched, `null` = clear it, a string =
+ *  the newly resolved value. Isolated here (rather than inline in PUT) so
+ *  the empty-string/invalid/taken branches don't add to PUT's own complexity. */
+async function resolveCustomSlugForUpdate(
+  customSlug: string | undefined,
+  albumId: string
+): Promise<{ error: string } | { value: string | null | undefined }> {
+  if (customSlug === undefined) return { value: undefined };
+  if (customSlug === "") return { value: null };
+
+  const resolved = await resolveCustomSlug(customSlug, albumId);
+  if (!resolved) return { error: "Custom slug is invalid or already taken" };
+  return { value: resolved };
+}
+
+async function buildAlbumPatch(body: UpdateAlbumBody, albumId: string, resolvedCustomSlug: string | null | undefined) {
+  const { title, clientName, eventDate, pin, maxSelections } = body;
+  const patch: Record<string, unknown> = {};
+
+  if (title !== undefined) {
+    patch.title = title;
+    patch.slug = { _type: "slug", current: await generateUniqueSlug(title, albumId) };
+  }
+  if (clientName !== undefined) patch.clientName = clientName;
+  if (eventDate !== undefined) patch.eventDate = eventDate;
+  if (pin !== undefined) patch.pin = pin;
+  if (maxSelections !== undefined) patch.maxSelections = maxSelections;
+  // `null` means "clear it" — `.set()` would store a literal null instead
+  // of unsetting the field, so it's routed to `.unset()` by the caller.
+  if (resolvedCustomSlug) patch.customSlug = resolvedCustomSlug;
+
+  return patch;
+}
+
 export const PUT: APIRoute = async ({ params, cookies, request }) => {
   const session = await requireAdmin(cookies);
   if (!session) {
@@ -183,56 +227,31 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     }
 
     const body = await request.json() as UpdateAlbumBody;
-    const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
+    const { pin, maxSelections, customSlug } = body;
 
-    if (pin !== undefined && !/^\d{4}$/.test(pin)) {
+    const validationError = validatePinAndMaxSelections(pin, maxSelections);
+    if (validationError) {
       return new Response(
-        JSON.stringify({ error: "PIN must be exactly 4 digits" }),
+        JSON.stringify({ error: validationError }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    if (maxSelections !== undefined && (typeof maxSelections !== "number" || maxSelections < 1)) {
+    const customSlugResult = await resolveCustomSlugForUpdate(customSlug, albumId);
+    if ("error" in customSlugResult) {
       return new Response(
-        JSON.stringify({ error: "maxSelections must be a positive number" }),
+        JSON.stringify({ error: customSlugResult.error }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    // Empty string clears the custom slug; a non-empty value must be
-    // validated and checked for collisions before it's accepted.
-    let resolvedCustomSlug: string | null | undefined;
-    if (customSlug !== undefined) {
-      if (customSlug === "") {
-        resolvedCustomSlug = null;
-      } else {
-        resolvedCustomSlug = await resolveCustomSlug(customSlug, albumId);
-        if (!resolvedCustomSlug) {
-          return new Response(
-            JSON.stringify({ error: "Custom slug is invalid or already taken" }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
-          );
-        }
-      }
-    }
+    const resolvedCustomSlug = customSlugResult.value;
 
     // Note: past-date validation is intentionally NOT enforced on edit.
     // Albums whose event has already occurred (e.g. a finished wedding) must
     // remain editable. New albums still enforce the future-date rule in the
     // POST create handler (`albums.ts`).
 
-    const patch: Record<string, unknown> = {};
-    if (title !== undefined) {
-      patch.title = title;
-      patch.slug = { _type: "slug", current: await generateUniqueSlug(title, albumId) };
-    }
-    if (clientName !== undefined) patch.clientName = clientName;
-    if (eventDate !== undefined) patch.eventDate = eventDate;
-    if (pin !== undefined) patch.pin = pin;
-    if (maxSelections !== undefined) patch.maxSelections = maxSelections;
-    // `null` means "clear it" — `.set()` would store a literal null instead
-    // of unsetting the field, so it's routed to `.unset()` below instead.
-    if (resolvedCustomSlug) patch.customSlug = resolvedCustomSlug;
+    const patch = await buildAlbumPatch(body, albumId, resolvedCustomSlug);
     const unsetFields = resolvedCustomSlug === null ? ["customSlug"] : [];
 
     if (Object.keys(patch).length === 0 && unsetFields.length === 0) {

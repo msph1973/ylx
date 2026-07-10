@@ -68,6 +68,28 @@ interface CreateAlbumBody {
   customSlug?: string;
 }
 
+/** Returns an error message for the first invalid field, or `null` if the
+ *  body is valid — keeps this out of the POST handler's own branch count. */
+function validateCreateAlbumBody(body: CreateAlbumBody): string | null {
+  const { title, clientName, eventDate, pin, maxSelections } = body;
+
+  if (!title || !clientName || !eventDate || !pin || !maxSelections) {
+    return "All fields are required: title, clientName, eventDate, pin, maxSelections";
+  }
+  if (!/^\d{4}$/.test(pin)) {
+    return "PIN must be exactly 4 digits";
+  }
+  if (typeof maxSelections !== "number" || maxSelections < 1) {
+    return "maxSelections must be a positive number";
+  }
+  // Compare in local timezone.
+  const today = new Date().toLocaleDateString("en-CA");
+  if (eventDate < today) {
+    return "Event date cannot be in the past";
+  }
+  return null;
+}
+
 export const POST: APIRoute = async ({ cookies, request }) => {
   const session = await requireAdmin(cookies);
   if (!session) {
@@ -81,32 +103,10 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     const body = await request.json() as CreateAlbumBody;
     const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
 
-    if (!title || !clientName || !eventDate || !pin || !maxSelections) {
+    const validationError = validateCreateAlbumBody(body);
+    if (validationError) {
       return new Response(
-        JSON.stringify({ error: "All fields are required: title, clientName, eventDate, pin, maxSelections" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!/^\d{4}$/.test(pin)) {
-      return new Response(
-        JSON.stringify({ error: "PIN must be exactly 4 digits" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    if (typeof maxSelections !== "number" || maxSelections < 1) {
-      return new Response(
-        JSON.stringify({ error: "maxSelections must be a positive number" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // Validate event date is not in the past (compare in local timezone)
-    const today = new Date().toLocaleDateString("en-CA");
-    if (eventDate < today) {
-      return new Response(
-        JSON.stringify({ error: "Event date cannot be in the past" }),
+        JSON.stringify({ error: validationError }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
