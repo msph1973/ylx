@@ -420,3 +420,24 @@ Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
 4. Junie Review: panggilan `authorize()` fire-and-forget tanpa `.catch()` → ditambah log `console.warn`. Devin: `albumId` dari query string di `api/ably/token.ts` diinterpolasi langsung ke capability key Ably tanpa validasi format (Ably capability mendukung wildcard `*`) → ditambah validasi charset `/^[a-zA-Z0-9_.-]+$/` sebagai defense-in-depth di atas cek `hasAlbumAccess()`.
 
 Setelah putaran ke-4, tidak ada temuan baru lagi — semua 11 review thread di PR sudah resolved/outdated/ditandai "Addressed".
+
+---
+
+## PR #32 — Selection Notes & Gallery Link — Review Fix Round (2026-07-10, branch `feat/selection-notes-gallery-links`, milik user)
+
+PR ini dibuat user sendiri (bukan hasil sesi ini), berisi fitur selection notes/photographer reply, custom slug, dan share stats. Direview manual sebelumnya (lihat riwayat sesi) dan ditemukan 3 bug kritis: fitur diklaim jalan tapi tidak tersambung end-to-end. Task ini menindaklanjuti dengan fix, dipicu oleh permintaan cek ulang temuan bot deepsource-io.
+
+| # | Bug | Fix |
+|---|-----|-----|
+| 1 | `customSlug` tidak pernah dipakai untuk resolusi galeri, tidak ada input form-nya, `generateUniqueSlug` keliru menimpa `slug.current` alih-alih field terpisah | `albumBySlugQuery` sekarang cocok `slug.current \|\| customSlug`; `lib/slug.ts` dipecah jadi `generateUniqueSlug` (auto, tak berubah) + `resolveCustomSlug` (validasi+cek unik field terpisah); input custom slug ditambah di `AlbumFormModal`; `albums.ts` POST & `albums/[id]/index.ts` PUT terima+validasi+simpan/hapus field-nya |
+| 2 | Notes klien & reply fotografer tak pernah sampai ke UI admin meski tersimpan di Sanity | `albums/[id]/index.ts` GET: tambah `notes`/`photographerReply` ke interface & mapping response |
+| 3 | `shareCount`/`lastAccessedAt` field mati — tak pernah di-increment, tak pernah di-query di detail album | `verify.ts` increment `shareCount` + set `lastAccessedAt` setelah PIN sukses (fail-open) + invalidasi cache list; `albumWithSelectionsQuery` & endpoint detail album ditambah field-nya |
+| 4 | (risk) `notes`/`photographerReply` tanpa batas panjang, tanpa validasi tipe runtime | `Rule.max(500)` di schema `selection.ts`; validasi panjang+tipe di `submit.ts` dan `selections/[id].ts` PATCH |
+| 5 | (risk) `selections/[id].ts` PATCH tanpa log error di catch terluar, tanpa invalidasi cache | Tambah `console.error` + `invalidateCache(albumSelections)` |
+
+**Temuan deepsource-io (bot review baru) — divalidasi satu per satu:**
+- **Valid & diperbaiki:** `countAlbumsUsingSlug` di `slug.ts` ditandai `async` tanpa `await` (dihapus keyword-nya); kompleksitas siklomatik "high risk" di 3 endpoint (`AlbumFormModal.handleSubmit`, `albums.ts POST`, `albums/[id]/index.ts PUT`) turun ke "medium" via ekstraksi fungsi validasi/patch-building kecil; baris render per-selection di `SelectionTable` diekstrak ke komponen `SelectionRow` baru.
+- **Reviewed, sengaja tidak diubah (false positive, terkonfirmasi lewat pola `ratelimit.ts` yang sudah ada & tak pernah ditandai):** aturan "wrap top-level function in an IIFE" (aturan ini untuk global `<script>` browser lama, bukan ES module TS) dan pemakaian `void fn()` untuk membuang promise yang sudah self-catch (idiom yang sudah dipakai luas di codebase ini).
+- **Catatan penting:** overall check `DeepSource: JavaScript` di PR ini **sudah gagal sejak SEBELUM sesi ini** (dikonfirmasi via status commit sebelum perbaikan apapun) — pemeriksaannya menyisir SELURUH repo (bukan cuma diff PR), jadi kegagalan gate ini pre-existing & di luar scope realistis task ini untuk dituntaskan penuh tanpa akses dashboard DeepSource.
+
+> Verifikasi: `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest)/`build` semua pass di setiap commit (`09acd34`, `d38dad4`). Sourcery/Devin/CodeQL/CI semua hijau pasca-fix. PR #32 masih **open, belum di-merge** — merge tidak diminta.
