@@ -19,7 +19,14 @@ const MAX_ENTRIES = 8;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // matches admin session length
 
 function readEntries(cookies: AstroCookies): GalleryPinEntry[] {
-  const entries = verify<GalleryPinEntry[]>(cookies.get(COOKIE_NAME)?.value) ?? [];
+  const entries = verify<GalleryPinEntry[]>(cookies.get(COOKIE_NAME)?.value);
+  // `verify()` only checks the HMAC signature, not the payload's shape — a
+  // signed non-array value (e.g. an `admin_session` payload copied into this
+  // cookie's slot, since both share SESSION_SECRET) would otherwise crash
+  // `.filter()` below.
+  if (!Array.isArray(entries)) {
+    return [];
+  }
   const now = Date.now();
   return entries.filter(
     (e) => e && typeof e.albumId === "string" && typeof e.expiresAt === "number" && e.expiresAt > now
