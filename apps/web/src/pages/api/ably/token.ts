@@ -24,9 +24,15 @@ export const GET: APIRoute = async ({ cookies, url }) => {
 
   // The gallery client passes ?albumId=<id> (see lib/ably.ts) — only grant
   // that specific album's channel, and only once the browser has actually
-  // proven it knows that album's PIN via a prior verify.ts call.
+  // proven it knows that album's PIN via a prior verify.ts call. Reject
+  // anything outside a Sanity document id's charset before it's interpolated
+  // into the capability key: Ably capability patterns support `*` wildcards,
+  // so an unvalidated `albumId=*` (however implausible to also pass
+  // hasAlbumAccess today) must never reach `album:${albumId}` as a
+  // defense-in-depth measure.
   const albumId = url.searchParams.get("albumId");
-  if (albumId && hasAlbumAccess(cookies, albumId)) {
+  const isValidAlbumId = albumId !== null && /^[a-zA-Z0-9_.-]+$/.test(albumId);
+  if (isValidAlbumId && hasAlbumAccess(cookies, albumId)) {
     capability[`album:${albumId}`] = ["subscribe"];
   }
 
