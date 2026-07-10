@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
-import { sanityClient, urlFor } from "@ylx/sanity/client";
+import { sanityClient, sanityWriteClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
 import {
   isLimitReached,
@@ -9,6 +9,7 @@ import {
   recordFailedAttempt,
 } from "../../../../lib/ratelimit";
 import { grantAlbumAccess } from "../../../../lib/gallerySession";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
 interface SanityImageRef {
   _type: string;
@@ -122,6 +123,22 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   // /api/ably/token can scope its realtime capability to just this album
   // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe.
   grantAlbumAccess(cookies, album._id);
+
+  // Share stats are informational only (shown to the admin) — a failure here
+  // must never block a client from viewing an album they just proved PIN
+  // knowledge for.
+  try {
+    await sanityWriteClient
+      .patch(album._id)
+      .inc({ shareCount: 1 })
+      .set({ lastAccessedAt: new Date().toISOString() })
+      .commit();
+    // allAlbumsQuery also surfaces shareCount/lastAccessedAt to the admin
+    // list, so its cache would otherwise show stale stats for up to 120s.
+    await invalidateCache(CACHE_KEYS.albumsList());
+  } catch (err) {
+    console.error("[Verify] Failed to update share stats:", err);
+  }
 
   const photos = (album.photos ?? []).map((photo) => {
     // `.auto("format")` negotiates WebP/AVIF per client (typically 30-60% smaller

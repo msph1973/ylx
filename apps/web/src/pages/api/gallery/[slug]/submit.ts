@@ -46,6 +46,18 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     );
   }
 
+  // Kept in sync with the `Rule.max(500)` validation on `selection.notes`
+  // in packages/sanity/schemas/selection.ts.
+  const MAX_NOTE_LENGTH = 500;
+  for (const s of effectiveSelections) {
+    if (s.notes && s.notes.length > MAX_NOTE_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Notes must be ${MAX_NOTE_LENGTH} characters or fewer` }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
   const notesMap = new Map<string, string>();
   for (const s of effectiveSelections) {
     if (s.notes) notesMap.set(s.photoId, s.notes);

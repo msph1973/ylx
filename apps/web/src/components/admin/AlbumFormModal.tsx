@@ -9,6 +9,7 @@ interface AlbumFormData {
   eventDate: string;
   pin: string;
   maxSelections: number | '';
+  customSlug: string;
 }
 
 interface AlbumFormModalProps {
@@ -25,7 +26,10 @@ const DEFAULT_FORM: AlbumFormData = {
   eventDate: '',
   pin: '',
   maxSelections: 20 as number | '',
+  customSlug: '',
 };
+
+const CUSTOM_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** Get today as YYYY-MM-DD in local timezone (avoids UTC offset issues) */
 function getLocalTodayString(): string {
@@ -52,6 +56,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         eventDate: album.eventDate ? album.eventDate.slice(0, 10) : '',
         pin: album.pin ?? '',
         maxSelections: album.maxSelections ?? (20 as number | ''),
+        customSlug: album.customSlug ?? '',
       });
     } else {
       setForm(DEFAULT_FORM);
@@ -75,6 +80,13 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     }));
   };
 
+  const handleCustomSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Normalize as the admin types so the preview always matches what the
+    // server will accept, instead of rejecting on submit with no context.
+    const normalized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    setForm((prev) => ({ ...prev, customSlug: normalized }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -82,6 +94,10 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     // Client-side validation
     if (!/^\d{4}$/.test(form.pin)) {
       setError('PIN must be exactly 4 digits');
+      return;
+    }
+    if (form.customSlug && !CUSTOM_SLUG_PATTERN.test(form.customSlug)) {
+      setError('Custom slug must contain only lowercase letters, numbers, and hyphens');
       return;
     }
     const maxSelectionsNum = form.maxSelections === '' ? NaN : Number(form.maxSelections);
@@ -219,6 +235,23 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   onChange={handleChange}
                   min={isEdit ? undefined : todayString}
                   required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="album-customSlug">
+                  Custom Slug
+                  <span className="form-hint">optional</span>
+                </label>
+                <input
+                  id="album-customSlug"
+                  className="form-input"
+                  type="text"
+                  name="customSlug"
+                  value={form.customSlug}
+                  onChange={handleCustomSlugChange}
+                  placeholder="e.g. sarah-james-wedding"
+                  maxLength={96}
                 />
               </div>
 

@@ -60,10 +60,11 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const { copied: copiedPin, copy: copyPin } = useCopyToClipboard();
 
   const handleCopyLink = useCallback(() => {
-    if (!album?.slug) return;
+    const preferredSlug = album?.customSlug || album?.slug;
+    if (!preferredSlug) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    void copyLink(`${origin}/gallery/${album.slug}`);
-  }, [album?.slug, copyLink]);
+    void copyLink(`${origin}/gallery/${preferredSlug}`);
+  }, [album?.customSlug, album?.slug, copyLink]);
 
   const handleCopyPin = useCallback(() => {
     if (!album?.pin) return;

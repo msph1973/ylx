@@ -5,7 +5,7 @@ import {
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../../../lib/auth";
-import { generateUniqueSlug } from "../../../../../lib/slug";
+import { generateUniqueSlug, resolveCustomSlug } from "../../../../../lib/slug";
 import { publishAdminEvent } from "../../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
@@ -42,6 +42,8 @@ interface SanitySelectionRaw {
   photoId: string;
   photo: SanityPhotoRaw;
   selectedAt: string;
+  notes?: string;
+  photographerReply?: string;
 }
 
 interface SanityAlbumDetailRaw {
@@ -51,6 +53,9 @@ interface SanityAlbumDetailRaw {
   eventDate: string;
   pin: string;
   slug: { current: string };
+  customSlug?: string;
+  shareCount?: number;
+  lastAccessedAt?: string;
   maxSelections: number;
   status: string;
   photos: SanityPhotoRaw[];
@@ -96,6 +101,9 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       eventDate: album.eventDate,
       pin: album.pin,
       slug: album.slug?.current ?? null,
+      customSlug: album.customSlug,
+      shareCount: album.shareCount,
+      lastAccessedAt: album.lastAccessedAt,
       maxSelections: album.maxSelections,
       status: album.status,
       isLocked: album.status !== 'active',
@@ -118,6 +126,8 @@ export const GET: APIRoute = async ({ params, cookies }) => {
           lqip: s.photo.lqip ?? null,
         },
         selectedAt: s.selectedAt,
+        notes: s.notes,
+        photographerReply: s.photographerReply,
       })),
     };
 
@@ -139,6 +149,7 @@ interface UpdateAlbumBody {
   eventDate?: string;
   pin?: string;
   maxSelections?: number;
+  customSlug?: string;
 }
 
 export const PUT: APIRoute = async ({ params, cookies, request }) => {
@@ -172,7 +183,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     }
 
     const body = await request.json() as UpdateAlbumBody;
-    const { title, clientName, eventDate, pin, maxSelections } = body;
+    const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
 
     if (pin !== undefined && !/^\d{4}$/.test(pin)) {
       return new Response(
@@ -186,6 +197,23 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
         JSON.stringify({ error: "maxSelections must be a positive number" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
+    }
+
+    // Empty string clears the custom slug; a non-empty value must be
+    // validated and checked for collisions before it's accepted.
+    let resolvedCustomSlug: string | null | undefined;
+    if (customSlug !== undefined) {
+      if (customSlug === "") {
+        resolvedCustomSlug = null;
+      } else {
+        resolvedCustomSlug = await resolveCustomSlug(customSlug, albumId);
+        if (!resolvedCustomSlug) {
+          return new Response(
+            JSON.stringify({ error: "Custom slug is invalid or already taken" }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
     // Note: past-date validation is intentionally NOT enforced on edit.
@@ -202,15 +230,23 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     if (eventDate !== undefined) patch.eventDate = eventDate;
     if (pin !== undefined) patch.pin = pin;
     if (maxSelections !== undefined) patch.maxSelections = maxSelections;
+    // `null` means "clear it" — `.set()` would store a literal null instead
+    // of unsetting the field, so it's routed to `.unset()` below instead.
+    if (resolvedCustomSlug) patch.customSlug = resolvedCustomSlug;
+    const unsetFields = resolvedCustomSlug === null ? ["customSlug"] : [];
 
-    if (Object.keys(patch).length === 0) {
+    if (Object.keys(patch).length === 0 && unsetFields.length === 0) {
       return new Response(
         JSON.stringify({ error: "No fields to update" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const updated = await sanityWriteClient.patch(albumId).set(patch).commit();
+    const updated = await sanityWriteClient
+      .patch(albumId)
+      .set(patch)
+      .unset(unsetFields)
+      .commit();
 
     // Notify open admin dashboards so they refetch. Guarded so a realtime
     // failure can't turn an already-committed update into a 500.
@@ -231,6 +267,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
           pin: updated.pin as string,
           maxSelections: updated.maxSelections as number,
           status: updated.status as string,
+          customSlug: updated.customSlug as string | undefined,
         },
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }

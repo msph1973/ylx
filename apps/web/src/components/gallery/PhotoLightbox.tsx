@@ -96,6 +96,7 @@ export function PhotoLightbox({
               value={note ?? ''}
               onChange={(e) => onNoteChange(e.target.value)}
               aria-label={`Note for photo ${currentIndex + 1}`}
+              maxLength={500}
             />
           )}
           {!isDisabled && (

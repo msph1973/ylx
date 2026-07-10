@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
-import { formatDate } from '@ylx/shared';
+import { SelectionRow } from './SelectionRow';
 
 interface SelectionTableProps {
   selections: Selection[];
@@ -69,81 +69,28 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
       </div>
 
       <motion.div className="table-body" role="rowgroup" variants={containerVariants} initial="hidden" animate="show">
-        {selections.map((selection) => {
-          const thumbnailUrl = selection.photo.thumbnailUrl;
-          const isReplying = replyingTo === selection.id;
-          return (
-            <motion.div
-              key={selection.id}
-              className="table-row"
-              role="row"
-              variants={rowVariants}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            >
-              <span className="col-thumb" role="cell">
-                {thumbnailUrl ? (
-                  <img className="thumb" src={thumbnailUrl} alt="" loading="lazy" draggable={false} />
-                ) : (
-                  <span className="thumb thumb-placeholder" aria-hidden="true" />
-                )}
-              </span>
-              <span className="col-filename filename" role="cell">{selection.photo.filename}</span>
-              <span className="col-notes notes-cell" role="cell">
-                {selection.notes && (
-                  <div className="note-line">
-                    <span className="note-label">Client:</span> {selection.notes}
-                  </div>
-                )}
-                {selection.photographerReply && (
-                  <div className="note-line reply-line">
-                    <span className="note-label">You:</span> {selection.photographerReply}
-                  </div>
-                )}
-                {!selection.photographerReply && !isReplying && (
-                  <button
-                    className="reply-btn"
-                    onClick={() => {
-                      setReplyingTo(selection.id);
-                      setReplyText('');
-                    }}
-                  >
-                    Reply
-                  </button>
-                )}
-                {isReplying && (
-                  <div className="reply-form">
-                    <input
-                      className="reply-input"
-                      type="text"
-                      placeholder="Your reply…"
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      disabled={isSaving}
-                    />
-                    <button
-                      className="reply-save"
-                      onClick={() => void handleSaveReply(selection.id)}
-                      disabled={isSaving || !replyText.trim()}
-                    >
-                      {isSaving ? '…' : 'Save'}
-                    </button>
-                    <button
-                      className="reply-cancel"
-                      onClick={() => { setReplyingTo(null); setReplyText(''); setReplyError(null); }}
-                      disabled={isSaving}
-                    >
-                      Cancel
-                    </button>
-                    {replyError && (
-                      <span className="reply-error" role="alert">{replyError}</span>
-                    )}
-                  </div>
-                )}
-              </span>
-              <span className="col-date date" role="cell">{formatDate(selection.selectedAt)}</span>
-            </motion.div>
-          );
-        })}
+        {selections.map((selection) => (
+          <SelectionRow
+            key={selection.id}
+            selection={selection}
+            variants={rowVariants}
+            isReplying={replyingTo === selection.id}
+            replyText={replyText}
+            isSaving={isSaving}
+            replyError={replyError}
+            onStartReply={() => {
+              setReplyingTo(selection.id);
+              setReplyText('');
+            }}
+            onReplyTextChange={setReplyText}
+            onSaveReply={() => void handleSaveReply(selection.id)}
+            onCancelReply={() => {
+              setReplyingTo(null);
+              setReplyText('');
+              setReplyError(null);
+            }}
+          />
+        ))}
       </motion.div>
 
       <style>{`
