@@ -1,4 +1,5 @@
 import { defineType, defineField } from "sanity";
+import { CUSTOM_SLUG_PATTERN } from "../lib/constants";
 
 export default defineType({
   name: "album",
@@ -79,7 +80,7 @@ export default defineType({
       validation: (Rule) =>
         Rule.custom((value) => {
           if (!value) return true;
-          return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ||
+          return CUSTOM_SLUG_PATTERN.test(value) ||
             "Slug must contain only lowercase letters, numbers, and hyphens";
         }),
     }),

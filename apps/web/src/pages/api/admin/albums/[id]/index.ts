@@ -5,7 +5,7 @@ import {
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../../../lib/auth";
-import { generateUniqueSlug, resolveCustomSlug } from "../../../../../lib/slug";
+import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../../../lib/slug";
 import { publishAdminEvent } from "../../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
@@ -59,6 +59,12 @@ interface SanityAlbumDetailRaw {
   maxSelections: number;
   status: string;
   photos: SanityPhotoRaw[];
+}
+
+interface SanityAlbumSlugsRaw {
+  _id: string;
+  slug?: { current: string };
+  customSlug?: string;
 }
 
 export const GET: APIRoute = async ({ params, cookies }) => {
@@ -167,23 +173,33 @@ function validatePinAndMaxSelections(pin?: string, maxSelections?: number): stri
  *  the empty-string/invalid/taken branches don't add to PUT's own complexity. */
 async function resolveCustomSlugForUpdate(
   customSlug: string | undefined,
-  albumId: string
+  albumId: string,
+  currentCustomSlug: string | undefined
 ): Promise<{ error: string } | { value: string | null | undefined }> {
   if (customSlug === undefined) return { value: undefined };
-  if (customSlug === "") return { value: null };
+  if (customSlug === "") {
+    // Clearing the field: no new slug to reserve, just free the old one.
+    await releaseSlugLock(currentCustomSlug);
+    return { value: null };
+  }
 
-  const resolved = await resolveCustomSlug(customSlug, albumId);
+  const resolved = await resolveCustomSlug(customSlug, albumId, currentCustomSlug);
   if (!resolved) return { error: "Custom slug is invalid or already taken" };
   return { value: resolved };
 }
 
-async function buildAlbumPatch(body: UpdateAlbumBody, albumId: string, resolvedCustomSlug: string | null | undefined) {
+async function buildAlbumPatch(
+  body: UpdateAlbumBody,
+  albumId: string,
+  resolvedCustomSlug: string | null | undefined,
+  currentSlug: string | undefined
+) {
   const { title, clientName, eventDate, pin, maxSelections } = body;
   const patch: Record<string, unknown> = {};
 
   if (title !== undefined) {
     patch.title = title;
-    patch.slug = { _type: "slug", current: await generateUniqueSlug(title, albumId) };
+    patch.slug = { _type: "slug", current: await generateUniqueSlug(title, albumId, currentSlug) };
   }
   if (clientName !== undefined) patch.clientName = clientName;
   if (eventDate !== undefined) patch.eventDate = eventDate;
@@ -214,9 +230,10 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
   }
 
   try {
-    // Verify album exists before patching
-    const existingAlbum = await sanityClient.fetch<{ _id: string } | null>(
-      `*[_type == "album" && _id == $id][0]{_id}`,
+    // Verify album exists before patching; slug/customSlug are needed so a
+    // rename can release the old reservation lock once the new one is secured.
+    const existingAlbum = await sanityClient.fetch<SanityAlbumSlugsRaw | null>(
+      `*[_type == "album" && _id == $id][0]{_id, slug, customSlug}`,
       { id: albumId }
     );
     if (!existingAlbum) {
@@ -237,7 +254,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       );
     }
 
-    const customSlugResult = await resolveCustomSlugForUpdate(customSlug, albumId);
+    const customSlugResult = await resolveCustomSlugForUpdate(customSlug, albumId, existingAlbum.customSlug);
     if ("error" in customSlugResult) {
       return new Response(
         JSON.stringify({ error: customSlugResult.error }),
@@ -251,7 +268,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     // remain editable. New albums still enforce the future-date rule in the
     // POST create handler (`albums.ts`).
 
-    const patch = await buildAlbumPatch(body, albumId, resolvedCustomSlug);
+    const patch = await buildAlbumPatch(body, albumId, resolvedCustomSlug, existingAlbum.slug?.current);
     const unsetFields = resolvedCustomSlug === null ? ["customSlug"] : [];
 
     if (Object.keys(patch).length === 0 && unsetFields.length === 0) {

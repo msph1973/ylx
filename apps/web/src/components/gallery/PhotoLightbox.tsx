@@ -2,6 +2,7 @@ import React, { useEffect, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import type { Photo } from '@ylx/shared';
+import { MAX_TEXT_LENGTH } from '@ylx/sanity/lib/constants';
 
 interface PhotoLightboxProps {
   photos: Photo[];
@@ -96,7 +97,7 @@ export function PhotoLightbox({
               value={note ?? ''}
               onChange={(e) => onNoteChange(e.target.value)}
               aria-label={`Note for photo ${currentIndex + 1}`}
-              maxLength={500}
+              maxLength={MAX_TEXT_LENGTH}
             />
           )}
           {!isDisabled && (

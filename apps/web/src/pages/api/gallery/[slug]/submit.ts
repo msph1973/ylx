@@ -7,6 +7,7 @@ import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
+import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
 
 interface SubmitAlbum {
   _id: string;
@@ -46,16 +47,14 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     );
   }
 
-  // Kept in sync with the `Rule.max(500)` validation on `selection.notes`
-  // in packages/sanity/schemas/selection.ts. `SelectionInput` only types the
-  // request body at compile time — the JSON body is untrusted at runtime, so
-  // `notes` must be checked to actually be a string (not e.g. an object or
-  // array) before its length is trusted or it's stored in Sanity.
-  const MAX_NOTE_LENGTH = 500;
+  // `SelectionInput` only types the request body at compile time — the JSON
+  // body is untrusted at runtime, so `notes` must be checked to actually be
+  // a string (not e.g. an object or array) before its length is trusted or
+  // it's stored in Sanity.
   for (const s of effectiveSelections) {
-    if (s.notes !== undefined && (typeof s.notes !== "string" || s.notes.length > MAX_NOTE_LENGTH)) {
+    if (s.notes !== undefined && (typeof s.notes !== "string" || s.notes.length > MAX_TEXT_LENGTH)) {
       return new Response(
-        JSON.stringify({ error: `notes must be a string of ${MAX_NOTE_LENGTH} characters or fewer` }),
+        JSON.stringify({ error: `notes must be a string of ${MAX_TEXT_LENGTH} characters or fewer` }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
@@ -111,9 +112,13 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       );
     }
 
+    // Pre-generated so the slug/customSlug reservation locks (created before
+    // the album document itself) can record which album owns each one.
+    const albumId = randomUUID();
+
     let resolvedCustomSlug: string | undefined;
     if (customSlug) {
-      resolvedCustomSlug = (await resolveCustomSlug(customSlug)) ?? undefined;
+      resolvedCustomSlug = (await resolveCustomSlug(customSlug, albumId)) ?? undefined;
       if (!resolvedCustomSlug) {
         return new Response(
           JSON.stringify({ error: "Custom slug is invalid or already taken" }),
@@ -122,9 +127,10 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       }
     }
 
-    const slug = await generateUniqueSlug(title);
+    const slug = await generateUniqueSlug(title, albumId);
 
     const doc = await sanityWriteClient.create({
+      _id: albumId,
       _type: "album",
       title,
       slug: { _type: "slug", current: slug },

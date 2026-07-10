@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { SelectionRow } from './SelectionRow';
@@ -10,30 +10,18 @@ interface SelectionTableProps {
 
 export function SelectionTable({ selections, onReplySaved }: SelectionTableProps) {
   const shouldReduceMotion = useReducedMotion();
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
 
-  const handleSaveReply = useCallback(async (selectionId: string) => {
-    setIsSaving(true);
-    setReplyError(null);
-    try {
-      const response = await fetch(`/api/admin/selections/${selectionId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photographerReply: replyText }),
-      });
-      if (!response.ok) throw new Error('Failed to save reply');
-      setReplyingTo(null);
-      setReplyText('');
-      onReplySaved?.();
-    } catch (err) {
-      setReplyError(err instanceof Error ? err.message : 'Failed to save');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [replyText, onReplySaved]);
+  // Each row keeps its own reply draft/saving/error state (see SelectionRow) —
+  // this only performs the actual save and lets the row react to success/failure.
+  const handleSaveReply = useCallback(async (selectionId: string, replyText: string) => {
+    const response = await fetch(`/api/admin/selections/${selectionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photographerReply: replyText }),
+    });
+    if (!response.ok) throw new Error('Failed to save reply');
+    onReplySaved?.();
+  }, [onReplySaved]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -74,21 +62,7 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
             key={selection.id}
             selection={selection}
             variants={rowVariants}
-            isReplying={replyingTo === selection.id}
-            replyText={replyText}
-            isSaving={isSaving}
-            replyError={replyError}
-            onStartReply={() => {
-              setReplyingTo(selection.id);
-              setReplyText('');
-            }}
-            onReplyTextChange={setReplyText}
-            onSaveReply={() => void handleSaveReply(selection.id)}
-            onCancelReply={() => {
-              setReplyingTo(null);
-              setReplyText('');
-              setReplyError(null);
-            }}
+            onSaveReply={handleSaveReply}
           />
         ))}
       </motion.div>

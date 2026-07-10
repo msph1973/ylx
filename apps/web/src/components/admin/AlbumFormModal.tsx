@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumCardData } from './AlbumCard';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { CUSTOM_SLUG_PATTERN } from '@ylx/sanity/lib/constants';
 
 interface AlbumFormData {
   title: string;
@@ -28,8 +29,6 @@ const DEFAULT_FORM: AlbumFormData = {
   maxSelections: 20 as number | '',
   customSlug: '',
 };
-
-const CUSTOM_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** Get today as YYYY-MM-DD in local timezone (avoids UTC offset issues) */
 function getLocalTodayString(): string {
@@ -103,7 +102,14 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
   const handleCustomSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Normalize as the admin types so the preview always matches what the
     // server will accept, instead of rejecting on submit with no context.
-    const normalized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    // A single trailing hyphen is deliberately left alone (not stripped) so
+    // typing "foo-bar" doesn't get its "-" eaten mid-keystroke — CUSTOM_SLUG_PATTERN
+    // still rejects it on submit if the admin stops there.
+    const normalized = e.target.value
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+/, '');
     setForm((prev) => ({ ...prev, customSlug: normalized }));
   };
 

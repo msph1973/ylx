@@ -3,10 +3,7 @@ import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
-
-// Kept in sync with the `Rule.max(500)` validation on
-// `selection.photographerReply` in packages/sanity/schemas/selection.ts.
-const MAX_REPLY_LENGTH = 500;
+import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
 
 function unauthorized(): Response {
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -29,8 +26,8 @@ function parsePhotographerReply(body: unknown): string | Response {
   if (typeof photographerReply !== "string") {
     return badRequest("photographerReply must be a string");
   }
-  if (photographerReply.length > MAX_REPLY_LENGTH) {
-    return badRequest(`photographerReply must be ${MAX_REPLY_LENGTH} characters or fewer`);
+  if (photographerReply.length > MAX_TEXT_LENGTH) {
+    return badRequest(`photographerReply must be ${MAX_TEXT_LENGTH} characters or fewer`);
   }
   return photographerReply;
 }
@@ -46,13 +43,19 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     return badRequest("Selection ID is required");
   }
 
-  const body = await request.json();
-  const photographerReply = parsePhotographerReply(body);
-  if (photographerReply instanceof Response) {
-    return photographerReply;
-  }
-
   try {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return badRequest("Request body must be valid JSON");
+    }
+
+    const photographerReply = parsePhotographerReply(body);
+    if (photographerReply instanceof Response) {
+      return photographerReply;
+    }
+
     const selection = await sanityClient.fetch<{ _id: string; albumId: string } | null>(
       "*[_type == 'selection' && _id == $id][0]{ _id, 'albumId': album._ref }",
       { id: selectionId }

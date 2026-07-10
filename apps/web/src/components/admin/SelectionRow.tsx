@@ -1,37 +1,51 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
-
-// Kept in sync with the `Rule.max(500)` validation on
-// `selection.photographerReply` in packages/sanity/schemas/selection.ts.
-const MAX_REPLY_LENGTH = 500;
+import { MAX_TEXT_LENGTH } from '@ylx/sanity/lib/constants';
 
 interface SelectionRowProps {
   selection: Selection;
   variants: Variants;
-  isReplying: boolean;
-  replyText: string;
-  isSaving: boolean;
-  replyError: string | null;
-  onStartReply: () => void;
-  onReplyTextChange: (value: string) => void;
-  onSaveReply: () => void;
-  onCancelReply: () => void;
+  /** Throws on failure; row-local error/saving state is derived from this. */
+  onSaveReply: (selectionId: string, replyText: string) => Promise<void>;
 }
 
-export function SelectionRow({
-  selection,
-  variants,
-  isReplying,
-  replyText,
-  isSaving,
-  replyError,
-  onStartReply,
-  onReplyTextChange,
-  onSaveReply,
-  onCancelReply,
-}: SelectionRowProps) {
+// Local reply-draft state lives here (per row) instead of in the parent
+// table, so starting a reply on one row no longer silently discards an
+// unsaved draft being typed into a different row.
+export function SelectionRow({ selection, variants, onSaveReply }: SelectionRowProps) {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+
+  const handleStartReply = () => {
+    setIsReplying(true);
+    setReplyText('');
+    setReplyError(null);
+  };
+
+  const handleCancelReply = () => {
+    setIsReplying(false);
+    setReplyText('');
+    setReplyError(null);
+  };
+
+  const handleSaveReply = async () => {
+    setIsSaving(true);
+    setReplyError(null);
+    try {
+      await onSaveReply(selection.id, replyText);
+      setIsReplying(false);
+      setReplyText('');
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const thumbnailUrl = selection.photo.thumbnailUrl;
 
   return (
@@ -61,7 +75,7 @@ export function SelectionRow({
           </div>
         )}
         {!selection.photographerReply && !isReplying && (
-          <button className="reply-btn" onClick={onStartReply}>
+          <button className="reply-btn" onClick={handleStartReply}>
             Reply
           </button>
         )}
@@ -72,18 +86,18 @@ export function SelectionRow({
               type="text"
               placeholder="Your reply…"
               value={replyText}
-              onChange={(e) => onReplyTextChange(e.target.value)}
+              onChange={(e) => setReplyText(e.target.value)}
               disabled={isSaving}
-              maxLength={MAX_REPLY_LENGTH}
+              maxLength={MAX_TEXT_LENGTH}
             />
             <button
               className="reply-save"
-              onClick={onSaveReply}
+              onClick={() => void handleSaveReply()}
               disabled={isSaving || !replyText.trim()}
             >
               {isSaving ? '…' : 'Save'}
             </button>
-            <button className="reply-cancel" onClick={onCancelReply} disabled={isSaving}>
+            <button className="reply-cancel" onClick={handleCancelReply} disabled={isSaving}>
               Cancel
             </button>
             {replyError && (

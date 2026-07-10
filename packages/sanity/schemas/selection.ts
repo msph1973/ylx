@@ -1,4 +1,5 @@
 import { defineType, defineField } from "sanity";
+import { MAX_TEXT_LENGTH } from "../lib/constants";
 
 export default defineType({
   name: "selection",
@@ -30,14 +31,14 @@ export default defineType({
       title: "Client Notes",
       type: "text",
       description: "Optional note from the client about this photo",
-      validation: (Rule) => Rule.max(500),
+      validation: (Rule) => Rule.max(MAX_TEXT_LENGTH),
     }),
     defineField({
       name: "photographerReply",
       title: "Photographer Reply",
       type: "text",
       description: "Photographer's response to the client's note",
-      validation: (Rule) => Rule.max(500),
+      validation: (Rule) => Rule.max(MAX_TEXT_LENGTH),
     }),
   ],
 });
