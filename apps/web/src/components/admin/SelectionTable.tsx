@@ -13,9 +13,11 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
 
   const handleSaveReply = useCallback(async (selectionId: string) => {
     setIsSaving(true);
+    setReplyError(null);
     try {
       const response = await fetch(`/api/admin/selections/${selectionId}`, {
         method: 'PATCH',
@@ -26,7 +28,8 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
       setReplyingTo(null);
       setReplyText('');
       onReplySaved?.();
-    } catch {
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setIsSaving(false);
     }
@@ -126,11 +129,14 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
                     </button>
                     <button
                       className="reply-cancel"
-                      onClick={() => { setReplyingTo(null); setReplyText(''); }}
+                      onClick={() => { setReplyingTo(null); setReplyText(''); setReplyError(null); }}
                       disabled={isSaving}
                     >
                       Cancel
                     </button>
+                    {replyError && (
+                      <span className="reply-error" role="alert">{replyError}</span>
+                    )}
                   </div>
                 )}
               </span>
@@ -291,6 +297,13 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
           font-size: var(--text-xs);
           cursor: pointer;
           border: 1px solid var(--color-border);
+        }
+
+        .reply-error {
+          display: block;
+          font-size: var(--text-xs);
+          color: var(--color-error);
+          margin-top: var(--space-1);
         }
 
         .reply-save {

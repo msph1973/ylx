@@ -40,6 +40,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     onAlbumUnlocked: () => {
       setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
       setSelectedPhotos(new Set()); // server deleted existing selections on unlock
+      setPhotoNotes(new Map()); // clear note drafts on unlock
       setShowUnlockToast(true);
       if (unlockToastTimeoutRef.current !== null) {
         window.clearTimeout(unlockToastTimeoutRef.current);
