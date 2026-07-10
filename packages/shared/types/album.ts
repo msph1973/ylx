@@ -39,6 +39,7 @@ export interface AlbumWithSelections {
   id: string;
   title: string;
   slug?: string;
+  customSlug?: string;
   clientName: string;
   pin?: string;
   maxSelections: number;
@@ -48,4 +49,6 @@ export interface AlbumWithSelections {
   createdAt?: Date;
   photos: Photo[];
   selections: Selection[];
+  shareCount?: number;
+  lastAccessedAt?: string;
 }
