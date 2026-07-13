@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: pnpm --filter @ylx/web lint
 
+      - name: Hydration leak guard (no sensitive client:* props)
+        run: pnpm --filter @ylx/web check:hydration-leak
+
       - name: Unit tests
         run: pnpm --filter @ylx/web test
 

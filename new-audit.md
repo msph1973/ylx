@@ -1,118 +1,115 @@
-# Security Audit — Temuan Belum Di-Fix
+# Security Audit — Semua Temuan Sudah Di-Fix
 
-**Tanggal:** 2026-07-10
+**Tanggal:** 2026-07-10 (diverifikasi ulang & disinkronkan dengan kode: 2026-07-13)
 **Sumber:** Threat Modeling & Security Audit komprehensif
-**Status:** PR #28 (H-1 admin login rate-limit) ✅ MERGED. Sisa temuan di bawah.
+**Status:** Semua temuan di bawah sudah ✅ FIXED. PR #28 (H-1) merged; M-1/M-2 merged via PR #29/#30; M-3/M-4/L-1/L-3/L-4 masuk `master` via commit `f255c5d`+`8838910`+`1995646`+`b1a0184` (di luar sesi Junie manapun, terverifikasi langsung di kode); L-2 & L-5 diselesaikan pada 2026-07-13.
 
 ---
 
 ## 🟡 MEDIUM
 
-### M-1. Session Invalidation mustahil — stateless HMAC tanpa revocation list
+### M-1. ✅ FIXED — Session Invalidation mustahil — stateless HMAC tanpa revocation list
 
 **Area:** Auth (custom auth & cookie security)
 **Komponen:** `apps/web/src/lib/auth.ts`, `apps/web/src/pages/api/auth/logout.ts`
 
-**Problem:** HMAC-signed stateless cookie tanpa DB session tracking. Logout cuma `cookies.delete()` di browser — cookie yang dicuri tetap valid hingga `expiresAt` (24 jam). Ganti password (jika endpoint ditambah nanti) juga tidak revoke session lama. Replay attack window = 24h.
+**Problem (historis):** HMAC-signed stateless cookie tanpa DB session tracking. Logout cuma `cookies.delete()` di browser — cookie yang dicuri tetap valid hingga `expiresAt` (24 jam). Replay attack window = 24h.
 
-**Solusi:** Session version counter di Sanity admin doc (`sessionVersion` field, inc tiap logout / password change). `getSession()` verifikasi version cocok dengan doc terkini sebelum trust cookie. Trade-off: +1 Sanity read per request authenticated (bisa di-cache pendek di `cache.ts`).
+**Fix (PR #29, merged):** Session version counter di Sanity admin doc (`sessionVersion` field, inc tiap logout). `getSession()` verifikasi version cocok dengan doc terkini sebelum trust cookie (di-cache pendek di `cache.ts`). Diverifikasi live: cookie lama langsung 401 sesaat setelah logout, bukan tetap valid 24 jam.
 
 ---
 
-### M-2. Ably token endpoint grant `album:*` wildcard — info disclosure lintas album
+### M-2. ✅ FIXED — Ably token endpoint grant `album:*` wildcard — info disclosure lintas album
 
 **Area:** Realtime (Ably token & privilege escalation)
 **Komponen:** `apps/web/src/pages/api/ably/token.ts`
 
-**Problem:** Endpoint mints token dengan capability `album:*: ["subscribe"]` untuk siapapun tanpa PIN verification. Client bisa subscribe channel album manapun (`album:<albumId>`) tanpa pernah verify PIN — dengar event metadata (`photo:uploaded`, `album:unlocked`) lintas album.
+**Problem (historis):** Endpoint mints token dengan capability `album:*: ["subscribe"]` untuk siapapun tanpa PIN verification. Client bisa subscribe channel album manapun tanpa pernah verify PIN.
 
-**Solusi:** Scope capability ke album spesifik yang sudah diverifikasi via PIN session cookie per-album (issue saat `verify.ts` sukses). Atau alternatif ringan: beri rate-limit pada endpoint token + dokumentasi accepted info-disclosure trade-off.
+**Fix (PR #30, merged):** Capability di-scope ke album spesifik yang sudah diverifikasi via PIN session cookie per-album (`gallerySession.ts`, di-issue saat `verify.ts` sukses); `ably/token.ts` cek `hasAlbumAccess` sebelum grant subscribe untuk album tersebut.
 
 ---
 
-### M-3. CSRF — hanya andalkan `sameSite=lax`, tanpa defense-in-depth
+### M-3. ✅ FIXED — CSRF — hanya andalkan `sameSite=lax`, tanpa defense-in-depth
 
 **Area:** Auth (custom auth & cookie security)
 **Komponen:** Semua endpoint admin mutating (POST/PUT/DELETE di `api/admin/*`)
 
-**Problem:** Tidak ada CSRF token di endpoint admin mana pun. Hanya `sameSite: "lax"` yang melindungi. `lax` memblokir cross-site POST (cookie tidak dikirim), tapi tidak defense-in-depth. Rawan jika future dev nambah endpoint GET yang mutate, atau browser non-compliant.
+**Problem (historis):** Tidak ada CSRF token di endpoint admin mana pun. Hanya `sameSite: "lax"` yang melindungi — tidak defense-in-depth.
 
-**Solusi:** Origin/Referer check di `middleware.ts` untuk semua `api/admin/*` POST/PUT/DELETE.
+**Fix (commit `f255c5d` + `8838910` + `1995646`, di `master`):** `apps/web/src/middleware.ts` sekarang punya `hasValidCsrfOrigin()` — cek `Origin`/`Referer` untuk semua POST/PUT/DELETE/PATCH ke `/api/admin`, `/api/gallery/*`, dan `/api/auth/*`, return 403 kalau tidak cocok.
 
 ---
 
-### M-4. Rate-limit fail-closed → DoS saat Upstash outage/kuota habis
+### M-4. ✅ FIXED — Rate-limit fail-closed → DoS saat Upstash outage/kuota habis
 
 **Area:** Rate limiting (Upstash Redis & Vercel rate limiting)
 **Komponen:** `apps/web/src/lib/ratelimit.ts` (fail-closed branch), `apps/web/src/pages/api/gallery/[slug]/verify.ts`
 
-**Problem:** `ratelimit.ts` fail-closed di prod: jika Upstash error → `return true` (429). Attacker bisa flood PIN verify → Upstash quota free-tier habis / latency spike → semua PIN verify 429 → seluruh galeri inaccessible.
+**Problem (historis):** `ratelimit.ts` fail-closed di prod: jika Upstash error → `return true` (429) → seluruh galeri inaccessible saat outage.
 
-**Solusi (defense-in-depth, tanpa melemahkan security):**
-- A: Vercel Firewall / edge rate-limit sebagai lapis pertama (tolak traffic banjir sebelum hit serverless)
-- B: Upgrade Upstash dari free ke paid + alerting quota
-- C (trade-off): tiered degradation — saat Upstash error, alih-alih pure fail-closed, izinkan per-instance in-memory dengan cap sangat ketat (2x normal)
+**Fix (commit `f255c5d`, di `master`, opsi C dari 3 opsi):** Tiered degradation — saat Upstash error, degradasi ke in-memory per-instance dengan cap lebih ketat (`IN_MEMORY_PROD_CAP_DIVISOR = 2`), bukan `return true` (fail-closed) murni lagi.
 
 ---
 
 ## 🟢 LOW
 
-### L-1. Submit galeri tidak binding ke sesi PIN — IDOR terbatas
+### L-1. ✅ FIXED — Submit galeri tidak binding ke sesi PIN — IDOR terbatas
 
 **Area:** Auth / Hydration leak
 **Komponen:** `apps/web/src/pages/api/gallery/[slug]/submit.ts`
 
-**Problem:** Endpoint submit tidak verifikasi bahwa submitter sudah verify PIN. Siapapun yang tahu slug + photoIds valid bisa submit. PhotoIds agak predictable (berbasis Sanity doc id dari image asset). Tapi realistic barrier tinggi karena photoIds cuma didapat via verify (PIN-gated).
+**Problem (historis):** Endpoint submit tidak verifikasi bahwa submitter sudah verify PIN. Siapapun yang tahu slug + photoIds valid bisa submit.
 
-**Solusi (opsional):** Issue session cookie per-album pasca-PIN verify, verifikasi di submit.ts.
+**Fix (commit `f255c5d`, di `master`):** `submit.ts` sekarang cek `hasAlbumAccess(cookies, album._id)` (session cookie per-album pasca-PIN verify dari M-2), return 403 kalau belum verifikasi PIN.
 
 ---
 
-### L-2. Hydration leak saat ini TIDAK ada — tapi latent footgun
+### L-2. ✅ FIXED — Hydration leak saat ini TIDAK ada, guard CI sudah ditambah
 
 **Area:** Astro Islands & React Hydration Leak
 **Komponen:** Semua `.astro` dengan `client:*` directives
 
-**Problem:** Astro serialisasi semua props `client:*` ke HTML sebagai JSON inline. Saat ini sudah benar: `gallery/[slug].astro` cuma pass `slug` (bukan data album), `admin/index.astro` cuma pass `adminName`. Tapi ini footgun untuk PR masa depan.
+**Problem (historis):** Astro serialisasi semua props `client:*` ke HTML sebagai JSON inline. Sudah benar sejak awal: `gallery/[slug].astro` cuma pass `slug`, `admin/index.astro`/`admin/upload.astro` cuma pass `adminName`. Risikonya adalah footgun untuk PR masa depan, bukan bug aktif.
 
-**Solusi (guideline):** JANGAN pass data sensitif (PIN, token, field internal Sanity) sebagai props `client:*`. Data sensitif → client fetch via authenticated API route. Untuk audit otomatis: tambah grep guard di CI/`REVIEW.md`.
+**Fix:** `apps/web/scripts/check-hydration-leak.mjs` — scan semua `.astro` untuk baris berisi `client:load/idle/visible/only/media` dan tolak jika ada prop dengan nama mencurigakan (`pin`, `token`, `secret`, `password`, `credential`, `apiKey`, dst). Dijalankan via `pnpm --filter @ylx/web check:hydration-leak`, diwire sebagai step baru di `.github/workflows/ci.yml` (gagal build kalau ada pelanggaran).
 
 ---
 
-### L-3. `clientAddress ?? "unknown"` fallback kolusi bucket di beberapa endpoint
+### L-3. ✅ FIXED — `clientAddress ?? "unknown"` fallback kolusi bucket di beberapa endpoint
 
 **Area:** Rate limiting
 **Komponen:** `apps/web/src/pages/api/gallery/[slug]/verify.ts` (line 64), `apps/web/src/pages/api/auth/login.ts` (line 30)
 
-**Problem:** Jika `clientAddress` kosong (edge case), semua request share bucket `"unknown:<slug>"`. Sudah di-fix di login.ts (reject di prod jika kosong) tapi verify.ts masih pakai fallback.
+**Problem (historis):** Jika `clientAddress` kosong (edge case), semua request share bucket `"unknown:<slug>"`. Sudah di-fix di login.ts tapi verify.ts masih pakai fallback.
 
-**Solusi:** Terapkan pattern yang sama di verify.ts: `if (!clientAddress && import.meta.env.PROD) return 400`.
+**Fix (commit `f255c5d`, di `master`):** `verify.ts` sekarang `if (!clientAddress && import.meta.env.PROD) return 400` sebelum fallback ke `"unknown"`, konsisten dengan `login.ts`.
 
 ---
 
-### L-4. `getSession` tidak validasi struktur payload post-parse
+### L-4. ✅ FIXED — `getSession` tidak validasi struktur payload post-parse
 
 **Area:** Auth
 **Komponen:** `apps/web/src/lib/auth.ts`
 
-**Problem:** Setelah HMAC OK, `JSON.parse(...) as AdminSession` tanpa validasi field. Jika payload (legitimately signed dengan secret berbeda, atau jika secret bocor) missing field → `session.role` undefined → `requireAdmin` return null (aman, silent). Tapi sebaiknya divalidasi eksplisit.
+**Problem (historis):** Setelah HMAC OK, `JSON.parse(...) as AdminSession` tanpa validasi field eksplisit.
 
-**Solusi (ringan):** Validasi minimum type field (id string, role string, expiresAt number) post-parse.
+**Fix (commit `f255c5d`, di `master`):** Validasi eksplisit `typeof session.id/email/name/role === "string"`, `Number.isFinite(expiresAt)`, `typeof sessionVersion === "number"` sebelum session dianggap valid.
 
 ---
 
-### L-5. Dependency Confusion — amat sangat rendah (workspace:* protocol)
+### L-5. ✅ FIXED — Dependency Confusion / malicious install scripts (amat sangat rendah risk awal)
 
 **Area:** Turborepo & Vercel Deployment Security
 **Komponen:** `pnpm-workspace.yaml`, `apps/web/package.json`
 
-**Catatan:** `workspace:*` protocol membuat pnpm immune terhadap dependency confusion untuk package internal (`@ylx/sanity`, `@ylx/shared`). Tidak ada `.npmrc` yang enable fallback. Low risk.
+**Catatan:** `workspace:*` protocol sudah membuat pnpm immune terhadap dependency confusion untuk package internal (`@ylx/sanity`, `@ylx/shared`). Risiko sisa: transitive third-party deps yang punya `preinstall`/`install`/`postinstall` bisa menjalankan kode arbitrary saat `pnpm install`.
 
-**Solusi:** Tambah `.npmrc` `enable-pre-post-scripts=false` untuk batasi malicious install-time scripts di transitive deps.
+**Fix:** `pnpm-workspace.yaml` sekarang punya `onlyBuiltDependencies: [esbuild, sharp]` — hanya 2 paket ini (satu-satunya yang benar-benar menjalankan lifecycle script di install nyata, dikonfirmasi via clean-room reinstall) yang diizinkan menjalankan install script; paket lain otomatis diblokir. **Catatan koreksi:** solusi awal yang disarankan (`.npmrc` `enable-pre-post-scripts=false`) diverifikasi TIDAK efektif untuk tujuan ini — setting itu hanya mengontrol chaining `pre<script>`/`post<script>` custom di `pnpm run`, bukan lifecycle install scripts dependency — sehingga tidak dipakai.
 
 ---
 
-### L-6. Env var cross-workspace leak — aman (runtime-only, Vercel-scoped)
+### L-6. ✅ Tidak perlu aksi — Env var cross-workspace leak (aman, runtime-only, Vercel-scoped)
 
 **Area:** Turborepo & Vercel Deployment Security
 **Komponen:** `turbo.json`, `packages/sanity/client.ts`
@@ -125,6 +122,7 @@
 
 ## Referensi
 
-- Lihat `STATUS.md` untuk state project terkini
+- Lihat `STATUS.md` untuk state project terkini (termasuk log sinkronisasi audit ini 2026-07-13)
 - Lihat `REVIEW.md` untuk code review checklist
 - Source audit lengkap: sesi ZCode 2026-07-10 dengan model 2426d147-f5b3-4f7f-a70d-6eb57a67c027/deepseek-v4-flash-free
+- M-3/M-4/L-1/L-3/L-4 diperbaiki via commit langsung ke `master` (`f255c5d`, `8838910`, `1995646`, `b1a0184`) di luar sesi Junie manapun yang tercatat; L-2/L-5 diperbaiki 2026-07-13.

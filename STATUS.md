@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-10 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1). PR open: **#30** Ably realtime album scoping (M-2). Branch aktif: **`master`**.
+> Last updated: 2026-07-13 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics. Semua 12 temuan `new-audit.md` (M-1..M-4, L-1..L-6) sekarang ✅ FIXED. Branch aktif: **`master`**.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -207,7 +207,14 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `selections.ts` GET `requireAdmin` | ✅ |
 | Admin login rate-limited 10/IP + 20/email per 15min (H-1) | ✅ MERGED #28 |
 | Session revocation list — `sessionVersion` counter, logout bumps it, `getSession` checks it (M-1 dari `new-audit.md`) | ✅ MERGED #29 |
-| Ably realtime capability discope per album via PIN session cookie, bukan `album:*` wildcard (M-2 dari `new-audit.md`) | ✅ PR #30 (open, belum merge) |
+| Ably realtime capability discope per album via PIN session cookie, bukan `album:*` wildcard (M-2 dari `new-audit.md`) | ✅ MERGED #30 |
+| CSRF Origin/Referer check di `middleware.ts` untuk `/api/admin`, `/api/gallery/*`, `/api/auth/*` (M-3 dari `new-audit.md`) | ✅ di `master` (commit `f255c5d`+lanjutannya, di luar sesi Junie manapun) |
+| Rate-limit tiered degradation ke in-memory ketat saat Upstash error, bukan fail-closed murni (M-4 dari `new-audit.md`) | ✅ di `master` (commit `f255c5d`) |
+| Submit galeri bind ke sesi PIN via `hasAlbumAccess` (L-1 dari `new-audit.md`) | ✅ di `master` (commit `f255c5d`) |
+| `clientAddress` kosong ditolak di prod, konsisten `verify.ts`/`login.ts` (L-3 dari `new-audit.md`) | ✅ di `master` (commit `f255c5d`) |
+| `getSession` validasi struktur payload post-parse (L-4 dari `new-audit.md`) | ✅ di `master` (commit `f255c5d`) |
+| Hydration-leak CI guard untuk prop sensitif di `client:*` (L-2 dari `new-audit.md`) | ✅ 2026-07-13, `apps/web/scripts/check-hydration-leak.mjs` |
+| Dependency install-script allowlist (L-5 dari `new-audit.md`) | ✅ 2026-07-13, `pnpm-workspace.yaml` `onlyBuiltDependencies` |
 
 > Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) + threat model 2026-07-10 (H-1) selesai — lihat `PROGRESS.md` bagian "Security Audit 2026-07-02". Realtime browser sekarang auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` karena dataset sudah private.
 >
@@ -292,7 +299,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `DESIGN.md` | Design tokens, warna, typography |
 | `PRODUCT.md` | Product requirements |
 | `AGENTS.md` | Architecture overview (perlu update — lihat catatan di bawah) |
-| `new-audit.md` | Temuan security audit belum di-fix (M-1 sampai L-6) | Baru |
+| `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
 
@@ -492,4 +499,19 @@ Diminta merge semua PR yang masih terbuka. Ada 2 PR open saat itu, keduanya suda
 - Kedua branch fitur dihapus otomatis di `origin` via `--delete-branch`; lokal disinkronkan fast-forward ke `master` (`b44e27b`).
 - Tidak ada perubahan kode dari task ini sendiri — murni merge + sync.
 
-**Sisa temuan `new-audit.md` yang belum ditangani:** M-3 (CSRF defense-in-depth), M-4 (rate-limit fail-closed DoS risk), L-1 s/d L-6 — menunggu arahan berikutnya.
+---
+
+## `new-audit.md` — Sinkronisasi + Fix Sisa Temuan L-2 & L-5 (2026-07-13)
+
+Dicek langsung ke kode (bukan cuma baca dokumen) — ternyata M-3, M-4, L-1, L-3, L-4 sudah diperbaiki lewat commit langsung ke `master` (`f255c5d`, `8838910`, `1995646`, `b1a0184`) di luar sesi Junie manapun yang tercatat di sini, dan L-6 memang tidak butuh aksi. Hanya **L-2** (CI guard hydration-leak) dan **L-5** (dependency install-script allowlist) yang belum ada. Kedua ini diselesaikan sekarang, dan `new-audit.md` + tabel Security Status di atas disinkronkan agar sesuai kondisi kode sebenarnya.
+
+| # | Temuan | Fix |
+|---|---|---|
+| L-2 | Tidak ada guard otomatis untuk mencegah prop sensitif (PIN/token/secret) diteruskan ke komponen `client:*` (Astro serialize semua prop hydrated ke JSON inline di HTML) | `apps/web/scripts/check-hydration-leak.mjs` — scan semua `.astro`, tolak baris `client:load/idle/visible/only/media` yang punya prop bernama mencurigakan. Script baru `check:hydration-leak` di `apps/web/package.json`, diwire sebagai step baru di `.github/workflows/ci.yml` setelah lint |
+| L-5 | Tidak ada pembatasan paket mana yang boleh menjalankan lifecycle install script (`preinstall`/`install`/`postinstall`) — risiko kalau ada transitive dependency di-typosquat/dikompromikan | `pnpm-workspace.yaml` sekarang punya `onlyBuiltDependencies: [esbuild, sharp]` — hanya 2 paket ini yang dikonfirmasi lewat clean-room reinstall benar-benar menjalankan install script; paket lain otomatis diblokir menjalankan script |
+
+**Catatan koreksi penting:** solusi awal yang disarankan `new-audit.md` untuk L-5 (`.npmrc` `enable-pre-post-scripts=false`) **diverifikasi tidak efektif** — setting itu cuma mengontrol chaining `pre<script>`/`post<script>` custom saat `pnpm run <script>`, sama sekali tidak mempengaruhi lifecycle install script dependency. Sempat dicoba dan dites lewat clean-room reinstall (`rm -rf node_modules && pnpm install`) sebelum ketahuan tidak berpengaruh — diganti dengan `onlyBuiltDependencies` di `pnpm-workspace.yaml` (bukan di `package.json`, karena versi pnpm yang dipakai sandbox ini sudah tidak membaca field `pnpm.*` dari `package.json` lagi) yang terbukti benar-benar memblokir/mengizinkan sesuai daftar saat diuji ulang dari nol.
+
+> Verifikasi: clean-room `rm -rf node_modules && pnpm install` dua kali (dengan & tanpa allowlist) mengonfirmasi `esbuild`+`sharp` tetap bisa build, paket lain tidak butuh script apapun. `pnpm --filter @ylx/web typecheck/lint/check:hydration-leak/test (17/17 vitest)/build` semua pass. Perubahan ini **belum di-commit** — menunggu konfirmasi user (konsisten dengan pola sesi-sesi sebelumnya kecuali diminta eksplisit).
+
+**Semua 12 temuan `new-audit.md` (M-1 s/d M-4, L-1 s/d L-6) sekarang berstatus ✅ FIXED / tidak perlu aksi.**

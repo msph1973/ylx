@@ -1,3 +1,13 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# new-audit.md L-5: allowlist which dependencies may run install-time
+# lifecycle scripts (preinstall/install/postinstall). Everything else is
+# denied by default, limiting the blast radius of a compromised or
+# typosquatted transitive dependency. Internal packages (@ylx/sanity,
+# @ylx/shared) already use the workspace:* protocol so pnpm never resolves
+# them from the registry — this allowlist is for third-party deps only.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp

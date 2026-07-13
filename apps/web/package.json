@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "lint": "eslint src --max-warnings 0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:hydration-leak": "node scripts/check-hydration-leak.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.7",
