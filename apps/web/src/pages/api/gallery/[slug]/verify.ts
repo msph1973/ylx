@@ -128,19 +128,26 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   // must never block a client from viewing an album they just proved PIN
   // knowledge for, so it's wrapped in its own try/catch.
   //
-  // `waitUntil()` was tried here (fire-and-forget, kept alive past the
-  // response) to shave this off the client's latency, but live verification
-  // against a real Vercel Serverless deployment (not just local/unit tests)
-  // showed the background task never actually persisted — `shareCount`/
-  // `lastAccessedAt` stayed empty after a real successful PIN verify, even
-  // after waiting well past any plausible completion time. `waitUntil` only
-  // reliably extends a function's lifecycle when the project has Vercel's
-  // Fluid Compute enabled, which isn't something this codebase can assume or
-  // control, so awaiting the write directly is the only way to guarantee it
-  // actually happens — a small latency cost that's worth the correctness.
+  // Two bugs were found here via live testing against a real Vercel preview
+  // deployment (not just local/unit tests), both making this a no-op in
+  // production for every album ever since it shipped:
+  // 1. `sanityWriteClient.create()` (in `api/admin/albums.ts`) never sets an
+  //    initial `shareCount`, so Sanity's `.inc()` — which requires the target
+  //    field to already exist and be numeric — always failed with a
+  //    validation error that this catch block was silently swallowing.
+  //    `.setIfMissing()` first makes `.inc()` safe on both new and any
+  //    legacy album that predates this field.
+  // 2. `waitUntil()` (fire-and-forget, kept alive past the response) was
+  //    tried to shave this off the client's latency, but the background task
+  //    never actually persisted on this deployment — it only reliably
+  //    extends a function's lifecycle when the project has Vercel's Fluid
+  //    Compute enabled, which isn't something this codebase can assume or
+  //    control. Awaiting the write directly is the only way to guarantee it
+  //    actually happens, at the cost of a small amount of latency.
   try {
     await sanityWriteClient
       .patch(album._id)
+      .setIfMissing({ shareCount: 0 })
       .inc({ shareCount: 1 })
       .set({ lastAccessedAt: new Date().toISOString() })
       .commit();
