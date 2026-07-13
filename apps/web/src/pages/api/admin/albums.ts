@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
-import { generateUniqueSlug } from "../../../lib/slug";
+import { generateUniqueSlug, resolveCustomSlug } from "../../../lib/slug";
 import { publishAdminEvent } from "../../../lib/ably";
 import { getCached, invalidateCache, CACHE_KEYS } from "../../../lib/cache";
 
@@ -65,6 +66,29 @@ interface CreateAlbumBody {
   eventDate: string;
   pin: string;
   maxSelections: number;
+  customSlug?: string;
+}
+
+/** Returns an error message for the first invalid field, or `null` if the
+ *  body is valid — keeps this out of the POST handler's own branch count. */
+function validateCreateAlbumBody(body: CreateAlbumBody): string | null {
+  const { title, clientName, eventDate, pin, maxSelections } = body;
+
+  if (!title || !clientName || !eventDate || !pin || !maxSelections) {
+    return "All fields are required: title, clientName, eventDate, pin, maxSelections";
+  }
+  if (!/^\d{4}$/.test(pin)) {
+    return "PIN must be exactly 4 digits";
+  }
+  if (typeof maxSelections !== "number" || maxSelections < 1) {
+    return "maxSelections must be a positive number";
+  }
+  // Compare in local timezone.
+  const today = new Date().toLocaleDateString("en-CA");
+  if (eventDate < today) {
+    return "Event date cannot be in the past";
+  }
+  return null;
 }
 
 export const POST: APIRoute = async ({ cookies, request }) => {
@@ -78,44 +102,39 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 
   try {
     const body = await request.json() as CreateAlbumBody;
-    const { title, clientName, eventDate, pin, maxSelections } = body;
+    const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
 
-    if (!title || !clientName || !eventDate || !pin || !maxSelections) {
+    const validationError = validateCreateAlbumBody(body);
+    if (validationError) {
       return new Response(
-        JSON.stringify({ error: "All fields are required: title, clientName, eventDate, pin, maxSelections" }),
+        JSON.stringify({ error: validationError }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    if (!/^\d{4}$/.test(pin)) {
-      return new Response(
-        JSON.stringify({ error: "PIN must be exactly 4 digits" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+    // Pre-generated so the slug/customSlug reservation locks (created before
+    // the album document itself) can record which album owns each one.
+    const albumId = randomUUID();
+
+    let resolvedCustomSlug: string | undefined;
+    if (customSlug) {
+      resolvedCustomSlug = (await resolveCustomSlug(customSlug, albumId)) ?? undefined;
+      if (!resolvedCustomSlug) {
+        return new Response(
+          JSON.stringify({ error: "Custom slug is invalid or already taken" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    if (typeof maxSelections !== "number" || maxSelections < 1) {
-      return new Response(
-        JSON.stringify({ error: "maxSelections must be a positive number" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // Validate event date is not in the past (compare in local timezone)
-    const today = new Date().toLocaleDateString("en-CA");
-    if (eventDate < today) {
-      return new Response(
-        JSON.stringify({ error: "Event date cannot be in the past" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const slug = await generateUniqueSlug(title);
+    const slug = await generateUniqueSlug(title, albumId);
 
     const doc = await sanityWriteClient.create({
+      _id: albumId,
       _type: "album",
       title,
       slug: { _type: "slug", current: slug },
+      ...(resolvedCustomSlug ? { customSlug: resolvedCustomSlug } : {}),
       clientName,
       eventDate,
       pin,
@@ -138,6 +157,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
           maxSelections: doc.maxSelections as number,
           status: doc.status as string,
           photoCount: 0,
+          customSlug: doc.customSlug as string | undefined,
         },
       }),
       { status: 201, headers: { "Content-Type": "application/json" } }

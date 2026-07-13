@@ -10,6 +10,7 @@ export interface AlbumCardData {
   status: string;
   photoCount: number;
   pin?: string;
+  customSlug?: string;
 }
 
 interface AlbumCardProps {

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
-import { sanityClient, urlFor } from "@ylx/sanity/client";
+import { sanityClient, sanityWriteClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
 import {
   isLimitReached,
@@ -9,6 +9,7 @@ import {
   recordFailedAttempt,
 } from "../../../../lib/ratelimit";
 import { grantAlbumAccess } from "../../../../lib/gallerySession";
+import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
 interface SanityImageRef {
   _type: string;
@@ -122,6 +123,40 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   // /api/ably/token can scope its realtime capability to just this album
   // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe.
   grantAlbumAccess(cookies, album._id);
+
+  // Share stats are informational only (shown to the admin) — a failure here
+  // must never block a client from viewing an album they just proved PIN
+  // knowledge for, so it's wrapped in its own try/catch.
+  //
+  // Two bugs were found here via live testing against a real Vercel preview
+  // deployment (not just local/unit tests), both making this a no-op in
+  // production for every album ever since it shipped:
+  // 1. `sanityWriteClient.create()` (in `api/admin/albums.ts`) never sets an
+  //    initial `shareCount`, so Sanity's `.inc()` — which requires the target
+  //    field to already exist and be numeric — always failed with a
+  //    validation error that this catch block was silently swallowing.
+  //    `.setIfMissing()` first makes `.inc()` safe on both new and any
+  //    legacy album that predates this field.
+  // 2. `waitUntil()` (fire-and-forget, kept alive past the response) was
+  //    tried to shave this off the client's latency, but the background task
+  //    never actually persisted on this deployment — it only reliably
+  //    extends a function's lifecycle when the project has Vercel's Fluid
+  //    Compute enabled, which isn't something this codebase can assume or
+  //    control. Awaiting the write directly is the only way to guarantee it
+  //    actually happens, at the cost of a small amount of latency.
+  try {
+    await sanityWriteClient
+      .patch(album._id)
+      .setIfMissing({ shareCount: 0 })
+      .inc({ shareCount: 1 })
+      .set({ lastAccessedAt: new Date().toISOString() })
+      .commit();
+    // allAlbumsQuery also surfaces shareCount/lastAccessedAt to the admin
+    // list, so its cache would otherwise show stale stats for up to 120s.
+    await invalidateCache(CACHE_KEYS.albumsList());
+  } catch (err) {
+    console.error("[Verify] Failed to update share stats:", err);
+  }
 
   const photos = (album.photos ?? []).map((photo) => {
     // `.auto("format")` negotiates WebP/AVIF per client (typically 30-60% smaller

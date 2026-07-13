@@ -1,4 +1,5 @@
 import { defineType, defineField } from "sanity";
+import { CUSTOM_SLUG_PATTERN } from "../lib/constants";
 
 export default defineType({
   name: "album",
@@ -70,6 +71,31 @@ export default defineType({
       title: "Photos",
       type: "array",
       of: [{ type: "reference", to: [{ type: "photo" }] }],
+    }),
+    defineField({
+      name: "customSlug",
+      title: "Custom Slug",
+      type: "string",
+      description: "Optional custom URL slug (leave empty for auto-generated)",
+      validation: (Rule) =>
+        Rule.custom((value) => {
+          if (!value) return true;
+          return CUSTOM_SLUG_PATTERN.test(value) ||
+            "Slug must contain only lowercase letters, numbers, and hyphens";
+        }),
+    }),
+    defineField({
+      name: "shareCount",
+      title: "Share Count",
+      type: "number",
+      initialValue: 0,
+      readOnly: true,
+    }),
+    defineField({
+      name: "lastAccessedAt",
+      title: "Last Accessed",
+      type: "datetime",
+      readOnly: true,
     }),
   ],
   preview: {

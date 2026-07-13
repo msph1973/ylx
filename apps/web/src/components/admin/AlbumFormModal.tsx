@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumCardData } from './AlbumCard';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { CUSTOM_SLUG_PATTERN } from '@ylx/sanity/lib/constants';
 
 interface AlbumFormData {
   title: string;
@@ -9,6 +10,7 @@ interface AlbumFormData {
   eventDate: string;
   pin: string;
   maxSelections: number | '';
+  customSlug: string;
 }
 
 interface AlbumFormModalProps {
@@ -25,11 +27,32 @@ const DEFAULT_FORM: AlbumFormData = {
   eventDate: '',
   pin: '',
   maxSelections: 20 as number | '',
+  customSlug: '',
 };
 
 /** Get today as YYYY-MM-DD in local timezone (avoids UTC offset issues) */
 function getLocalTodayString(): string {
   return new Date().toLocaleDateString('en-CA');
+}
+
+/** Returns an error message for the first invalid field, or `null` if the
+ *  form is valid. Kept separate from `handleSubmit` so each rule reads as
+ *  one guard clause instead of piling onto a single function's complexity. */
+function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayString: string): string | null {
+  if (!/^\d{4}$/.test(form.pin)) {
+    return 'PIN must be exactly 4 digits';
+  }
+  if (form.customSlug && !CUSTOM_SLUG_PATTERN.test(form.customSlug)) {
+    return 'Custom slug must contain only lowercase letters, numbers, and hyphens';
+  }
+  const maxSelectionsNum = form.maxSelections === '' ? NaN : Number(form.maxSelections);
+  if (isNaN(maxSelectionsNum) || maxSelectionsNum < 1 || !Number.isInteger(maxSelectionsNum)) {
+    return 'Max selections must be a whole number of at least 1';
+  }
+  if (!isEdit && form.eventDate < todayString) {
+    return 'Event date cannot be in the past';
+  }
+  return null;
 }
 
 export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormModalProps) {
@@ -52,6 +75,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         eventDate: album.eventDate ? album.eventDate.slice(0, 10) : '',
         pin: album.pin ?? '',
         maxSelections: album.maxSelections ?? (20 as number | ''),
+        customSlug: album.customSlug ?? '',
       });
     } else {
       setForm(DEFAULT_FORM);
@@ -75,24 +99,30 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     }));
   };
 
+  const handleCustomSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Normalize as the admin types so the preview always matches what the
+    // server will accept, instead of rejecting on submit with no context.
+    // A single trailing hyphen is deliberately left alone (not stripped) so
+    // typing "foo-bar" doesn't get its "-" eaten mid-keystroke — CUSTOM_SLUG_PATTERN
+    // still rejects it on submit if the admin stops there.
+    const normalized = e.target.value
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+/, '');
+    setForm((prev) => ({ ...prev, customSlug: normalized }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Client-side validation
-    if (!/^\d{4}$/.test(form.pin)) {
-      setError('PIN must be exactly 4 digits');
+    const validationError = validateAlbumForm(form, isEdit, todayString);
+    if (validationError) {
+      setError(validationError);
       return;
     }
-    const maxSelectionsNum = form.maxSelections === '' ? NaN : Number(form.maxSelections);
-    if (isNaN(maxSelectionsNum) || maxSelectionsNum < 1 || !Number.isInteger(maxSelectionsNum)) {
-      setError('Max selections must be a whole number of at least 1');
-      return;
-    }
-    if (!isEdit && form.eventDate < todayString) {
-      setError('Event date cannot be in the past');
-      return;
-    }
+    const maxSelectionsNum = Number(form.maxSelections);
 
     setIsSubmitting(true);
 
@@ -219,6 +249,23 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   onChange={handleChange}
                   min={isEdit ? undefined : todayString}
                   required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="album-customSlug">
+                  Custom Slug
+                  <span className="form-hint">optional</span>
+                </label>
+                <input
+                  id="album-customSlug"
+                  className="form-input"
+                  type="text"
+                  name="customSlug"
+                  value={form.customSlug}
+                  onChange={handleCustomSlugChange}
+                  placeholder="e.g. sarah-james-wedding"
+                  maxLength={96}
                 />
               </div>
 

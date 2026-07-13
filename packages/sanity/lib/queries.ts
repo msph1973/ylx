@@ -1,4 +1,6 @@
-export const albumBySlugQuery = `*[_type == "album" && slug.current == $slug][0] {
+// Matches either the auto-generated `slug.current` or the admin-chosen
+// `customSlug` alias, so both URLs resolve the same gallery.
+export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug || customSlug == $slug)][0] {
   _id,
   title,
   clientName,
@@ -21,6 +23,9 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   eventDate,
   pin,
   status,
+  customSlug,
+  shareCount,
+  lastAccessedAt,
   "photoCount": count(photos)
 }`;
 
@@ -34,7 +39,9 @@ export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $
     image,
     "lqip": image.asset->metadata.lqip
   },
-  selectedAt
+  selectedAt,
+  notes,
+  photographerReply
 }`;
 
 export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][0] {
@@ -44,6 +51,9 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   eventDate,
   pin,
   slug,
+  customSlug,
+  shareCount,
+  lastAccessedAt,
   maxSelections,
   status,
   photos[]-> {

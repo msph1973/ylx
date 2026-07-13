@@ -32,6 +32,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [photoNotes, setPhotoNotes] = useState<Map<string, string>>(new Map());
   const [showUnlockToast, setShowUnlockToast] = useState(false);
   const unlockToastTimeoutRef = useRef<number | null>(null);
 
@@ -39,6 +40,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     onAlbumUnlocked: () => {
       setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
       setSelectedPhotos(new Set()); // server deleted existing selections on unlock
+      setPhotoNotes(new Map()); // clear note drafts on unlock
       setShowUnlockToast(true);
       if (unlockToastTimeoutRef.current !== null) {
         window.clearTimeout(unlockToastTimeoutRef.current);
@@ -101,6 +103,15 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     });
   }, [album]);
 
+  const setNote = useCallback((photoId: string, note: string) => {
+    setPhotoNotes((prev) => {
+      const next = new Map(prev);
+      if (note) next.set(photoId, note);
+      else next.delete(photoId);
+      return next;
+    });
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     if (!album || selectedPhotos.size === 0 || isAlbumLocked(album)) return;
 
@@ -108,7 +119,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       const response = await fetch(`/api/gallery/${slug}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoIds: Array.from(selectedPhotos) }),
+        body: JSON.stringify({
+          selections: Array.from(selectedPhotos).map((photoId) => ({
+            photoId,
+            notes: photoNotes.get(photoId) || undefined,
+          })),
+        }),
       });
 
       if (!response.ok) {
@@ -120,7 +136,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed');
     }
-  }, [album, selectedPhotos, slug]);
+  }, [album, selectedPhotos, photoNotes, slug]);
 
   if (!isAuthenticated) {
     return (
@@ -258,6 +274,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             currentIndex={lightboxIndex}
             isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
             isDisabled={isAlbumLocked(album)}
+            note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
+            onNoteChange={
+              !isAlbumLocked(album)
+                ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
+                : undefined
+            }
             onClose={closeLightbox}
             onNavigate={setLightboxIndex}
             onToggleSelect={togglePhoto}
@@ -533,6 +555,27 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         .lightbox-select:hover:not(.selected) {
           border-color: var(--color-accent);
           color: var(--color-accent);
+        }
+
+        .lightbox-note-input {
+          flex: 1;
+          min-height: 44px;
+          padding: var(--space-2) var(--space-3);
+          background-color: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.25);
+          border-radius: var(--radius-md);
+          color: #fff;
+          font-size: var(--text-sm);
+          outline: none;
+          transition: border-color var(--transition-fast);
+        }
+
+        .lightbox-note-input::placeholder {
+          color: rgba(255,255,255,0.4);
+        }
+
+        .lightbox-note-input:focus {
+          border-color: var(--color-accent);
         }
 
         /* Unlock toast */

@@ -2,12 +2,15 @@ import React, { useEffect, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import type { Photo } from '@ylx/shared';
+import { MAX_TEXT_LENGTH } from '@ylx/sanity/lib/constants';
 
 interface PhotoLightboxProps {
   photos: Photo[];
   currentIndex: number;
   isSelected: boolean;
   isDisabled: boolean;
+  note?: string;
+  onNoteChange?: (note: string) => void;
   onClose: () => void;
   onNavigate: (index: number) => void;
   onToggleSelect: (photoId: string) => void;
@@ -18,6 +21,8 @@ export function PhotoLightbox({
   currentIndex,
   isSelected,
   isDisabled,
+  note,
+  onNoteChange,
   onClose,
   onNavigate,
   onToggleSelect,
@@ -29,7 +34,11 @@ export function PhotoLightbox({
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
-    else if (e.key === 'ArrowLeft' && hasPrev) onNavigate(currentIndex - 1);
+    // Skip arrow-key navigation while the note input is focused, otherwise
+    // repositioning the text cursor jumps to another photo and discards the draft.
+    const isTextInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+    if (isTextInput) return;
+    if (e.key === 'ArrowLeft' && hasPrev) onNavigate(currentIndex - 1);
     else if (e.key === 'ArrowRight' && hasNext) onNavigate(currentIndex + 1);
   }, [onClose, onNavigate, currentIndex, hasPrev, hasNext]);
 
@@ -84,6 +93,17 @@ export function PhotoLightbox({
           >
             ←
           </button>
+          {!isDisabled && onNoteChange && (
+            <input
+              className="lightbox-note-input"
+              type="text"
+              placeholder="Add a note…"
+              value={note ?? ''}
+              onChange={(e) => onNoteChange(e.target.value)}
+              aria-label={`Note for photo ${currentIndex + 1}`}
+              maxLength={MAX_TEXT_LENGTH}
+            />
+          )}
           {!isDisabled && (
             <button
               className={`lightbox-select ${isSelected ? 'selected' : ''}`}

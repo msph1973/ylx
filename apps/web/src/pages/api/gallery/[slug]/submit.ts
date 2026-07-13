@@ -7,6 +7,7 @@ import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
+import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
 
 interface SubmitAlbum {
   _id: string;
@@ -25,13 +26,43 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   }
 
   const body = await request.json();
-  const { photoIds } = body as { photoIds: string[] };
 
-  if (!Array.isArray(photoIds) || photoIds.length === 0) {
+  interface SelectionInput {
+    photoId: string;
+    notes?: string;
+  }
+
+  const rawSelections: SelectionInput[] | undefined = body.selections;
+  const rawPhotoIds: string[] | undefined = body.photoIds;
+
+  let effectiveSelections: SelectionInput[];
+  if (Array.isArray(rawSelections) && rawSelections.length > 0) {
+    effectiveSelections = rawSelections;
+  } else if (Array.isArray(rawPhotoIds) && rawPhotoIds.length > 0) {
+    effectiveSelections = rawPhotoIds.map((id) => ({ photoId: id }));
+  } else {
     return new Response(
-      JSON.stringify({ error: "photoIds must be a non-empty array" }),
+      JSON.stringify({ error: "photoIds or selections must be a non-empty array" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  // `SelectionInput` only types the request body at compile time — the JSON
+  // body is untrusted at runtime, so `notes` must be checked to actually be
+  // a string (not e.g. an object or array) before its length is trusted or
+  // it's stored in Sanity.
+  for (const s of effectiveSelections) {
+    if (s.notes !== undefined && (typeof s.notes !== "string" || s.notes.length > MAX_TEXT_LENGTH)) {
+      return new Response(
+        JSON.stringify({ error: `notes must be a string of ${MAX_TEXT_LENGTH} characters or fewer` }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  const notesMap = new Map<string, string>();
+  for (const s of effectiveSelections) {
+    if (s.notes) notesMap.set(s.photoId, s.notes);
   }
 
   const album = await sanityClient.fetch<SubmitAlbum | null>(albumBySlugQuery, { slug });
@@ -63,7 +94,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   }
 
   // Deduplicate and verify every submitted photo actually belongs to this album.
-  const uniquePhotoIds = [...new Set(photoIds)];
+  const uniquePhotoIds = [...new Set(effectiveSelections.map((s) => s.photoId))];
   const albumPhotoIds = new Set((album.photos ?? []).map((p) => p._id));
   const invalid = uniquePhotoIds.filter((id) => !albumPhotoIds.has(id));
   if (invalid.length > 0) {
@@ -99,12 +130,14 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   const selectionIds: string[] = [];
   for (const photoId of uniquePhotoIds) {
     const selectionId = crypto.randomUUID();
+    const note = notesMap.get(photoId);
     transaction.create({
       _type: "selection",
       _id: selectionId,
       album: { _type: "reference", _ref: album._id },
       photo: { _type: "reference", _ref: photoId },
       selectedAt: new Date().toISOString(),
+      ...(note ? { notes: note } : {}),
     });
     selectionIds.push(selectionId);
   }

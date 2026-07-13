@@ -8,7 +8,8 @@
     "./client": "./client.ts",
     "./schemas": "./schemas/index.ts",
     "./lib/queries": "./lib/queries.ts",
-    "./lib/admin": "./lib/admin.ts"
+    "./lib/admin": "./lib/admin.ts",
+    "./lib/constants": "./lib/constants.ts"
   },
   "scripts": {
     "build": "tsc",

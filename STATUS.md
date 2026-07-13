@@ -420,3 +420,59 @@ Menindaklanjuti semua temuan Sourcery + Junie Review + Devin di PR #27:
 4. Junie Review: panggilan `authorize()` fire-and-forget tanpa `.catch()` → ditambah log `console.warn`. Devin: `albumId` dari query string di `api/ably/token.ts` diinterpolasi langsung ke capability key Ably tanpa validasi format (Ably capability mendukung wildcard `*`) → ditambah validasi charset `/^[a-zA-Z0-9_.-]+$/` sebagai defense-in-depth di atas cek `hasAlbumAccess()`.
 
 Setelah putaran ke-4, tidak ada temuan baru lagi — semua 11 review thread di PR sudah resolved/outdated/ditandai "Addressed".
+
+---
+
+## PR #32 — Selection Notes & Gallery Link — Review Fix Round (2026-07-10, branch `feat/selection-notes-gallery-links`, milik user)
+
+PR ini dibuat user sendiri (bukan hasil sesi ini), berisi fitur selection notes/photographer reply, custom slug, dan share stats. Direview manual sebelumnya (lihat riwayat sesi) dan ditemukan 3 bug kritis: fitur diklaim jalan tapi tidak tersambung end-to-end. Task ini menindaklanjuti dengan fix, dipicu oleh permintaan cek ulang temuan bot deepsource-io.
+
+| # | Bug | Fix |
+|---|-----|-----|
+| 1 | `customSlug` tidak pernah dipakai untuk resolusi galeri, tidak ada input form-nya, `generateUniqueSlug` keliru menimpa `slug.current` alih-alih field terpisah | `albumBySlugQuery` sekarang cocok `slug.current \|\| customSlug`; `lib/slug.ts` dipecah jadi `generateUniqueSlug` (auto, tak berubah) + `resolveCustomSlug` (validasi+cek unik field terpisah); input custom slug ditambah di `AlbumFormModal`; `albums.ts` POST & `albums/[id]/index.ts` PUT terima+validasi+simpan/hapus field-nya |
+| 2 | Notes klien & reply fotografer tak pernah sampai ke UI admin meski tersimpan di Sanity | `albums/[id]/index.ts` GET: tambah `notes`/`photographerReply` ke interface & mapping response |
+| 3 | `shareCount`/`lastAccessedAt` field mati — tak pernah di-increment, tak pernah di-query di detail album | `verify.ts` increment `shareCount` + set `lastAccessedAt` setelah PIN sukses (fail-open) + invalidasi cache list; `albumWithSelectionsQuery` & endpoint detail album ditambah field-nya |
+| 4 | (risk) `notes`/`photographerReply` tanpa batas panjang, tanpa validasi tipe runtime | `Rule.max(500)` di schema `selection.ts`; validasi panjang+tipe di `submit.ts` dan `selections/[id].ts` PATCH |
+| 5 | (risk) `selections/[id].ts` PATCH tanpa log error di catch terluar, tanpa invalidasi cache | Tambah `console.error` + `invalidateCache(albumSelections)` |
+
+**Temuan deepsource-io (bot review baru) — divalidasi satu per satu:**
+- **Valid & diperbaiki:** `countAlbumsUsingSlug` di `slug.ts` ditandai `async` tanpa `await` (dihapus keyword-nya); kompleksitas siklomatik "high risk" di 3 endpoint (`AlbumFormModal.handleSubmit`, `albums.ts POST`, `albums/[id]/index.ts PUT`) turun ke "medium" via ekstraksi fungsi validasi/patch-building kecil; baris render per-selection di `SelectionTable` diekstrak ke komponen `SelectionRow` baru.
+- **Reviewed, sengaja tidak diubah (false positive, terkonfirmasi lewat pola `ratelimit.ts` yang sudah ada & tak pernah ditandai):** aturan "wrap top-level function in an IIFE" (aturan ini untuk global `<script>` browser lama, bukan ES module TS) dan pemakaian `void fn()` untuk membuang promise yang sudah self-catch (idiom yang sudah dipakai luas di codebase ini).
+- **Catatan penting:** overall check `DeepSource: JavaScript` di PR ini **sudah gagal sejak SEBELUM sesi ini** (dikonfirmasi via status commit sebelum perbaikan apapun) — pemeriksaannya menyisir SELURUH repo (bukan cuma diff PR), jadi kegagalan gate ini pre-existing & di luar scope realistis task ini untuk dituntaskan penuh tanpa akses dashboard DeepSource.
+
+> Verifikasi: `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest)/`build` semua pass di setiap commit (`09acd34`, `d38dad4`). Sourcery/Devin/CodeQL/CI semua hijau pasca-fix. PR #32 masih **open, belum di-merge** — merge tidak diminta.
+
+---
+
+## PR #32 — Fix Semua Temuan CodeRabbit Tersisa (2026-07-10, commit `d91a9cb`)
+
+User mencabut integrasi DeepSource dari repo (tidak akan review lagi), lalu minta perbaiki semua temuan CodeRabbit yang masih tersisa dari review putaran ke-2 (8 item, sudah divalidasi valid semua di sesi sebelumnya).
+
+| # | Temuan CodeRabbit | Fix |
+|---|---|---|
+| 1 | `slug.ts`/`albums/[id]/index.ts` — race condition: cek keunikan slug/customSlug (`count(...)`) dan penulisannya adalah 2 langkah terpisah, dua request bersamaan bisa lolos cek bersamaan | **Redesign atomik**: dokumen baru `slugLock` (`packages/sanity/schemas/slugLock.ts`) dengan `_id` deterministik dari nilai slug (`slugLock.<slug>`). `.create()` Sanity gagal 409 kalau ID sudah ada → dipakai sebagai primitif "reserve" anti-race. `generateUniqueSlug`/`resolveCustomSlug` di `lib/slug.ts` sekarang pakai `reserveSlug()`/`releaseSlugLock()`; juga ada guard tambahan (non-racy) terhadap slug album lama yang belum punya lock (sebelum mekanisme ini ada) |
+| 2 | `selections/[id].ts` — `request.json()` dipanggil di luar `try/catch`, body JSON rusak → unhandled rejection alih-alih 400 | `request.json()` dipindah ke dalam `try` dengan `catch` khusus yang mengembalikan 400 rapi |
+| 3 | `verify.ts` — update `shareCount`/`lastAccessedAt` di-`await` sebelum response dikirim, menambah latency ke alur PIN-verify klien padahal cuma data informatif admin | Update di-fire lewat `waitUntil()` (`@vercel/functions`, pola sama seperti background refresh di `cache.ts`) — tidak lagi diblokir response |
+| 4 | `SelectionTable.tsx` (bug nyata) — state draft balasan (`replyingTo`/`replyText`) level-tabel dipakai bersama semua baris; klik "Reply" di baris lain diam-diam menghapus draft belum tersimpan di baris lain | State balasan (`isReplying`/`replyText`/`isSaving`/`replyError`) dipindah jadi lokal per baris di `SelectionRow.tsx`; `SelectionTable` hanya menyediakan fungsi `onSaveReply(selectionId, replyText)` |
+| 5 | `AlbumFormModal.tsx` — `handleCustomSlugChange` cuma filter karakter terlarang, tidak merapikan tanda hubung ganda/di awal, gagal validasi saat submit dengan pesan menyesatkan | Normalisasi tambahan: `.replace(/-{2,}/g, '-')` + `.replace(/^-+/, '')` saat mengetik (tanda hubung di akhir sengaja dibiarkan, biar tidak mengganggu saat sedang mengetik) |
+| 6 (nitpick) | Batas 500 karakter untuk notes/reply diduplikasi manual di 4 tempat | Konstanta `MAX_TEXT_LENGTH` baru di `packages/sanity/lib/constants.ts`, dipakai di `schemas/selection.ts`, `selections/[id].ts`, `submit.ts`, `SelectionRow.tsx`, `PhotoLightbox.tsx` |
+| 7 (nitpick) | Regex custom-slug diduplikasi di 3 tempat | Konstanta `CUSTOM_SLUG_PATTERN` di file yang sama, dipakai di `schemas/album.ts`, `lib/slug.ts`, `AlbumFormModal.tsx` |
+
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass; `packages/sanity` `tsc --noEmit` juga bersih. Commit `d91a9cb` sudah di-push ke PR #32. DeepSource tidak lagi jadi bagian review (dicabut user) — tidak ada tindak lanjut lebih jauh untuk temuannya di luar yang sudah selesai di `d38dad4`.
+
+---
+
+## PR #32 — Cek Review Baru + Testing Langsung ke Preview Sungguhan (2026-07-13)
+
+**Cek review bot:** Devin AI mengirim 1 komentar baru setelah push `d91a9cb`: bug nyata di `PhotoLightbox.tsx` — handler keydown level-`document` untuk navigasi ArrowLeft/ArrowRight tidak mengecualikan `<input>`/`<textarea>`, jadi menekan tombol arah saat mengetik di kolom catatan foto (baru ditambahkan PR ini) malah pindah ke foto lain dan menghapus draft catatan. **Valid, langsung diperbaiki** (commit `515a1d8`) — cek `e.target` di `handleKey`, skip navigasi kalau target adalah input/textarea (Escape tetap jalan).
+
+**Testing langsung ke Vercel Preview deployment PR ini** (bukan cuma lint/test lokal) — menemukan 2 bug nyata yang lolos dari semua automated check:
+
+| # | Bug (ditemukan via testing langsung) | Root cause | Fix |
+|---|---|---|---|
+| 1 | `shareCount`/`lastAccessedAt` tidak pernah tersimpan di production, walau PIN-verify sukses (HTTP 200) berulang kali | `waitUntil()` (`@vercel/functions`) di `verify.ts` cuma benar-benar memperpanjang lifecycle function kalau project Vercel punya **Fluid Compute** aktif — sesuatu yang tak bisa diasumsikan/dikontrol dari kode. Task background diam-diam terpotong sebelum selesai | Commit `58bce86`: kembali ke `await` langsung (bukan fire-and-forget) — sedikit tambahan latency, tapi terjamin benar-benar jalan |
+| 2 | **Setelah fix #1, MASIH gagal** — dikonfirmasi via write mentah langsung ke Sanity API: `Mutation failed: Cannot increment "shareCount" because it is not present` | `sanityWriteClient.create()` di `albums.ts` tak pernah inisialisasi `shareCount` awal; `inc()` Sanity mensyaratkan field sudah ada & numerik — jadi **selalu gagal untuk SETIAP album**, sejak fitur ini pertama kali dibuat, terlepas dari isu `waitUntil` di atas. Error-nya selama ini diam-diam ditelan oleh `catch` (demi tidak block klien) | Commit `ca5ffae`: tambah `.setIfMissing({ shareCount: 0 })` sebelum `.inc()` — aman untuk album baru maupun lama |
+
+**Verifikasi live end-to-end** (dataset `production` — dibersihkan setelah selesai): login admin asli → buat album dengan custom slug → akses `/gallery/<customSlug>` (200, bukan 404) → verifikasi PIN → upload 1 foto (lewat direct-to-Sanity upload flow, token dari `/api/admin/upload/credentials`) → submit selection dengan catatan klien → balas sebagai admin via `PATCH /api/admin/selections/[id]` → konfirmasi catatan+balasan tampil di response detail album admin → `shareCount` naik jadi 3 & `lastAccessedAt` terisi setelah fix #2. Ketiga fitur utama PR #32 (custom slug, notes/reply, share stats) **kini benar-benar berfungsi end-to-end di production**, bukan cuma lolos check otomatis.
+
+> Verifikasi: `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest)/`build` semua pass di ketiga commit (`515a1d8`, `58bce86`, `ca5ffae`). PR #32 checks tetap hijau (CodeRabbit/CodeQL/CI/Vercel) setelah setiap push, `mergeStateStatus: CLEAN`. PR masih **open, belum di-merge** — merge tidak diminta pada task ini (hanya diminta cek review baru + konfirmasi sudah testing langsung).
