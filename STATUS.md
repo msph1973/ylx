@@ -459,3 +459,20 @@ User mencabut integrasi DeepSource dari repo (tidak akan review lagi), lalu mint
 | 7 (nitpick) | Regex custom-slug diduplikasi di 3 tempat | Konstanta `CUSTOM_SLUG_PATTERN` di file yang sama, dipakai di `schemas/album.ts`, `lib/slug.ts`, `AlbumFormModal.tsx` |
 
 > Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass; `packages/sanity` `tsc --noEmit` juga bersih. Commit `d91a9cb` sudah di-push ke PR #32. DeepSource tidak lagi jadi bagian review (dicabut user) — tidak ada tindak lanjut lebih jauh untuk temuannya di luar yang sudah selesai di `d38dad4`.
+
+---
+
+## PR #32 — Cek Review Baru + Testing Langsung ke Preview Sungguhan (2026-07-13)
+
+**Cek review bot:** Devin AI mengirim 1 komentar baru setelah push `d91a9cb`: bug nyata di `PhotoLightbox.tsx` — handler keydown level-`document` untuk navigasi ArrowLeft/ArrowRight tidak mengecualikan `<input>`/`<textarea>`, jadi menekan tombol arah saat mengetik di kolom catatan foto (baru ditambahkan PR ini) malah pindah ke foto lain dan menghapus draft catatan. **Valid, langsung diperbaiki** (commit `515a1d8`) — cek `e.target` di `handleKey`, skip navigasi kalau target adalah input/textarea (Escape tetap jalan).
+
+**Testing langsung ke Vercel Preview deployment PR ini** (bukan cuma lint/test lokal) — menemukan 2 bug nyata yang lolos dari semua automated check:
+
+| # | Bug (ditemukan via testing langsung) | Root cause | Fix |
+|---|---|---|---|
+| 1 | `shareCount`/`lastAccessedAt` tidak pernah tersimpan di production, walau PIN-verify sukses (HTTP 200) berulang kali | `waitUntil()` (`@vercel/functions`) di `verify.ts` cuma benar-benar memperpanjang lifecycle function kalau project Vercel punya **Fluid Compute** aktif — sesuatu yang tak bisa diasumsikan/dikontrol dari kode. Task background diam-diam terpotong sebelum selesai | Commit `58bce86`: kembali ke `await` langsung (bukan fire-and-forget) — sedikit tambahan latency, tapi terjamin benar-benar jalan |
+| 2 | **Setelah fix #1, MASIH gagal** — dikonfirmasi via write mentah langsung ke Sanity API: `Mutation failed: Cannot increment "shareCount" because it is not present` | `sanityWriteClient.create()` di `albums.ts` tak pernah inisialisasi `shareCount` awal; `inc()` Sanity mensyaratkan field sudah ada & numerik — jadi **selalu gagal untuk SETIAP album**, sejak fitur ini pertama kali dibuat, terlepas dari isu `waitUntil` di atas. Error-nya selama ini diam-diam ditelan oleh `catch` (demi tidak block klien) | Commit `ca5ffae`: tambah `.setIfMissing({ shareCount: 0 })` sebelum `.inc()` — aman untuk album baru maupun lama |
+
+**Verifikasi live end-to-end** (dataset `production` — dibersihkan setelah selesai): login admin asli → buat album dengan custom slug → akses `/gallery/<customSlug>` (200, bukan 404) → verifikasi PIN → upload 1 foto (lewat direct-to-Sanity upload flow, token dari `/api/admin/upload/credentials`) → submit selection dengan catatan klien → balas sebagai admin via `PATCH /api/admin/selections/[id]` → konfirmasi catatan+balasan tampil di response detail album admin → `shareCount` naik jadi 3 & `lastAccessedAt` terisi setelah fix #2. Ketiga fitur utama PR #32 (custom slug, notes/reply, share stats) **kini benar-benar berfungsi end-to-end di production**, bukan cuma lolos check otomatis.
+
+> Verifikasi: `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest)/`build` semua pass di ketiga commit (`515a1d8`, `58bce86`, `ca5ffae`). PR #32 checks tetap hijau (CodeRabbit/CodeQL/CI/Vercel) setelah setiap push, `mergeStateStatus: CLEAN`. PR masih **open, belum di-merge** — merge tidak diminta pada task ini (hanya diminta cek review baru + konfirmasi sudah testing langsung).
