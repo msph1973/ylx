@@ -476,3 +476,20 @@ User mencabut integrasi DeepSource dari repo (tidak akan review lagi), lalu mint
 **Verifikasi live end-to-end** (dataset `production` — dibersihkan setelah selesai): login admin asli → buat album dengan custom slug → akses `/gallery/<customSlug>` (200, bukan 404) → verifikasi PIN → upload 1 foto (lewat direct-to-Sanity upload flow, token dari `/api/admin/upload/credentials`) → submit selection dengan catatan klien → balas sebagai admin via `PATCH /api/admin/selections/[id]` → konfirmasi catatan+balasan tampil di response detail album admin → `shareCount` naik jadi 3 & `lastAccessedAt` terisi setelah fix #2. Ketiga fitur utama PR #32 (custom slug, notes/reply, share stats) **kini benar-benar berfungsi end-to-end di production**, bukan cuma lolos check otomatis.
 
 > Verifikasi: `typecheck`/`lint --max-warnings 0`/`test` (17/17 vitest)/`build` semua pass di ketiga commit (`515a1d8`, `58bce86`, `ca5ffae`). PR #32 checks tetap hijau (CodeRabbit/CodeQL/CI/Vercel) setelah setiap push, `mergeStateStatus: CLEAN`. PR masih **open, belum di-merge** — merge tidak diminta pada task ini (hanya diminta cek review baru + konfirmasi sudah testing langsung).
+
+---
+
+## PR #32 & PR #33 — Merged (2026-07-13)
+
+Diminta merge semua PR yang masih terbuka. Ada 2 PR open saat itu, keduanya sudah `mergeStateStatus: CLEAN`.
+
+| PR | Judul | Branch | Merge commit |
+|---|---|---|---|
+| #32 | Selection Notes & Gallery Link Improvements | `feat/selection-notes-gallery-links` | `faa7ca5` |
+| #33 | Install Vercel Web Analytics (dibuat `vercel[bot]` via Vercel Agent) | `vercel/install-vercel-web-analytics-8a4rhn` | `b44e27b` |
+
+- PR #33 sempat berstatus **draft** — ditandai "ready for review" (`gh pr ready 33`) dulu sebelum bisa di-merge; isinya menambah `@vercel/analytics` (paket `2.0.1`), komponen `<Analytics />` di `BaseLayout.astro`, dan `webAnalytics: { enabled: true }` di adapter Vercel `astro.config.mjs` — semua check (CI/CodeQL/Vercel) sudah hijau sebelum di-merge.
+- Kedua branch fitur dihapus otomatis di `origin` via `--delete-branch`; lokal disinkronkan fast-forward ke `master` (`b44e27b`).
+- Tidak ada perubahan kode dari task ini sendiri — murni merge + sync.
+
+**Sisa temuan `new-audit.md` yang belum ditangani:** M-3 (CSRF defense-in-depth), M-4 (rate-limit fail-closed DoS risk), L-1 s/d L-6 — menunggu arahan berikutnya.
