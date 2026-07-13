@@ -34,7 +34,11 @@ export function PhotoLightbox({
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
-    else if (e.key === 'ArrowLeft' && hasPrev) onNavigate(currentIndex - 1);
+    // Skip arrow-key navigation while the note input is focused, otherwise
+    // repositioning the text cursor jumps to another photo and discards the draft.
+    const isTextInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+    if (isTextInput) return;
+    if (e.key === 'ArrowLeft' && hasPrev) onNavigate(currentIndex - 1);
     else if (e.key === 'ArrowRight' && hasNext) onNavigate(currentIndex + 1);
   }, [onClose, onNavigate, currentIndex, hasPrev, hasNext]);
 
