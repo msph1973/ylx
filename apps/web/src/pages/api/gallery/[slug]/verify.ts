@@ -1,5 +1,4 @@
 import { timingSafeEqual } from "node:crypto";
-import { waitUntil } from "@vercel/functions";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
@@ -125,26 +124,31 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe.
   grantAlbumAccess(cookies, album._id);
 
-  // Share stats are informational only (shown to the admin) — not worth
-  // adding latency to the client's PIN-verify response for. Fired in the
-  // background and kept alive past the response via `waitUntil()` (same
-  // pattern as `lib/cache.ts`'s background SWR refresh) so it still
-  // completes on Vercel Serverless instead of being frozen mid-flight.
-  const updateShareStats = sanityWriteClient
-    .patch(album._id)
-    .inc({ shareCount: 1 })
-    .set({ lastAccessedAt: new Date().toISOString() })
-    .commit()
-    .then(() =>
-      // allAlbumsQuery also surfaces shareCount/lastAccessedAt to the admin
-      // list, so its cache would otherwise show stale stats for up to 120s.
-      invalidateCache(CACHE_KEYS.albumsList())
-    )
-    .catch((err) => console.error("[Verify] Failed to update share stats:", err));
+  // Share stats are informational only (shown to the admin) — a failure here
+  // must never block a client from viewing an album they just proved PIN
+  // knowledge for, so it's wrapped in its own try/catch.
+  //
+  // `waitUntil()` was tried here (fire-and-forget, kept alive past the
+  // response) to shave this off the client's latency, but live verification
+  // against a real Vercel Serverless deployment (not just local/unit tests)
+  // showed the background task never actually persisted — `shareCount`/
+  // `lastAccessedAt` stayed empty after a real successful PIN verify, even
+  // after waiting well past any plausible completion time. `waitUntil` only
+  // reliably extends a function's lifecycle when the project has Vercel's
+  // Fluid Compute enabled, which isn't something this codebase can assume or
+  // control, so awaiting the write directly is the only way to guarantee it
+  // actually happens — a small latency cost that's worth the correctness.
   try {
-    waitUntil(updateShareStats);
+    await sanityWriteClient
+      .patch(album._id)
+      .inc({ shareCount: 1 })
+      .set({ lastAccessedAt: new Date().toISOString() })
+      .commit();
+    // allAlbumsQuery also surfaces shareCount/lastAccessedAt to the admin
+    // list, so its cache would otherwise show stale stats for up to 120s.
+    await invalidateCache(CACHE_KEYS.albumsList());
   } catch (err) {
-    console.warn("[Verify] waitUntil unavailable for share-stat update:", err);
+    console.error("[Verify] Failed to update share stats:", err);
   }
 
   const photos = (album.photos ?? []).map((photo) => {
