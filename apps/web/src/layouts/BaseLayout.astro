@@ -1,4 +1,6 @@
 ---
+import Analytics from '@vercel/analytics/astro';
+
 export interface Props {
   title: string;
   description?: string;
@@ -22,6 +24,7 @@ const { title, description = 'Photo Proofing Gallery Platform' } = Astro.props;
       rel="stylesheet"
     />
     <title>{title} | YLx</title>
+    <Analytics />
   </head>
   <body>
     <slot />
