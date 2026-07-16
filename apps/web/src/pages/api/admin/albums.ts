@@ -169,12 +169,13 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     } catch (createError) {
       // Album creation failed after slug locks were reserved — release them
       // so these slug values can be reused by future albums.
+      // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] Album creation failed, releasing slug locks:", createError);
       if (createdSlugLock) {
-        await releaseSlugLock(createdSlugLock);
+        try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
       }
       if (createdCustomSlugLock) {
-        await releaseSlugLock(createdCustomSlugLock);
+        try { await releaseSlugLock(createdCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); }
       }
       throw createError;
     }

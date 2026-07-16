@@ -101,6 +101,13 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     });
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: "Request body must be a JSON object" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const pin = (body as Record<string, unknown>).pin;
 
   // Reject anything that isn't a non-empty string (e.g. { "pin": 1234 } or

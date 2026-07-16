@@ -36,6 +36,13 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     });
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: "Request body must be a JSON object" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   interface SelectionInput {
     photoId: string;
     notes?: string;

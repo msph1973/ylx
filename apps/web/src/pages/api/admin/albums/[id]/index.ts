@@ -322,12 +322,13 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       // locks so these slug values can be reused. The old locks (if any) were
       // already released by generateUniqueSlug/resolveCustomSlug when the new
       // ones were secured, so we don't re-reserve those here.
+      // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] PUT patch failed, releasing new slug locks:", patchError);
       if (newSlugLock && newSlugLock !== existingAlbum.slug?.current) {
-        await releaseSlugLock(newSlugLock);
+        try { await releaseSlugLock(newSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
       }
       if (newCustomSlugLock && newCustomSlugLock !== existingAlbum.customSlug) {
-        await releaseSlugLock(newCustomSlugLock);
+        try { await releaseSlugLock(newCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); }
       }
       throw patchError;
     }
