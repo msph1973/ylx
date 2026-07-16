@@ -93,7 +93,7 @@ export async function getCached<T>(
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    return fetcher();
+    return await fetcher();
   }
 
   try {
@@ -125,16 +125,15 @@ export async function getCached<T>(
     }
   } catch (err) {
     console.warn(`[Cache] Upstash GET unavailable for "${key}"; falling back to direct fetch:`, err);
-    return fetcher();
+    return await fetcher();
   }
 
-  // Hard miss: fetch, store, return.
+  // Hard miss: fetch, store, return. If fetcher throws here there is no cached
+  // value to fall back to, so we let it propagate — the caller gets the error.
   const fresh = await fetcher();
-  try {
-    await storeInCache(key, fresh, staleTtlSeconds, url, token);
-  } catch (err) {
+  void storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
     console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
-  }
+  });
   return fresh;
 }
 

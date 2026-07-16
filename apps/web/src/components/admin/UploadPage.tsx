@@ -162,6 +162,8 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   // banner so rejections aren't silent.
   const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => { return () => { mountedRef.current = false; }; }, []);
   // Cache the direct-upload credentials for the lifetime of a batch. Refreshed at
   // the start of every startUpload() so a token that expired between batches is
   // never reused.
@@ -176,7 +178,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   }, []);
   const endActivity = useCallback(() => {
     activeCountRef.current = Math.max(0, activeCountRef.current - 1);
-    if (activeCountRef.current === 0) setIsUploading(false);
+    if (activeCountRef.current === 0 && mountedRef.current) setIsUploading(false);
   }, []);
 
   const getCredentials = useCallback(async (): Promise<UploadCredentials> => {
