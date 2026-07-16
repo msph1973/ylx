@@ -971,6 +971,53 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           transform: scaleX(0);
           transition: transform var(--transition-fast);
         }
+
+        @media (max-width: 480px) {
+          .upload-page { padding: 0; }
+
+          .drop-zone {
+            padding: var(--space-6);
+            border-radius: var(--radius-lg);
+            margin-left: var(--space-3);
+            margin-right: var(--space-3);
+          }
+
+          .upload-header,
+          .album-select-section,
+          .skipped-notice {
+            padding-left: var(--space-3);
+            padding-right: var(--space-3);
+          }
+
+          .file-item {
+            padding: var(--space-3);
+            gap: var(--space-2);
+          }
+
+          .file-status {
+            min-width: 70px;
+          }
+
+          .progress-bar {
+            width: 50px;
+          }
+
+          .upload-stats {
+            flex-wrap: wrap;
+            gap: var(--space-2);
+          }
+
+          .file-list-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: var(--space-2);
+            padding: var(--space-3);
+          }
+
+          .file-list-actions {
+            justify-content: flex-end;
+          }
+        }
       `}</style>
     </div>
   );

@@ -355,72 +355,74 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
         </div>
 
-        <div className="album-header">
-          <h2 className="album-title">{album.clientName}</h2>
-          <span className={`status-badge status-badge--${status.variant}`}>{status.label}</span>
-        </div>
-        <p className="status-hint">{status.hint}</p>
+        <div className="detail-body">
+          <div className="album-header">
+            <h2 className="album-title">{album.clientName}</h2>
+            <span className={`status-badge status-badge--${status.variant}`}>{status.label}</span>
+          </div>
+          <p className="status-hint">{status.hint}</p>
 
-        <div className="metadata-grid">
-          <div className="metadata-item">
-            <span className="metadata-label">Event Date</span>
-            <span className="metadata-value">{album.eventDate ? formatDate(album.eventDate) : '—'}</span>
-          </div>
-          <div className="metadata-item">
-            <span className="metadata-label">Status</span>
-            <span className="metadata-value">{status.label}</span>
-          </div>
-          <div className="metadata-item">
-            <span className="metadata-label">PIN</span>
-            <span className="metadata-value pin">{album.pin}</span>
-          </div>
-          <div className="metadata-item">
-            <span className="metadata-label">Max Selections</span>
-            <span className="metadata-value">{album.maxSelections}</span>
-          </div>
-        </div>
+          <div className="share-actions">
+            <button className="share-btn" onClick={() => { void handleCopyLink(); }} disabled={!album.slug} aria-label="Copy gallery link to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              {copiedLink ? 'Copied!' : 'Copy Gallery Link'}
+            </button>
+            <button className="share-btn" onClick={() => { void handleCopyPin(); }} disabled={!album.pin} aria-label="Copy PIN to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="11" width="6" height="11" rx="1" />
+                <path d="M9 11V7a3 3 0 0 1 6 0v4" />
+              </svg>
+              {copiedPin ? 'Copied!' : 'Copy PIN'}
+            </button>
 
-        {album.shareCount !== undefined && (
-          <div className="share-stats">
-            <span className="stat-label">Shares:</span> {album.shareCount}
-            {album.lastAccessedAt && (
-              <> · <span className="stat-label">Last viewed:</span> {formatDate(new Date(album.lastAccessedAt))}</>
+            {isActive ? (
+              <button className="lock-btn" onClick={handleLock} disabled={isLocking}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                {isLocking ? 'Locking…' : 'Lock Gallery'}
+              </button>
+            ) : (
+              <button className="unlock-btn" onClick={handleUnlock} disabled={isUnlocking}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+                </svg>
+                {isUnlocking ? 'Unlocking…' : 'Unlock Gallery'}
+              </button>
             )}
           </div>
-        )}
 
-        <div className="share-actions">
-          <button className="share-btn" onClick={() => { void handleCopyLink(); }} disabled={!album.slug} aria-label="Copy gallery link to clipboard">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            {copiedLink ? 'Copied!' : 'Copy Gallery Link'}
-          </button>
-          <button className="share-btn" onClick={() => { void handleCopyPin(); }} disabled={!album.pin} aria-label="Copy PIN to clipboard">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="9" y="11" width="6" height="11" rx="1" />
-              <path d="M9 11V7a3 3 0 0 1 6 0v4" />
-            </svg>
-            {copiedPin ? 'Copied!' : 'Copy PIN'}
-          </button>
+          <div className="metadata-grid">
+            <div className="metadata-item">
+              <span className="metadata-label">Event Date</span>
+              <span className="metadata-value">{album.eventDate ? formatDate(album.eventDate) : '—'}</span>
+            </div>
+            <div className="metadata-item">
+              <span className="metadata-label">Status</span>
+              <span className="metadata-value">{status.label}</span>
+            </div>
+            <div className="metadata-item">
+              <span className="metadata-label">PIN</span>
+              <span className="metadata-value pin">{album.pin}</span>
+            </div>
+            <div className="metadata-item">
+              <span className="metadata-label">Max Selections</span>
+              <span className="metadata-value">{album.maxSelections}</span>
+            </div>
+          </div>
 
-          {isActive ? (
-            <button className="lock-btn" onClick={handleLock} disabled={isLocking}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              {isLocking ? 'Locking…' : 'Lock Gallery'}
-            </button>
-          ) : (
-            <button className="unlock-btn" onClick={handleUnlock} disabled={isUnlocking}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-              </svg>
-              {isUnlocking ? 'Unlocking…' : 'Unlock Gallery'}
-            </button>
+          {album.shareCount !== undefined && (
+            <div className="share-stats">
+              <span className="stat-label">Shares:</span> {album.shareCount}
+              {album.lastAccessedAt && (
+                <> · <span className="stat-label">Last viewed:</span> {formatDate(new Date(album.lastAccessedAt))}</>
+              )}
+            </div>
           )}
         </div>
 
@@ -628,6 +630,11 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
         <style>{`
           .album-detail { padding: var(--space-4); }
+
+          .detail-body {
+            display: flex;
+            flex-direction: column;
+          }
 
           .inline-error {
             margin: 0 0 var(--space-4);
@@ -1014,6 +1021,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             .album-header,
             .metadata-grid,
             .share-actions,
+            .share-stats,
+            .status-hint,
             .section-header,
             .selection-bar,
             .inline-error {
