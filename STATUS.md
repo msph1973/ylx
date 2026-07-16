@@ -543,4 +543,57 @@ Temuan **#9** (`UploadPage.tsx` tanpa `AbortController`/unmount-guard) dan **#11
 
 `new-audit.md` (audit #1, 12 temuan, semua sudah fixed) dihapus dari project; `new-audit-2.md` (audit #2, 11 temuan) ditambahkan sebagai referensi.
 
-> Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass. Commit `29a1a89` di-push ke branch baru `fix/audit-2-issues`; PR https://github.com/msph1973/ylx/pull/34 → base `master` dibuat. PR masih **open, belum di-merge, belum dipantau review bot** — menunggu arahan berikutnya.
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass. Commit `29a1a89` di branch `fix/audit-2-issues`; PR https://github.com/msph1973/ylx/pull/34 → base `master`.
+
+## PR #34 — Bot Review Fixes + Merged (2026-07-16)
+
+Setelah PR #34 dibuka, Sourcery dan CodeRabbit review. Temuan yang diperbaiki:
+
+| Bot | Temuan | Fix (commit `1386617`) |
+|-----|--------|---|
+| Sourcery | `releaseSlugLock` di catch bisa mask original error | Wrap setiap call dalam try/catch defensif |
+| Sourcery | Typo "satupun"→"satu pun", "gaya-nya"→"gayanya" di `new-audit-2.md` | Fixed |
+| CodeRabbit | JSON `null` body → 500 di `submit.ts`/`verify.ts` | Tambah structural non-null object check sebelum property access |
+| CodeRabbit | `useCopyToClipboard` tidak expose failure state | Hook return `{ copied, error, copy }`; `CopyFilenamesButton` tampilkan "Copy failed" |
+| CodeRabbit | Error feedback animation tanpa `useReducedMotion` | Tambah conditional animation (commit `3739ce6`) |
+
+PR merged via squash (`d6b9c6f`).
+
+---
+
+## PR #35 — Fix `new-audit-2.md` Remaining #9, #11 (2026-07-16, branch `fix/audit-2-remaining`)
+
+Dua temuan terakhir dari audit #2 yang belum ditangani di PR #34:
+
+| # | Temuan | Fix (commit `4d1f52e`) |
+|---|--------|---|
+| 9 | `UploadPage.tsx` — tidak ada unmount guard untuk async setState | Tambah `mountedRef` + guard di `endActivity` callback |
+| 11 | `cache.ts` — fail-open contract tidak terjamin kalau fetcher throw sinkron | `await fetcher()` eksplisit; `storeInCache` jadi fire-and-forget pada hard miss |
+
+`new-audit-2.md` header diupdate: "Semua 11 temuan ✅ FIXED".
+
+> Verifikasi: tsc + eslint pass. PR merged via squash (`b4df7dc`). Semua 11 temuan `new-audit-2.md` sekarang selesai.
+
+---
+
+## PR #36 — Mobile-First Impeccable UI (2026-07-16, branch `fix/mobile-first-impeccable`)
+
+User melaporkan **button share link tidak terlihat di mobile** pada admin album detail. Audit menemukan:
+- Share actions (Copy Gallery Link, Copy PIN, Lock/Unlock) terletak di bawah metadata grid — di viewport 375px, butuh scroll panjang sebelum terlihat.
+- `UploadPage.tsx` tidak punya @media query sama sekali — semua sizing desktop-first.
+
+**Fix:**
+
+| Komponen | Perubahan |
+|----------|-----------|
+| `AlbumDetail.tsx` | Reorder JSX: share-actions dipindah ke **sebelum** metadata-grid (langsung setelah album header + status hint). Wrap dalam `.detail-body` flex container dengan gap + margin-bottom. |
+| `AlbumDetail.tsx` | Mobile margins: tambah `.share-stats`, `.status-hint` ke horizontal margin rule di 480px breakpoint. |
+| `AlbumDetail.tsx` | A11y: `focusable="false"` di 4 decorative SVGs dalam share buttons. |
+| `UploadPage.tsx` | Tambah `@media (max-width: 480px)`: drop zone padding dikurangi (`space-12`→`space-6`), file list items compact, progress bar flexible (`max-width` bukan fixed `width`), upload stats wrap, file list header stack vertikal. |
+
+**Bot review fixes:**
+- Sourcery: ganti fixed `min-width: 70px` / `width: 50px` dengan flexible `max-width` sizing.
+- CodeRabbit: tambah `focusable="false"` ke decorative SVGs; restore section spacing via `.detail-body { gap + margin-bottom }`.
+
+> Verifikasi: tsc + eslint pass; semua 10 CI checks pass. PR merged via squash (`1cc54ee`). Tidak ada PR terbuka.
+
