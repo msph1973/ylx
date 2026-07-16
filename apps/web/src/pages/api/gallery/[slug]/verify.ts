@@ -90,8 +90,25 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     );
   }
 
-  const body = await request.json();
-  const pin = body.pin;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch (err) {
+    console.error("[Verify] JSON parse failed:", err);
+    return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: "Request body must be a JSON object" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const pin = (body as Record<string, unknown>).pin;
 
   // Reject anything that isn't a non-empty string (e.g. { "pin": 1234 } or
   // a missing field) with a clean 400 instead of letting Buffer.from throw a 500.

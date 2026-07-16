@@ -17,6 +17,30 @@ interface MemoryEntry {
 
 const memory = new Map<string, MemoryEntry>();
 
+// Periodic sweep to remove expired entries from the in-memory Map, preventing
+// unbounded growth during long-lived warm containers. Runs every 5 minutes,
+// removing entries whose resetAt has passed. This is a best-effort background
+// cleanup — individual operations still check resetAt per-entry.
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
+
+function startPeriodicSweep() {
+  if (sweepTimer !== null) return; // Already started
+  sweepTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of memory.entries()) {
+      if (now > entry.resetAt) {
+        memory.delete(key);
+      }
+    }
+  }, SWEEP_INTERVAL_MS);
+  // Don't block Node shutdown waiting for this timer
+  if (sweepTimer.unref) sweepTimer.unref();
+}
+
+// Start sweep immediately when module loads (serverless warm container)
+startPeriodicSweep();
+
 function memoryLimited(key: string, maxAttempts: number): boolean {
   const now = Date.now();
   const entry = memory.get(key);

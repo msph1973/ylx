@@ -44,7 +44,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch {
+  } catch (error) {
+    console.error("[Lock]", error);
     return new Response(
       JSON.stringify({ error: "Failed to lock album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

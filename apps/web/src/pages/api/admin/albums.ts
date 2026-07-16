@@ -3,7 +3,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
-import { generateUniqueSlug, resolveCustomSlug } from "../../../lib/slug";
+import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../lib/slug";
 import { publishAdminEvent } from "../../../lib/ably";
 import { getCached, invalidateCache, CACHE_KEYS } from "../../../lib/cache";
 
@@ -129,39 +129,56 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 
     const slug = await generateUniqueSlug(title, albumId);
 
-    const doc = await sanityWriteClient.create({
-      _id: albumId,
-      _type: "album",
-      title,
-      slug: { _type: "slug", current: slug },
-      ...(resolvedCustomSlug ? { customSlug: resolvedCustomSlug } : {}),
-      clientName,
-      eventDate,
-      pin,
-      maxSelections,
-      status: "active",
-      photos: [],
-    });
+    let createdSlugLock = slug;
+    let createdCustomSlugLock: string | undefined = resolvedCustomSlug;
 
-    publishAdminEvent("album:created", { albumId: doc._id });
-    await invalidateCache(CACHE_KEYS.albumsList());
+    try {
+      const doc = await sanityWriteClient.create({
+        _id: albumId,
+        _type: "album",
+        title,
+        slug: { _type: "slug", current: slug },
+        ...(resolvedCustomSlug ? { customSlug: resolvedCustomSlug } : {}),
+        clientName,
+        eventDate,
+        pin,
+        maxSelections,
+        status: "active",
+        photos: [],
+      });
 
-    return new Response(
-      JSON.stringify({
-        album: {
-          id: doc._id,
-          title: doc.title as string,
-          clientName: doc.clientName as string,
-          eventDate: doc.eventDate as string,
-          pin: doc.pin as string,
-          maxSelections: doc.maxSelections as number,
-          status: doc.status as string,
-          photoCount: 0,
-          customSlug: doc.customSlug as string | undefined,
-        },
-      }),
-      { status: 201, headers: { "Content-Type": "application/json" } }
-    );
+      publishAdminEvent("album:created", { albumId: doc._id });
+      await invalidateCache(CACHE_KEYS.albumsList());
+
+      return new Response(
+        JSON.stringify({
+          album: {
+            id: doc._id,
+            title: doc.title as string,
+            clientName: doc.clientName as string,
+            eventDate: doc.eventDate as string,
+            pin: doc.pin as string,
+            maxSelections: doc.maxSelections as number,
+            status: doc.status as string,
+            photoCount: 0,
+            customSlug: doc.customSlug as string | undefined,
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } }
+      );
+    } catch (createError) {
+      // Album creation failed after slug locks were reserved — release them
+      // so these slug values can be reused by future albums.
+      // Best-effort: lock release failure must not mask the original error.
+      console.error("[Albums] Album creation failed, releasing slug locks:", createError);
+      if (createdSlugLock) {
+        try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
+      }
+      if (createdCustomSlugLock) {
+        try { await releaseSlugLock(createdCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); }
+      }
+      throw createError;
+    }
   } catch (error) {
     console.error("[Albums] POST failed:", error);
     return new Response(

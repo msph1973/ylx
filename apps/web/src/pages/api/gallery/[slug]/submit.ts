@@ -25,15 +25,31 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch (err) {
+    console.error("[Submit] JSON parse failed:", err);
+    return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return new Response(JSON.stringify({ error: "Request body must be a JSON object" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   interface SelectionInput {
     photoId: string;
     notes?: string;
   }
 
-  const rawSelections: SelectionInput[] | undefined = body.selections;
-  const rawPhotoIds: string[] | undefined = body.photoIds;
+  const rawSelections: SelectionInput[] | undefined = (body as Record<string, unknown>).selections as SelectionInput[] | undefined;
+  const rawPhotoIds: string[] | undefined = (body as Record<string, unknown>).photoIds as string[] | undefined;
 
   let effectiveSelections: SelectionInput[];
   if (Array.isArray(rawSelections) && rawSelections.length > 0) {

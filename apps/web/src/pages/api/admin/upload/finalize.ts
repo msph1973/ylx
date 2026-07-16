@@ -106,6 +106,63 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
+    // Fetch asset metadata to validate MIME type and file size server-side.
+    // Client-side validation can be bypassed; this ensures policy is enforced
+    // regardless of how the upload credential was obtained.
+    const asset = await sanityWriteClient.getDocument(assetId);
+    if (!asset || asset._type !== "sanity.imageAsset") {
+      // Asset doesn't exist or isn't an image — delete the invalid reference
+      // and reject the request.
+      try {
+        await sanityWriteClient.delete(assetId);
+      } catch (delErr) {
+        console.error("[Upload/finalize] Failed to delete invalid asset:", delErr);
+      }
+      return new Response(
+        JSON.stringify({ error: "Invalid or non-existent image asset" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const VALID_MIME_TYPES = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/tiff",
+      "image/x-tiff",
+    ];
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+    const mimeType = asset.mimeType as string | undefined;
+    const fileSize = asset.size as number | undefined;
+
+    if (!mimeType || !VALID_MIME_TYPES.includes(mimeType)) {
+      // Invalid MIME type — delete the asset and reject.
+      try {
+        await sanityWriteClient.delete(assetId);
+      } catch (delErr) {
+        console.error("[Upload/finalize] Failed to delete invalid-type asset:", delErr);
+      }
+      return new Response(
+        JSON.stringify({ error: `Invalid file type. Allowed: ${VALID_MIME_TYPES.join(", ")}` }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!fileSize || fileSize > MAX_FILE_SIZE) {
+      // File too large — delete the asset and reject.
+      try {
+        await sanityWriteClient.delete(assetId);
+      } catch (delErr) {
+        console.error("[Upload/finalize] Failed to delete oversized asset:", delErr);
+      }
+      return new Response(
+        JSON.stringify({ error: `File too large. Maximum size: 50MB` }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Create the photo document referencing the already-uploaded asset.
     const photoDoc = await sanityWriteClient.create({
       _type: "photo",
