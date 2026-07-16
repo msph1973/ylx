@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 
 interface CopyFilenamesButtonProps {
@@ -8,6 +8,7 @@ interface CopyFilenamesButtonProps {
 
 export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
   const { copied, error, copy } = useCopyToClipboard(2000);
+  const shouldReduceMotion = useReducedMotion();
 
   const handleCopy = () => {
     const text = filenames.join(', ');
@@ -43,10 +44,10 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
         {copied && (
           <motion.div
             className="copied-feedback"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+            transition={shouldReduceMotion ? { duration: 0.01 } : { type: 'spring', stiffness: 300, damping: 25 }}
           >
             <svg
               width="14"
@@ -67,10 +68,10 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
         {error && (
           <motion.div
             className="error-feedback"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+            transition={shouldReduceMotion ? { duration: 0.01 } : { type: 'spring', stiffness: 300, damping: 25 }}
           >
             Copy failed
           </motion.div>
