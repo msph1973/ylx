@@ -995,11 +995,14 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           }
 
           .file-status {
-            min-width: 70px;
+            min-width: 0;
+            flex-shrink: 0;
+            max-width: 80px;
           }
 
           .progress-bar {
-            width: 50px;
+            width: 100%;
+            max-width: 50px;
           }
 
           .upload-stats {
