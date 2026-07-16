@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-13 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics. Semua 12 temuan `new-audit.md` (M-1..M-4, L-1..L-6) sekarang ✅ FIXED. Branch aktif: **`master`**.
+> Last updated: 2026-07-16 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics. Semua 12 temuan `new-audit.md` (M-1..M-4, L-1..L-6) sekarang ✅ FIXED. **PR #34 OPEN** (belum merge): fix 9 dari 11 temuan `new-audit-2.md` (full-codebase audit #2). Branch aktif: **`fix/audit-2-issues`**.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -299,7 +299,8 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `DESIGN.md` | Design tokens, warna, typography |
 | `PRODUCT.md` | Product requirements |
 | `AGENTS.md` | Architecture overview (perlu update — lihat catatan di bawah) |
-| `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED |
+| `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED (file sudah dihapus, riwayat lengkap ada di `STATUS.md`) |
+| `new-audit-2.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, 9 sudah di-fix (PR #34, open), 2 (`#9`, `#11`) masih pending sebagai follow-up prioritas rendah |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
 
@@ -515,3 +516,31 @@ Dicek langsung ke kode (bukan cuma baca dokumen) — ternyata M-3, M-4, L-1, L-3
 > Verifikasi: clean-room `rm -rf node_modules && pnpm install` dua kali (dengan & tanpa allowlist) mengonfirmasi `esbuild`+`sharp` tetap bisa build, paket lain tidak butuh script apapun. `pnpm --filter @ylx/web typecheck/lint/check:hydration-leak/test (17/17 vitest)/build` semua pass. Perubahan ini **belum di-commit** — menunggu konfirmasi user (konsisten dengan pola sesi-sesi sebelumnya kecuali diminta eksplisit).
 
 **Semua 12 temuan `new-audit.md` (M-1 s/d M-4, L-1 s/d L-6) sekarang berstatus ✅ FIXED / tidak perlu aksi.**
+
+---
+
+## PR #34 — Fix `new-audit-2.md` Findings #1-#7 + Bonus #8, #10 (2026-07-16, branch `fix/audit-2-issues`)
+
+Menindaklanjuti full-codebase audit #2 (`new-audit-2.md`, 11 temuan baru ditemukan via 3 subagent paralel — memory leak, backend, frontend). User mengerjakan 7 fix utama sendiri; sesi ini mereview hasilnya, menemukan+memperbaiki 2 bug di dalamnya, lalu commit/push/buka PR.
+
+| # | Temuan | Fix |
+|---|---|---|
+| 1 | `submit.ts`/`verify.ts` — `request.json()` tanpa try/catch di endpoint publik | Dibungkus try/catch, return 400 rapi |
+| 2 | `lock.ts`/`unlock.ts` — `catch {}` kosong total, tanpa logging | Tambah `console.error` sebelum return 500 |
+| 3 | `albums/[id]/index.ts` — catch GET/PUT/DELETE tidak log error | Tambah `console.error` + konteks album id di ketiga handler |
+| 4 | `finalize.ts` — tidak ada validasi tipe/ukuran file di server | Tambah validasi MIME type + ukuran |
+| 5 | `CopyFilenamesButton.tsx` — bypass `useCopyToClipboard`, `setTimeout` tanpa cleanup | Refactor pakai hook, konsisten dengan tombol copy lain |
+| 6 | `PhotoLightbox.tsx` — modal galeri klien tanpa focus trap | Terapkan `useFocusTrap` (sudah dipakai admin modal) |
+| 7 | `albums.ts`/`albums/[id]/index.ts` — `slugLock` tidak dirilis kalau write album gagal setelah reservasi | Tambah rollback (`releaseSlugLock`) di catch block |
+| 8 (bonus) | `ratelimit.ts` — in-memory `Map` fallback tanpa eviction | Tambah periodic sweep |
+| 10 (bonus) | `middleware.ts` — prefix CSRF `/api/admin` tanpa trailing slash | Disamakan jadi `/api/admin/` |
+
+**2 bug ditemukan & diperbaiki saat review hasil fix user (sebelum commit):**
+- Fix #3 di handler GET awalnya mendeklarasikan `albumId` di dalam blok `try`, sehingga logging baru di `catch` tidak bisa mengakses variabel tsb — `tsc` gagal total (`TS2304`). Diperbaiki: pindahkan deklarasi `albumId` ke luar `try`, sama seperti pola di `PUT`/`DELETE`.
+- Fix #4 awalnya tidak menyertakan `image/tiff` di `VALID_MIME_TYPES`, padahal client (`UploadPage.tsx`) sudah mengizinkan upload TIFF — akan mematahkan fitur yang sudah berjalan. Ditambahkan `image/tiff` + `image/x-tiff`.
+
+Temuan **#9** (`UploadPage.tsx` tanpa `AbortController`/unmount-guard) dan **#11** (`cache.ts` fail-open teoretis kalau `fetcher` throw sinkron) **belum** ditangani di PR ini — keduanya prioritas rendah, didokumentasikan sebagai follow-up di `new-audit-2.md`.
+
+`new-audit.md` (audit #1, 12 temuan, semua sudah fixed) dihapus dari project; `new-audit-2.md` (audit #2, 11 temuan) ditambahkan sebagai referensi.
+
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass. Commit `29a1a89` di-push ke branch baru `fix/audit-2-issues`; PR https://github.com/msph1973/ylx/pull/34 → base `master` dibuat. PR masih **open, belum di-merge, belum dipantau review bot** — menunggu arahan berikutnya.
