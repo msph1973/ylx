@@ -56,7 +56,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const path = context.url.pathname;
   const isProtectedWrite =
     CSRF_METHODS.has(context.request.method) &&
-    (path.startsWith("/api/admin") ||
+    (path.startsWith("/api/admin/") ||
       path.startsWith("/api/gallery/") ||
       path.startsWith("/api/auth/"));
   if (isProtectedWrite && !hasValidCsrfOrigin(context.request, context.url.href)) {

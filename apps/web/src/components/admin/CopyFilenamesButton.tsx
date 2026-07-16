@@ -1,25 +1,17 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 
 interface CopyFilenamesButtonProps {
   filenames: string[];
 }
 
 export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
+  const { copied, copy } = useCopyToClipboard(2000);
 
-  const handleCopy = async () => {
+  const handleCopy = () => {
     const text = filenames.join(', ');
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setCopyError(false);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopyError(true);
-      setTimeout(() => setCopyError(false), 2000);
-    }
+    copy(text);
   };
 
   return (
@@ -72,17 +64,6 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
             Copied!
           </motion.div>
         )}
-        {copyError && (
-          <motion.div
-            className="copy-error-feedback"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-          >
-            Copy failed
-          </motion.div>
-        )}
       </AnimatePresence>
       </div>
 
@@ -124,15 +105,6 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
           align-items: center;
           gap: var(--space-1);
           color: var(--color-success);
-          font-size: var(--text-sm);
-          font-weight: var(--font-medium);
-        }
-
-        .copy-error-feedback {
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-1);
-          color: var(--color-error);
           font-size: var(--text-sm);
           font-weight: var(--font-medium);
         }

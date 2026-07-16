@@ -76,15 +76,15 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     });
   }
 
-  try {
-    const albumId = params.id;
-    if (!albumId) {
-      return new Response(
-        JSON.stringify({ error: "Album ID is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
+  const albumId = params.id;
+  if (!albumId) {
+    return new Response(
+      JSON.stringify({ error: "Album ID is required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
+  try {
     const album = await sanityClient.fetch<SanityAlbumDetailRaw | null>(albumWithSelectionsQuery, {
       albumId,
     });
@@ -142,6 +142,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
+    console.error("[Albums] GET album failed:", albumId, error);
     return new Response(
       JSON.stringify({ error: "Failed to fetch album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -278,37 +279,60 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       );
     }
 
-    const updated = await sanityWriteClient
-      .patch(albumId)
-      .set(patch)
-      .unset(unsetFields)
-      .commit();
+    // Track newly created slug locks so they can be rolled back if commit fails.
+    // `patch.slug` exists when title changed (new auto-slug), `resolvedCustomSlug`
+    // when customSlug changed. The `buildAlbumPatch` / `resolveCustomSlugForUpdate`
+    // calls above already reserved these locks.
+    const newSlugLock = patch.slug ? (patch.slug as { current: string }).current : undefined;
+    const newCustomSlugLock = resolvedCustomSlug;
 
-    // Notify open admin dashboards so they refetch. Guarded so a realtime
-    // failure can't turn an already-committed update into a 500.
     try {
-      publishAdminEvent("album:updated", { albumId });
-    } catch (eventError) {
-      console.error("[Albums] PUT publish event failed:", eventError);
-    }
-    await invalidateCache(CACHE_KEYS.albumsList());
+      const updated = await sanityWriteClient
+        .patch(albumId)
+        .set(patch)
+        .unset(unsetFields)
+        .commit();
 
-    return new Response(
-      JSON.stringify({
-        album: {
-          id: updated._id,
-          title: updated.title as string,
-          clientName: updated.clientName as string,
-          eventDate: updated.eventDate as string,
-          pin: updated.pin as string,
-          maxSelections: updated.maxSelections as number,
-          status: updated.status as string,
-          customSlug: updated.customSlug as string | undefined,
-        },
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+      // Notify open admin dashboards so they refetch. Guarded so a realtime
+      // failure can't turn an already-committed update into a 500.
+      try {
+        publishAdminEvent("album:updated", { albumId });
+      } catch (eventError) {
+        console.error("[Albums] PUT publish event failed:", eventError);
+      }
+      await invalidateCache(CACHE_KEYS.albumsList());
+
+      return new Response(
+        JSON.stringify({
+          album: {
+            id: updated._id,
+            title: updated.title as string,
+            clientName: updated.clientName as string,
+            eventDate: updated.eventDate as string,
+            pin: updated.pin as string,
+            maxSelections: updated.maxSelections as number,
+            status: updated.status as string,
+            customSlug: updated.customSlug as string | undefined,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    } catch (patchError) {
+      // Album patch failed after slug locks were reserved — release the NEW
+      // locks so these slug values can be reused. The old locks (if any) were
+      // already released by generateUniqueSlug/resolveCustomSlug when the new
+      // ones were secured, so we don't re-reserve those here.
+      console.error("[Albums] PUT patch failed, releasing new slug locks:", patchError);
+      if (newSlugLock && newSlugLock !== existingAlbum.slug?.current) {
+        await releaseSlugLock(newSlugLock);
+      }
+      if (newCustomSlugLock && newCustomSlugLock !== existingAlbum.customSlug) {
+        await releaseSlugLock(newCustomSlugLock);
+      }
+      throw patchError;
+    }
   } catch (error) {
+    console.error("[Albums] PUT update album failed:", albumId, error);
     return new Response(
       JSON.stringify({ error: "Failed to update album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -345,6 +369,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
+    console.error("[Albums] DELETE album failed:", albumId, error);
     return new Response(
       JSON.stringify({ error: "Failed to delete album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

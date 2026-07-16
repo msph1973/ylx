@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { Photo } from '@ylx/shared';
 import { MAX_TEXT_LENGTH } from '@ylx/sanity/lib/constants';
 
@@ -28,6 +29,7 @@ export function PhotoLightbox({
   onToggleSelect,
 }: PhotoLightboxProps) {
   const shouldReduceMotion = useReducedMotion();
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(true);
   const photo = photos[currentIndex];
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < photos.length - 1;
@@ -62,12 +64,14 @@ export function PhotoLightbox({
       aria-label={`Photo ${currentIndex + 1} of ${photos.length}`}
     >
       <motion.div
+        ref={focusTrapRef}
         className="lightbox-content"
         initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
         transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
         onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
       >
         <div className="lightbox-header">
           <span className="lightbox-counter">{currentIndex + 1} / {photos.length}</span>
