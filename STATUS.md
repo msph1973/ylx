@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#41** CSP `connect-src` fix (`*.ably.net`). Semua audit temuan ✅ FIXED. **PR #40** (mode reorder foto eksplisit + fallback touch) menunggu review/merge.
+> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#40** mode reorder foto eksplisit + fallback touch, **#41** CSP connect-src fix (*.ably.net). Semua audit temuan ✅ FIXED. Tidak ada PR terbuka.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -305,7 +305,7 @@ Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti
 
 ---
 
-## PR #40 — Mode Reorder Foto Eksplisit + Pesan Fallback Touch (branch `fix/photo-reorder-touch-mode`)
+## PR #40 — Mode Reorder Foto Eksplisit + Pesan Fallback Touch — MERGED (branch `fix/photo-reorder-touch-mode`)
 
 Menuntaskan 2 temuan yang sengaja ditunda di PR #38 (`AlbumDetail.tsx`): tombol panah reorder selalu tampil di setiap foto (padahal HTML5 drag-and-drop tidak berfungsi di layar sentuh tanpa pesan penjelasan apapun).
 
@@ -323,7 +323,7 @@ Menuntaskan 2 temuan yang sengaja ditunda di PR #38 (`AlbumDetail.tsx`): tombol 
 | Prop `disabled` di kedua tombol toggle membuat cabang peralihan mode di `onClick` masing-masing jadi tidak pernah tercapai | `disabled` dihapus — kedua handler sudah membersihkan state mode lain dengan benar, jadi peralihan langsung kini benar-benar berfungsi |
 | Tile foto tetap bisa mulai drag saat `isSavingOrder` (permintaan reorder sebelumnya masih diproses) — berisiko permintaan reorder tumpang tindih | `draggable`/`onDragStart` ditambah guard `!isSavingOrder` |
 
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. Ditunggu hingga tidak ada masukan baru pasca-fix, semua CI hijau, lalu di-merge.
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. **PR #40 merged** via squash ke `master` (`35ff157`).
 
 ---
 
