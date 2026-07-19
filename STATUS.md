@@ -347,3 +347,7 @@ Melanjutkan rekomendasi command yang belum dijalankan (`audit`/`adapt` sudah sel
 
 > Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` (gallery + admin) semua pass. `critique`/`polish` command formal (skoring heuristik 10-poin + laporan penuh) tidak dijalankan sebagai command terpisah — browser automation tidak tersedia di sesi ini (headless), jadi temuan digabung langsung ke fix di atas alih-alih laporan skor terpisah.
 
+**Kebijakan baru: verifikasi manual/browser via Vercel Preview Deployment (2026-07-19):**
+
+Karena app jalan di Vercel Serverless, `astro dev` lokal berbeda perilaku (middleware dev-only, tidak ada cold-start serverless nyata, header cache/edge berbeda) — bisa menyembunyikan bug yang cuma muncul setelah deploy. `AGENTS.md` §"Manual/Browser Verification" baru mewajibkan: prioritaskan testing di URL Vercel Preview Deployment milik branch/PR (auto-di-comment bot Vercel di PR, pola `https://ylx-git-<branch>-msph.vercel.app`) begitu status check `Vercel` = `Ready`/`SUCCESS`, dev lokal tetap boleh untuk iterasi cepat saat menulis kode. Diverifikasi: preview PR #37 (`ylx-git-fix-gallery-mobile-adapt-msph.vercel.app`) aktif, `/` dan `/admin/login` HTTP 200. Commit `574fae3` (doc-only, di branch/PR yang sama).
+
