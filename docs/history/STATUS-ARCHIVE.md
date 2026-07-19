@@ -277,3 +277,45 @@ User melapor "Junie is failed! output file path is not set" dari GitHub Actions 
 ## `new-audit-2.md` — Full Codebase Audit #2 (2026-07-13)
 
 Full audit codebase (3 subagent paralel — memory leak, backend, frontend) menemukan 11 temuan baru (7 MEDIUM + 4 LOW) di luar cakupan `new-audit.md`. Ditulis ke `new-audit-2.md` sebelum diputuskan mana yang di-fix (lihat PR #34/#35 di `STATUS.md` untuk hasil fix-nya — semua 11 temuan kini ✅ FIXED).
+
+---
+
+## PR #34 — Fix `new-audit-2.md` Findings #1-#7 + Bonus #8, #10 (2026-07-16, branch `fix/audit-2-issues`)
+
+Menindaklanjuti full-codebase audit #2 (`new-audit-2.md`, 11 temuan baru ditemukan via 3 subagent paralel — memory leak, backend, frontend). User mengerjakan 7 fix utama sendiri; sesi ini mereview hasilnya, menemukan+memperbaiki 2 bug di dalamnya, lalu commit/push/buka PR.
+
+| # | Temuan | Fix |
+|---|---|---|
+| 1 | `submit.ts`/`verify.ts` — `request.json()` tanpa try/catch di endpoint publik | Dibungkus try/catch, return 400 rapi |
+| 2 | `lock.ts`/`unlock.ts` — `catch {}` kosong total, tanpa logging | Tambah `console.error` sebelum return 500 |
+| 3 | `albums/[id]/index.ts` — catch GET/PUT/DELETE tidak log error | Tambah `console.error` + konteks album id di ketiga handler |
+| 4 | `finalize.ts` — tidak ada validasi tipe/ukuran file di server | Tambah validasi MIME type + ukuran |
+| 5 | `CopyFilenamesButton.tsx` — bypass `useCopyToClipboard`, `setTimeout` tanpa cleanup | Refactor pakai hook, konsisten dengan tombol copy lain |
+| 6 | `PhotoLightbox.tsx` — modal galeri klien tanpa focus trap | Terapkan `useFocusTrap` (sudah dipakai admin modal) |
+| 7 | `albums.ts`/`albums/[id]/index.ts` — `slugLock` tidak dirilis kalau write album gagal setelah reservasi | Tambah rollback (`releaseSlugLock`) di catch block |
+| 8 (bonus) | `ratelimit.ts` — in-memory `Map` fallback tanpa eviction | Tambah periodic sweep |
+| 10 (bonus) | `middleware.ts` — prefix CSRF `/api/admin` tanpa trailing slash | Disamakan jadi `/api/admin/` |
+
+**2 bug ditemukan & diperbaiki saat review hasil fix user (sebelum commit):**
+- Fix #3 di handler GET awalnya mendeklarasikan `albumId` di dalam blok `try`, sehingga logging baru di `catch` tidak bisa mengakses variabel tsb — `tsc` gagal total (`TS2304`). Diperbaiki: pindahkan deklarasi `albumId` ke luar `try`, sama seperti pola di `PUT`/`DELETE`.
+- Fix #4 awalnya tidak menyertakan `image/tiff` di `VALID_MIME_TYPES`, padahal client (`UploadPage.tsx`) sudah mengizinkan upload TIFF — akan mematahkan fitur yang sudah berjalan. Ditambahkan `image/tiff` + `image/x-tiff`.
+
+Temuan **#9** (`UploadPage.tsx` tanpa `AbortController`/unmount-guard) dan **#11** (`cache.ts` fail-open teoretis kalau `fetcher` throw sinkron) **belum** ditangani di PR ini — keduanya prioritas rendah, didokumentasikan sebagai follow-up di `new-audit-2.md`.
+
+`new-audit.md` (audit #1, 12 temuan, semua sudah fixed) dihapus dari project; `new-audit-2.md` (audit #2, 11 temuan) ditambahkan sebagai referensi.
+
+> Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass. Commit `29a1a89` di branch `fix/audit-2-issues`; PR https://github.com/msph1973/ylx/pull/34 → base `master`.
+
+## PR #34 — Bot Review Fixes + Merged (2026-07-16)
+
+Setelah PR #34 dibuka, Sourcery dan CodeRabbit review. Temuan yang diperbaiki:
+
+| Bot | Temuan | Fix (commit `1386617`) |
+|-----|--------|---|
+| Sourcery | `releaseSlugLock` di catch bisa mask original error | Wrap setiap call dalam try/catch defensif |
+| Sourcery | Typo "satupun"→"satu pun", "gaya-nya"→"gayanya" di `new-audit-2.md` | Fixed |
+| CodeRabbit | JSON `null` body → 500 di `submit.ts`/`verify.ts` | Tambah structural non-null object check sebelum property access |
+| CodeRabbit | `useCopyToClipboard` tidak expose failure state | Hook return `{ copied, error, copy }`; `CopyFilenamesButton` tampilkan "Copy failed" |
+| CodeRabbit | Error feedback animation tanpa `useReducedMotion` | Tambah conditional animation (commit `3739ce6`) |
+
+PR merged via squash (`d6b9c6f`).
