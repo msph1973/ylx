@@ -319,3 +319,18 @@ Setelah PR #34 dibuka, Sourcery dan CodeRabbit review. Temuan yang diperbaiki:
 | CodeRabbit | Error feedback animation tanpa `useReducedMotion` | Tambah conditional animation (commit `3739ce6`) |
 
 PR merged via squash (`d6b9c6f`).
+
+---
+
+## PR #35 — Fix `new-audit-2.md` Remaining #9, #11 (2026-07-16, branch `fix/audit-2-remaining`)
+
+Dua temuan terakhir dari audit #2 yang belum ditangani di PR #34:
+
+| # | Temuan | Fix (commit `4d1f52e`) |
+|---|--------|---|
+| 9 | `UploadPage.tsx` — tidak ada unmount guard untuk async setState | Tambah `mountedRef` + guard di `endActivity` callback |
+| 11 | `cache.ts` — fail-open contract tidak terjamin kalau fetcher throw sinkron | `await fetcher()` eksplisit; `storeInCache` jadi fire-and-forget pada hard miss |
+
+`new-audit-2.md` header diupdate: "Semua 11 temuan ✅ FIXED".
+
+> Verifikasi: tsc + eslint pass. PR merged via squash (`b4df7dc`). Semua 11 temuan `new-audit-2.md` sekarang selesai.
