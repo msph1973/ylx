@@ -12,6 +12,7 @@ interface BlurImageProps {
   sizes?: string;
   onTouchStart?: React.TouchEventHandler<HTMLDivElement>;
   onTouchEnd?: React.TouchEventHandler<HTMLDivElement>;
+  onTouchCancel?: React.TouchEventHandler<HTMLDivElement>;
 }
 
 /**
@@ -21,7 +22,7 @@ interface BlurImageProps {
  * is what makes the blur-up actually show — an opacity:0 <img> would also hide
  * its own background. Falls back to a plain fade-in when no LQIP is present.
  */
-export function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet, sizes, onTouchStart, onTouchEnd }: BlurImageProps) {
+export function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet, sizes, onTouchStart, onTouchEnd, onTouchCancel }: BlurImageProps) {
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLImageElement>(null);
 
@@ -39,6 +40,7 @@ export function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet,
       style={!loaded && lqip ? { backgroundImage: `url(${lqip})` } : undefined}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
     >
       <img
         ref={ref}

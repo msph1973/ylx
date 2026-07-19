@@ -85,6 +85,13 @@ export function PhotoLightbox({
     else if (dx < 0 && hasNext) onNavigate(currentIndex + 1);
   }, [currentIndex, hasPrev, hasNext, onNavigate]);
 
+  // Interrupted gestures (e.g. an incoming call, system gesture nav) fire
+  // touchcancel instead of touchend — drop the in-progress swipe so a stale
+  // start point can't be paired with a later, unrelated touchend.
+  const handleTouchCancel = useCallback(() => {
+    touchStart.current = null;
+  }, []);
+
   if (!photo) return null;
 
   return (
@@ -124,6 +131,7 @@ export function PhotoLightbox({
           alt={`Photo ${currentIndex + 1} of ${photos.length}: ${photo.filename}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
         />
 
         <div className="lightbox-footer">
