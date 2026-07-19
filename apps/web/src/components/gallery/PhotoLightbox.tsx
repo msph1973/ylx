@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -49,6 +49,33 @@ export function PhotoLightbox({
     return () => document.removeEventListener('keydown', handleKey);
   }, [handleKey]);
 
+  // Swipe-to-navigate on touch devices — mirrors the arrow-key/button nav
+  // above but for the thumb, since there's no hover/keyboard on a phone.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD_PX = 50;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+
+    // Ignore small movements and mostly-vertical swipes so the gesture
+    // doesn't fight with the browser's own vertical scroll/dismiss.
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) < Math.abs(dy)) return;
+
+    if (dx > 0 && hasPrev) onNavigate(currentIndex - 1);
+    else if (dx < 0 && hasNext) onNavigate(currentIndex + 1);
+  }, [currentIndex, hasPrev, hasNext, onNavigate]);
+
   if (!photo) return null;
 
   return (
@@ -86,6 +113,8 @@ export function PhotoLightbox({
           lqip={photo.lqip}
           loading="eager"
           alt={`Photo ${currentIndex + 1} of ${photos.length}: ${photo.filename}`}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         />
 
         <div className="lightbox-footer">

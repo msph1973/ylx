@@ -266,6 +266,32 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         )}
       </AnimatePresence>
 
+      {/* Submission can fail on a flaky mobile connection — without this,
+          a failed submit looked identical to a successful one (silent). */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            className="submit-error-toast"
+            role="alert"
+            aria-live="assertive"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
+          >
+            <span>{error}</span>
+            <button
+              type="button"
+              className="submit-error-dismiss"
+              onClick={() => setError(null)}
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {lightboxIndex !== null && album && (
           <PhotoLightbox
@@ -289,17 +315,29 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       <style>{`
         .gallery-view {
+          --selection-bar-h: 76px;
           padding: var(--space-4);
+          padding-bottom: calc(var(--selection-bar-h) + var(--space-4) + env(safe-area-inset-bottom));
         }
 
+        /* Fixed to the bottom (thumb zone) so the primary action stays
+           reachable one-handed no matter how long the photo grid is. */
         .gallery-selection-bar {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: var(--space-4);
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: var(--z-sticky);
           padding: var(--space-4);
-          margin-bottom: var(--space-6);
+          padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+          padding-left: max(var(--space-4), env(safe-area-inset-left));
+          padding-right: max(var(--space-4), env(safe-area-inset-right));
           background-color: var(--color-surface);
-          border-radius: var(--radius-lg);
+          border-top: 1px solid var(--color-border);
         }
 
         .selection-count {
@@ -435,6 +473,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           justify-content: center;
           z-index: var(--z-modal);
           padding: var(--space-4);
+          padding-top: max(var(--space-4), env(safe-area-inset-top));
+          padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+          padding-left: max(var(--space-4), env(safe-area-inset-left));
+          padding-right: max(var(--space-4), env(safe-area-inset-right));
         }
 
         .lightbox-content {
@@ -505,10 +547,21 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
         .lightbox-footer {
           display: flex;
+          flex-wrap: wrap;
           align-items: center;
           justify-content: space-between;
           padding-top: var(--space-3);
           gap: var(--space-3);
+        }
+
+        /* On narrow phones, the note input and the nav/select controls no
+           longer fit on one row — give the note its own row instead of
+           squeezing every control down to an unusable width. */
+        @media (max-width: 480px) {
+          .lightbox-note-input {
+            order: 3;
+            flex-basis: 100%;
+          }
         }
 
         .lightbox-nav {
@@ -581,7 +634,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         /* Unlock toast */
         .unlock-toast {
           position: fixed;
-          bottom: var(--space-6);
+          bottom: calc(var(--selection-bar-h, 76px) + var(--space-4) + env(safe-area-inset-bottom));
           left: 50%;
           transform: translateX(-50%);
           background-color: var(--color-success);
@@ -593,6 +646,41 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           z-index: var(--z-toast);
           white-space: nowrap;
           pointer-events: none;
+        }
+
+        /* Submit error toast — same slot as the unlock toast, but
+           dismissible since it reports a failure the user needs to notice
+           (retryable action) rather than an ambient status change. */
+        .submit-error-toast {
+          position: fixed;
+          bottom: calc(var(--selection-bar-h, 76px) + var(--space-4) + env(safe-area-inset-bottom));
+          left: var(--space-4);
+          right: var(--space-4);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-3);
+          background-color: var(--color-error);
+          color: #fff;
+          padding: var(--space-3) var(--space-4);
+          border-radius: var(--radius-lg);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          z-index: var(--z-toast);
+        }
+
+        .submit-error-dismiss {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: var(--tap-target-min);
+          min-height: var(--tap-target-min);
+          background: none;
+          border: none;
+          color: inherit;
+          font-size: var(--text-base);
+          cursor: pointer;
         }
       `}</style>
     </div>

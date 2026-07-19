@@ -57,6 +57,23 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     [digits]
   );
 
+  // Splits a pasted/autofilled code (e.g. from an SMS suggestion) across all
+  // 4 boxes instead of dropping everything but the first digit into one box.
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    if (!pasted) return;
+    e.preventDefault();
+
+    setDigits((prev) => {
+      const next = [...prev];
+      for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
+      return next;
+    });
+
+    const focusIndex = Math.min(pasted.length, 3);
+    inputRefs.current[focusIndex]?.focus();
+  }, []);
+
   return (
     <div className="pin-entry">
       <motion.div
@@ -76,10 +93,12 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
               ref={(el) => { inputRefs.current[index] = el; }}
               type="text"
               inputMode="numeric"
+              autoComplete={index === 0 ? 'one-time-code' : 'off'}
               maxLength={1}
               value={digit}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
+              onPaste={handlePaste}
               disabled={isLoading}
               className="pin-digit"
               aria-label={`Digit ${index + 1}`}
