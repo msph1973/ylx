@@ -334,3 +334,26 @@ Dua temuan terakhir dari audit #2 yang belum ditangani di PR #34:
 `new-audit-2.md` header diupdate: "Semua 11 temuan ✅ FIXED".
 
 > Verifikasi: tsc + eslint pass. PR merged via squash (`b4df7dc`). Semua 11 temuan `new-audit-2.md` sekarang selesai.
+
+---
+
+## PR #36 — Mobile-First Impeccable UI (2026-07-16, branch `fix/mobile-first-impeccable`)
+
+User melaporkan **button share link tidak terlihat di mobile** pada admin album detail. Audit menemukan:
+- Share actions (Copy Gallery Link, Copy PIN, Lock/Unlock) terletak di bawah metadata grid — di viewport 375px, butuh scroll panjang sebelum terlihat.
+- `UploadPage.tsx` tidak punya @media query sama sekali — semua sizing desktop-first.
+
+**Fix:**
+
+| Komponen | Perubahan |
+|----------|-----------|
+| `AlbumDetail.tsx` | Reorder JSX: share-actions dipindah ke **sebelum** metadata-grid (langsung setelah album header + status hint). Wrap dalam `.detail-body` flex container dengan gap + margin-bottom. |
+| `AlbumDetail.tsx` | Mobile margins: tambah `.share-stats`, `.status-hint` ke horizontal margin rule di 480px breakpoint. |
+| `AlbumDetail.tsx` | A11y: `focusable="false"` di 4 decorative SVGs dalam share buttons. |
+| `UploadPage.tsx` | Tambah `@media (max-width: 480px)`: drop zone padding dikurangi (`space-12`→`space-6`), file list items compact, progress bar flexible (`max-width` bukan fixed `width`), upload stats wrap, file list header stack vertikal. |
+
+**Bot review fixes:**
+- Sourcery: ganti fixed `min-width: 70px` / `width: 50px` dengan flexible `max-width` sizing.
+- CodeRabbit: tambah `focusable="false"` ke decorative SVGs; restore section spacing via `.detail-body { gap + margin-bottom }`.
+
+> Verifikasi: tsc + eslint pass; semua 10 CI checks pass. PR merged via squash (`1cc54ee`). Tidak ada PR terbuka.

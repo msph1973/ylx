@@ -22,14 +22,19 @@
 // - font-src needs fonts.gstatic.com (Google Fonts binary files).
 // - connect-src needs *.sanity.io (server + direct-to-browser asset upload at
 //   {projectId}.api.sanity.io — CSP wildcard matching covers nested subdomains)
-//   and the Ably realtime endpoints used by getAblyClient().
+//   and the Ably realtime endpoints used by getAblyClient(). ably-js's default
+//   primary host is on *.ably.net (e.g. main.realtime.ably.net) — *.ably.io/
+//   *.ably-realtime.com alone only cover its REST/fallback hosts, so without
+//   *.ably.net the primary websocket connect is CSP-blocked and every client
+//   silently falls back to a slower fallback host (confirmed in production
+//   Firefox console: CSP connect-src violation on main.realtime.ably.net).
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "img-src 'self' https://cdn.sanity.io data:",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://*.sanity.io https://*.ably.io wss://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com",
+  "connect-src 'self' https://*.sanity.io https://*.ably.io wss://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com https://*.ably.net wss://*.ably.net",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
