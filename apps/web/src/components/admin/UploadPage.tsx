@@ -580,7 +580,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                       </div>
                     )}
                     {uploadFile.status === 'done' && (
-                      <span className="status-done" aria-label="Upload complete">✓</span>
+                      <span className="status-done" role="img" aria-label="Upload complete">✓</span>
                     )}
                     {uploadFile.status === 'error' && (
                       <>

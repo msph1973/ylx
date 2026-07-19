@@ -188,7 +188,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
             initial="hidden"
             animate="visible"
             exit="exit"
-            transition={{ type: 'spring', stiffness: 400, damping: 40, duration: shouldReduceMotion ? 0 : undefined }}
+            transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 40 }}
           >
             <div className="modal-header">
               <h2 id="album-modal-title" className="modal-title">{isEdit ? 'Edit Album' : 'New Album'}</h2>
