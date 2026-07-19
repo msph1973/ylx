@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt. Semua audit temuan ✅ FIXED. **PR #38** (UI/UX audit P1/P2: landing/login/dashboard/upload) terbuka, menunggu review/merge.
+> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload). Semua audit temuan ✅ FIXED. Tidak ada PR terbuka.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -313,7 +313,7 @@ Karena app jalan di Vercel Serverless, `astro dev` lokal berbeda perilaku (middl
 
 ---
 
-## PR #38 — UI/UX Audit P1/P2 Fixes: Landing, Login, Admin Dashboard, Upload (2026-07-19, branch `fix/ui-audit-p1-p2`)
+## PR #38 — UI/UX Audit P1/P2 Fixes: Landing, Login, Admin Dashboard, Upload — MERGED (2026-07-19, branch `fix/ui-audit-p1-p2`)
 
 Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti-pattern) via 3 subagent paralel atas 3 area yang belum pernah diaudit — landing (`index.astro`) + login (`admin/login.astro`), dashboard admin (`admin/index.astro`+`AlbumCard`+`AlbumFormModal`), dan detail-album/upload (`AlbumDetail.tsx`+`UploadPage.tsx`). Skor: 15/20, 16/20, 13/20 — tidak ada P0. Semua temuan P1 + P2 yang layak dieksekusi diperbaiki:
 
@@ -330,5 +330,14 @@ Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti
 
 **Sengaja dilewati (didokumentasikan, bukan bug):** menyembunyikan tombol reorder foto di balik mode eksplisit (opini subjektif UX, tombol panah sudah berfungsi+berlabel), dan pesan fallback untuk drag HTML5 yang tak berfungsi di touch (alasan sama, tombol panah sudah menutupi).
 
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. Commit `7a1e3b9` di branch `fix/ui-audit-p1-p2`; PR https://github.com/msph1973/ylx/pull/38 → base `master`. **OPEN**, menunggu review/merge.
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. Commit `7a1e3b9` di branch `fix/ui-audit-p1-p2`; PR https://github.com/msph1973/ylx/pull/38 → base `master`.
+
+**Bot review round (CodeRabbit):**
+
+| Temuan | Fix (commit `9eb9b69`) |
+|---|---|
+| `AlbumFormModal.tsx` — spring physics (`stiffness`/`damping`) selalu override `duration`, jadi `duration:0` untuk `prefers-reduced-motion` diam-diam diabaikan (animasi tetap berjalan) | Branch eksplisit: `{ duration: 0 }` (tween) saat reduced motion, spring config hanya dipakai kalau tidak |
+| `UploadPage.tsx` — ikon centang selesai upload cuma `aria-label` di `<span>` generik, tidak konsisten terekspos ke assistive tech | Tambah `role="img"` |
+
+> Ditunggu hingga tidak ada review/komentar baru pasca-fix (semua 10 CI check + review bot pass, `mergeStateStatus: CLEAN`), lalu **PR #38 merged** via squash ke `master` (`a1d72b9`).
 
