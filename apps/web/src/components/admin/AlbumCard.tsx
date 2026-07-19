@@ -59,7 +59,7 @@ export function AlbumCard({
       }
       whileHover={shouldReduceMotion ? {} : { y: -4 }}
       whileTap={shouldReduceMotion ? {} : { scale: 0.985 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 35 }}
     >
       <div className="album-card-header">
         <div className="album-card-heading">
@@ -189,7 +189,7 @@ export function AlbumCard({
         }
 
         .status-badge--submitted {
-          background-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+          background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
           color: var(--color-accent);
         }
 

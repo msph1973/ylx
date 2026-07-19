@@ -146,6 +146,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   .gallery-input:focus {
     outline: none;
     border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-ring);
+  }
+
+  @media (max-width: 360px) {
+    .input-group {
+      flex-direction: column;
+    }
+
+    .gallery-btn {
+      width: 100%;
+    }
   }
 
   .gallery-btn {

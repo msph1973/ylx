@@ -316,7 +316,14 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         try {
           const creds = await getCredentials();
           if (!assetId) {
+            // XHR fires many progress events per file; only commit a state update
+            // (which clones the whole files array and re-renders every row) when
+            // the visible percentage actually moves, so a big batch upload doesn't
+            // re-render the entire list on every tick.
+            let lastReportedPct = -1;
             assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
+              if (pct < 100 && pct - lastReportedPct < 3) return;
+              lastReportedPct = pct;
               setFiles(prev => prev.map(f => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
             });
           }
@@ -561,12 +568,19 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                       </button>
                     )}
                     {uploadFile.status === 'uploading' && (
-                      <div className="progress-bar">
+                      <div
+                        className="progress-bar"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={uploadFile.progress}
+                        aria-label={`Uploading ${uploadFile.file.name}`}
+                      >
                         <div className="progress-fill" style={{ transform: `scaleX(${uploadFile.progress / 100})` }} />
                       </div>
                     )}
                     {uploadFile.status === 'done' && (
-                      <span className="status-done">✓</span>
+                      <span className="status-done" aria-label="Upload complete">✓</span>
                     )}
                     {uploadFile.status === 'error' && (
                       <>
