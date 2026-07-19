@@ -116,6 +116,7 @@ test.describe('Admin dashboard readiness', () => {
     await page.goto('/admin');
     await page.locator('.album-card').first().click();
 
+    await page.getByRole('button', { name: 'Reorder photos' }).click();
     await page.getByRole('button', { name: 'Move DSC_0002.ARW earlier' }).click();
 
     await expect(page.locator('.photo-name').first()).toHaveText('DSC_0002.ARW');

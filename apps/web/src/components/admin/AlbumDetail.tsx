@@ -48,6 +48,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const [photoDeleteError, setPhotoDeleteError] = useState<string | null>(null);
   const [photoSelectionMode, setPhotoSelectionMode] = useState(false);
+  const [photoReorderMode, setPhotoReorderMode] = useState(false);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
   const [isBulkPhotoConfirmOpen, setIsBulkPhotoConfirmOpen] = useState(false);
   const [isDeletingSelectedPhotos, setIsDeletingSelectedPhotos] = useState(false);
@@ -171,6 +172,15 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     setSelectedPhotoIds(new Set());
     setBulkPhotoDeleteError(null);
   }, []);
+
+  const togglePhotoReorderMode = useCallback(() => {
+    setPhotoReorderMode((prev) => !prev);
+    if (photoReorderMode) {
+      setReorderError(null);
+    } else {
+      exitPhotoSelectionMode();
+    }
+  }, [exitPhotoSelectionMode, photoReorderMode]);
 
   const togglePhotoSelection = useCallback((photoId: string) => {
     setSelectedPhotoIds((prev) => {
@@ -438,6 +448,16 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
         <div className="section-header photos-section-header">
           <h3 className="photos-title">All Photos ({photos.length})</h3>
           <div className="section-actions photo-section-actions">
+            {(photos.length > 1 || photoReorderMode) && (
+              <button
+                type="button"
+                className={`selection-toggle-btn${photoReorderMode ? ' is-active' : ''}`}
+                onClick={togglePhotoReorderMode}
+                aria-pressed={photoReorderMode}
+              >
+                {photoReorderMode ? 'Done reordering' : 'Reorder photos'}
+              </button>
+            )}
             <button
               type="button"
               className={`selection-toggle-btn${photoSelectionMode ? ' is-active' : ''}`}
@@ -445,6 +465,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 if (photoSelectionMode) {
                   exitPhotoSelectionMode();
                 } else {
+                  setPhotoReorderMode(false);
+                  setReorderError(null);
                   setPhotoSelectionMode(true);
                   setBulkPhotoDeleteError(null);
                 }
@@ -459,6 +481,12 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
         {reorderError && (
           <p className="inline-error" role="alert">{reorderError}</p>
+        )}
+
+        {photoReorderMode && (
+          <p className="reorder-touch-hint">
+            Drag isn’t supported on touchscreens — use the ↑/↓ buttons on each photo to reorder.
+          </p>
         )}
 
         {photoSelectionMode && photos.length > 0 && (
@@ -491,9 +519,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
               <div
                 key={photo.id}
                 className={`photo-tile${selectedPhotoIds.has(photo.id) ? ' is-selected' : ''}`}
-                draggable={!photoSelectionMode && photos.length > 1}
+                draggable={photoReorderMode && photos.length > 1 && !isSavingOrder}
                 onDragStart={(event) => {
-                  if (photoSelectionMode || photos.length < 2) {
+                  if (!photoReorderMode || photos.length < 2 || isSavingOrder) {
                     event.preventDefault();
                     return;
                   }
@@ -501,7 +529,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                   event.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragOver={(event) => {
-                  if (!photoSelectionMode && draggedPhotoId) {
+                  if (photoReorderMode && draggedPhotoId) {
                     event.preventDefault();
                     event.dataTransfer.dropEffect = 'move';
                   }
@@ -530,7 +558,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                   loading="lazy"
                   draggable={false}
                 />
-                {!photoSelectionMode && (
+                {!photoSelectionMode && !photoReorderMode && (
                   <button
                     className="photo-delete"
                     onClick={() => { setPhotoDeleteError(null); setPhotoToDelete(photo); }}
@@ -544,26 +572,28 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                     </svg>
                   </button>
                 )}
-                <div className="photo-actions" aria-label={`Reorder controls for ${photo.filename}`}>
-                  <button
-                    type="button"
-                    className="photo-move-btn"
-                    onClick={() => movePhotoByOffset(photo.id, -1)}
-                    disabled={index === 0 || isSavingOrder}
-                    aria-label={`Move ${photo.filename} earlier`}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="photo-move-btn"
-                    onClick={() => movePhotoByOffset(photo.id, 1)}
-                    disabled={index === photos.length - 1 || isSavingOrder}
-                    aria-label={`Move ${photo.filename} later`}
-                  >
-                    ↓
-                  </button>
-                </div>
+                {photoReorderMode && (
+                  <div className="photo-actions" aria-label={`Reorder controls for ${photo.filename}`}>
+                    <button
+                      type="button"
+                      className="photo-move-btn"
+                      onClick={() => movePhotoByOffset(photo.id, -1)}
+                      disabled={index === 0 || isSavingOrder}
+                      aria-label={`Move ${photo.filename} earlier`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="photo-move-btn"
+                      onClick={() => movePhotoByOffset(photo.id, 1)}
+                      disabled={index === photos.length - 1 || isSavingOrder}
+                      aria-label={`Move ${photo.filename} later`}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
                 <span className="photo-name" title={photo.filename}>{photo.filename}</span>
               </div>
             ))}
@@ -646,6 +676,22 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
             color: var(--color-error);
             font-size: var(--text-sm);
+          }
+
+          .reorder-touch-hint {
+            display: none;
+            margin: 0 0 var(--space-4);
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            background-color: var(--color-surface);
+            color: var(--color-text-muted);
+            font-size: var(--text-sm);
+          }
+
+          /* Only relevant on touch devices, where native drag-and-drop doesn't work. */
+          @media (pointer: coarse) {
+            .reorder-touch-hint { display: block; }
           }
 
           .detail-nav {
@@ -1027,7 +1073,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             .status-hint,
             .section-header,
             .selection-bar,
-            .inline-error {
+            .inline-error,
+            .reorder-touch-hint {
               margin-left: var(--space-4);
               margin-right: var(--space-4);
             }

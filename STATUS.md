@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload). Semua audit temuan ✅ FIXED. **PR #40** (mode reorder foto eksplisit + fallback touch) dan **PR #41** (CSP `connect-src` — tambah `*.ably.net`) menunggu review/merge.
+> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#41** CSP `connect-src` fix (`*.ably.net`). Semua audit temuan ✅ FIXED. **PR #40** (mode reorder foto eksplisit + fallback touch) menunggu review/merge.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#35** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru dengan narasi penuh** (#36, #37, #38, #41 — #39 doc-only STATUS.md sync tanpa section terpisah; #40 masih di PR terpisah yang belum merge ke branch ini) yang masih tercantum di bawah — begitu ada PR ke-5 berikutnya, entri PR #36 dipindah ke arsip (rolling window: simpan 4).
+> **Riwayat detail PR #19–#36** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru dengan narasi penuh** (#37, #38, #40, #41 — #39 doc-only STATUS.md sync, tidak punya section terpisah) yang masih tercantum di bawah — begitu ada PR ke-5 berikutnya, entri PR #37 dipindah ke arsip (rolling window: simpan 4).
 
 ## File Map
 
@@ -219,29 +219,6 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 ---
 
-## PR #36 — Mobile-First Impeccable UI (2026-07-16, branch `fix/mobile-first-impeccable`)
-
-User melaporkan **button share link tidak terlihat di mobile** pada admin album detail. Audit menemukan:
-- Share actions (Copy Gallery Link, Copy PIN, Lock/Unlock) terletak di bawah metadata grid — di viewport 375px, butuh scroll panjang sebelum terlihat.
-- `UploadPage.tsx` tidak punya @media query sama sekali — semua sizing desktop-first.
-
-**Fix:**
-
-| Komponen | Perubahan |
-|----------|-----------|
-| `AlbumDetail.tsx` | Reorder JSX: share-actions dipindah ke **sebelum** metadata-grid (langsung setelah album header + status hint). Wrap dalam `.detail-body` flex container dengan gap + margin-bottom. |
-| `AlbumDetail.tsx` | Mobile margins: tambah `.share-stats`, `.status-hint` ke horizontal margin rule di 480px breakpoint. |
-| `AlbumDetail.tsx` | A11y: `focusable="false"` di 4 decorative SVGs dalam share buttons. |
-| `UploadPage.tsx` | Tambah `@media (max-width: 480px)`: drop zone padding dikurangi (`space-12`→`space-6`), file list items compact, progress bar flexible (`max-width` bukan fixed `width`), upload stats wrap, file list header stack vertikal. |
-
-**Bot review fixes:**
-- Sourcery: ganti fixed `min-width: 70px` / `width: 50px` dengan flexible `max-width` sizing.
-- CodeRabbit: tambah `focusable="false"` ke decorative SVGs; restore section spacing via `.detail-body { gap + margin-bottom }`.
-
-> Verifikasi: tsc + eslint pass; semua 10 CI checks pass. PR merged via squash (`1cc54ee`). Tidak ada PR terbuka.
-
----
-
 ## PR #37 — Gallery Mobile-First Adapt — MERGED (2026-07-19, branch `fix/gallery-mobile-adapt`)
 
 Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-pattern) atas rute `/gallery/[slug]` menemukan theming+perf sudah baik, tapi beberapa celah mobile nyata. Fix diterapkan:
@@ -328,7 +305,29 @@ Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti
 
 ---
 
-## PR #41 — Fix CSP `connect-src` Blokir Ably Realtime (`*.ably.net`) (2026-07-19, branch `fix/csp-ably-realtime`)
+## PR #40 — Mode Reorder Foto Eksplisit + Pesan Fallback Touch (branch `fix/photo-reorder-touch-mode`)
+
+Menuntaskan 2 temuan yang sengaja ditunda di PR #38 (`AlbumDetail.tsx`): tombol panah reorder selalu tampil di setiap foto (padahal HTML5 drag-and-drop tidak berfungsi di layar sentuh tanpa pesan penjelasan apapun).
+
+| Perubahan | Detail |
+|-----------|--------|
+| Mode "Reorder photos" baru | Toggle terpisah dari "Select photos" (saling eksklusif); tombol panah ↑/↓ dan drag-and-drop kini hanya tampil/aktif saat mode ini diaktifkan — tile foto default jadi lebih ringkas |
+| Pesan bantuan touch | Saat mode reorder aktif, teks "Drag isn't supported on touchscreens — use the ↑/↓ buttons..." muncul khusus di perangkat `pointer: coarse` (CSS media query, tidak render di desktop) |
+| Tombol hapus foto | Disembunyikan juga selama mode reorder aktif (konsisten dengan pola mode selection yang sudah ada) |
+
+**Bot review (Junie automated review — `github-actions[bot]`):**
+
+| Temuan | Fix |
+|---|---|
+| Tombol "Reorder photos"/"Done reordering" hilang kalau jumlah foto turun jadi 1 saat mode reorder aktif (mis. via tab lain) — pengguna terjebak tanpa cara keluar | Guard tombol ditambah `\|\| photoReorderMode` supaya tetap tampil |
+| Prop `disabled` di kedua tombol toggle membuat cabang peralihan mode di `onClick` masing-masing jadi tidak pernah tercapai | `disabled` dihapus — kedua handler sudah membersihkan state mode lain dengan benar, jadi peralihan langsung kini benar-benar berfungsi |
+| Tile foto tetap bisa mulai drag saat `isSavingOrder` (permintaan reorder sebelumnya masih diproses) — berisiko permintaan reorder tumpang tindih | `draggable`/`onDragStart` ditambah guard `!isSavingOrder` |
+
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. Ditunggu hingga tidak ada masukan baru pasca-fix, semua CI hijau, lalu di-merge.
+
+---
+
+## PR #41 — Fix CSP `connect-src` Blokir Ably Realtime (`*.ably.net`) — MERGED (2026-07-19, branch `fix/csp-ably-realtime`)
 
 User melaporkan console Firefox di production menunjukkan CSP `connect-src` violation yang memblokir `main.realtime.ably.net` (requestToken XHR + websocket upgrade). Root cause: `connect-src` cuma mengizinkan `*.ably.io`/`*.ably-realtime.com` — ably-js (2.23.0) pakai host utama di domain `*.ably.net` yang tidak pernah masuk allowlist, jadi koneksi realtime utama selalu CSP-blocked dan tiap klien terpaksa jatuh ke fallback host yang lebih lambat (`*.a.fallback.ably-realtime.com`, kebetulan sudah diizinkan — makanya realtime tetap jalan tapi lebih lambat + console penuh error).
 
@@ -342,5 +341,5 @@ User melaporkan console Firefox di production menunjukkan CSP `connect-src` viol
 | "Rule set diabaikan karena selector salah" | Rule `::-webkit-scrollbar` di `global.css`; Firefox memang tidak dukung pseudo-element scrollbar vendor-prefixed ini (pakai `scrollbar-width`/`scrollbar-color`), diabaikan secara aman |
 | `_vercel/insights/script.js` gagal dimuat | Same-origin, sudah tercakup `script-src 'self'`; biasa disebabkan ad-blocker browser yang memblokir path script analytics dikenal, bukan masalah CSP/app — `@vercel/analytics` didesain gagal diam-diam |
 
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19, termasuk drift-guard test CSP/vercel.json), `astro build` semua pass. PR https://github.com/msph1973/ylx/pull/41 → base `master`.
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19, termasuk drift-guard test CSP/vercel.json), `astro build` semua pass. PR https://github.com/msph1973/ylx/pull/41 → base `master`, merged squash (`64229392`).
 
