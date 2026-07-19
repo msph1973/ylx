@@ -41,6 +41,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
       setSelectedPhotos(new Set()); // server deleted existing selections on unlock
       setPhotoNotes(new Map()); // clear note drafts on unlock
+      setError(null); // drop any stale submit-error toast so it can't overlap the unlock toast
       setShowUnlockToast(true);
       if (unlockToastTimeoutRef.current !== null) {
         window.clearTimeout(unlockToastTimeoutRef.current);
@@ -115,6 +116,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const handleSubmit = useCallback(async () => {
     if (!album || selectedPhotos.size === 0 || isAlbumLocked(album)) return;
 
+    setError(null);
     try {
       const response = await fetch(`/api/gallery/${slug}/submit`, {
         method: 'POST',
@@ -654,8 +656,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         .submit-error-toast {
           position: fixed;
           bottom: calc(var(--selection-bar-h, 76px) + var(--space-4) + env(safe-area-inset-bottom));
-          left: var(--space-4);
-          right: var(--space-4);
+          left: max(var(--space-4), env(safe-area-inset-left));
+          right: max(var(--space-4), env(safe-area-inset-right));
           display: flex;
           align-items: center;
           justify-content: space-between;

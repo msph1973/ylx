@@ -55,6 +55,11 @@ export function PhotoLightbox({
   const SWIPE_THRESHOLD_PX = 50;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Ignore multi-touch gestures (e.g. pinch-zoom) so they don't trigger swipes.
+    if (e.touches.length !== 1) {
+      touchStart.current = null;
+      return;
+    }
     const t = e.touches[0];
     touchStart.current = { x: t.clientX, y: t.clientY };
   }, []);
@@ -63,6 +68,10 @@ export function PhotoLightbox({
     const start = touchStart.current;
     touchStart.current = null;
     if (!start) return;
+
+    // Ignore if it was part of a multi-touch gesture (fingers still down, or
+    // more than one finger lifted at once).
+    if (e.touches.length > 0 || e.changedTouches.length !== 1) return;
 
     const t = e.changedTouches[0];
     const dx = t.clientX - start.x;

@@ -2,7 +2,7 @@
 
 > Ini adalah arsip naratif detail untuk pekerjaan yang sudah **selesai & merged**. `STATUS.md` (root project) adalah satu-satunya sumber kebenaran untuk **kondisi terkini** — file ini murni riwayat historis untuk referensi/audit trail, tidak perlu dibaca di awal setiap sesi.
 >
-> Struktur: setiap kali `STATUS.md` bagian "Recent Work" bertambah entri baru dan melebihi ~3 PR/fix terakhir, entri paling lama dipindahkan ke sini (rolling window) — bukan dihapus.
+> Struktur: `STATUS.md` menyimpan **4 PR/fix terbaru** sebagai naratif penuh. Saat entri ke-5 ditambahkan, entri paling lama dipindahkan ke sini (rolling window) — bukan dihapus.
 
 ---
 
@@ -65,7 +65,7 @@ Adopsi **impeccable CLI** (`pbakaus/impeccable`) sebagai tooling detector perman
 | Aspek | Detail |
 |-------|--------|
 | Tooling ter-commit | `.impeccable/config.json` (sumber kebenaran detector: `ignoreFiles`). Detector jalan via `npx impeccable detect --json apps/web/src` — 0 temuan actionable |
-| Junie unsupported | Junie bukan provider impeccable → hook editor-native dilewati; hanya CLI + config bersama. Install harness `.github/skills|hooks/` di-`.gitignore` (blok `# impeccable-ignore-start/end`) |
+| Junie unsupported | Junie bukan provider impeccable → hook editor-native dilewati; hanya CLI + config bersama. Install harness `.github/skills\|hooks/` di-`.gitignore` (blok `# impeccable-ignore-start/end`) |
 | False positive triase | `broken-image` (`BlurImage.tsx`, `src` runtime) → `ignoreFiles`; `overused-font`/`single-font` (`BaseLayout.astro`) → komentar inline (Inter dipasangkan Playfair Display) |
 | Foundation anti-drift | Token `--tap-target-min: 44px` (`variables.css`) + base `button { min-height: var(--tap-target-min) }` (`global.css`); `.search-clear` dikecualikan (in-input, 36×36) |
 | P1 Upload | `.btn-text`/`.btn-icon` (+`min-width`)/`.btn-retry` ≥44px (ikon 16px tetap) |

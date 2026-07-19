@@ -35,6 +35,23 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     (index: number, value: string) => {
       if (!/^\d*$/.test(value)) return;
 
+      // OTP autofill can deliver the whole code through a single change event;
+      // spread it across the boxes instead of keeping only the last digit.
+      if (value.length > 1) {
+        const digitsToPlace = value.replace(/\D/g, '').slice(0, 4 - index);
+        if (!digitsToPlace) return;
+        setDigits((prev) => {
+          const next = [...prev];
+          for (let i = 0; i < digitsToPlace.length; i++) {
+            next[index + i] = digitsToPlace[i];
+          }
+          return next;
+        });
+        const focusIndex = Math.min(index + digitsToPlace.length, 3);
+        inputRefs.current[focusIndex]?.focus();
+        return;
+      }
+
       setDigits((prev) => {
         const newDigits = [...prev];
         newDigits[index] = value.slice(-1);
@@ -64,8 +81,8 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     if (!pasted) return;
     e.preventDefault();
 
-    setDigits((prev) => {
-      const next = [...prev];
+    setDigits(() => {
+      const next = ['', '', '', ''];
       for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
       return next;
     });
