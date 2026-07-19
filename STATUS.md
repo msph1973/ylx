@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive). Semua audit temuan ✅ FIXED. **PR #37** (gallery mobile-first adapt) terbuka, menunggu review/merge.
+> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt. Semua audit temuan ✅ FIXED. **PR #38** (UI/UX audit P1/P2: landing/login/dashboard/upload) terbuka, menunggu review/merge.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#33** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru** (#34–#37) yang masih naratif penuh di bawah — begitu ada PR ke-5 berikutnya, entri PR #34 dipindah ke arsip (rolling window: simpan 4).
+> **Riwayat detail PR #19–#34** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru** (#35–#38) yang masih naratif penuh di bawah — begitu ada PR ke-5 berikutnya, entri PR #35 dipindah ke arsip (rolling window: simpan 4).
 
 ## File Map
 
@@ -219,48 +219,6 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 ---
 
-## PR #34 — Fix `new-audit-2.md` Findings #1-#7 + Bonus #8, #10 (2026-07-16, branch `fix/audit-2-issues`)
-
-Menindaklanjuti full-codebase audit #2 (`new-audit-2.md`, 11 temuan baru ditemukan via 3 subagent paralel — memory leak, backend, frontend). User mengerjakan 7 fix utama sendiri; sesi ini mereview hasilnya, menemukan+memperbaiki 2 bug di dalamnya, lalu commit/push/buka PR.
-
-| # | Temuan | Fix |
-|---|---|---|
-| 1 | `submit.ts`/`verify.ts` — `request.json()` tanpa try/catch di endpoint publik | Dibungkus try/catch, return 400 rapi |
-| 2 | `lock.ts`/`unlock.ts` — `catch {}` kosong total, tanpa logging | Tambah `console.error` sebelum return 500 |
-| 3 | `albums/[id]/index.ts` — catch GET/PUT/DELETE tidak log error | Tambah `console.error` + konteks album id di ketiga handler |
-| 4 | `finalize.ts` — tidak ada validasi tipe/ukuran file di server | Tambah validasi MIME type + ukuran |
-| 5 | `CopyFilenamesButton.tsx` — bypass `useCopyToClipboard`, `setTimeout` tanpa cleanup | Refactor pakai hook, konsisten dengan tombol copy lain |
-| 6 | `PhotoLightbox.tsx` — modal galeri klien tanpa focus trap | Terapkan `useFocusTrap` (sudah dipakai admin modal) |
-| 7 | `albums.ts`/`albums/[id]/index.ts` — `slugLock` tidak dirilis kalau write album gagal setelah reservasi | Tambah rollback (`releaseSlugLock`) di catch block |
-| 8 (bonus) | `ratelimit.ts` — in-memory `Map` fallback tanpa eviction | Tambah periodic sweep |
-| 10 (bonus) | `middleware.ts` — prefix CSRF `/api/admin` tanpa trailing slash | Disamakan jadi `/api/admin/` |
-
-**2 bug ditemukan & diperbaiki saat review hasil fix user (sebelum commit):**
-- Fix #3 di handler GET awalnya mendeklarasikan `albumId` di dalam blok `try`, sehingga logging baru di `catch` tidak bisa mengakses variabel tsb — `tsc` gagal total (`TS2304`). Diperbaiki: pindahkan deklarasi `albumId` ke luar `try`, sama seperti pola di `PUT`/`DELETE`.
-- Fix #4 awalnya tidak menyertakan `image/tiff` di `VALID_MIME_TYPES`, padahal client (`UploadPage.tsx`) sudah mengizinkan upload TIFF — akan mematahkan fitur yang sudah berjalan. Ditambahkan `image/tiff` + `image/x-tiff`.
-
-Temuan **#9** (`UploadPage.tsx` tanpa `AbortController`/unmount-guard) dan **#11** (`cache.ts` fail-open teoretis kalau `fetcher` throw sinkron) **belum** ditangani di PR ini — keduanya prioritas rendah, didokumentasikan sebagai follow-up di `new-audit-2.md`.
-
-`new-audit.md` (audit #1, 12 temuan, semua sudah fixed) dihapus dari project; `new-audit-2.md` (audit #2, 11 temuan) ditambahkan sebagai referensi.
-
-> Verifikasi: `pnpm --filter @ylx/web typecheck/lint --max-warnings 0/test (17/17 vitest)/build` semua pass. Commit `29a1a89` di branch `fix/audit-2-issues`; PR https://github.com/msph1973/ylx/pull/34 → base `master`.
-
-## PR #34 — Bot Review Fixes + Merged (2026-07-16)
-
-Setelah PR #34 dibuka, Sourcery dan CodeRabbit review. Temuan yang diperbaiki:
-
-| Bot | Temuan | Fix (commit `1386617`) |
-|-----|--------|---|
-| Sourcery | `releaseSlugLock` di catch bisa mask original error | Wrap setiap call dalam try/catch defensif |
-| Sourcery | Typo "satupun"→"satu pun", "gaya-nya"→"gayanya" di `new-audit-2.md` | Fixed |
-| CodeRabbit | JSON `null` body → 500 di `submit.ts`/`verify.ts` | Tambah structural non-null object check sebelum property access |
-| CodeRabbit | `useCopyToClipboard` tidak expose failure state | Hook return `{ copied, error, copy }`; `CopyFilenamesButton` tampilkan "Copy failed" |
-| CodeRabbit | Error feedback animation tanpa `useReducedMotion` | Tambah conditional animation (commit `3739ce6`) |
-
-PR merged via squash (`d6b9c6f`).
-
----
-
 ## PR #35 — Fix `new-audit-2.md` Remaining #9, #11 (2026-07-16, branch `fix/audit-2-remaining`)
 
 Dua temuan terakhir dari audit #2 yang belum ditangani di PR #34:
@@ -299,7 +257,7 @@ User melaporkan **button share link tidak terlihat di mobile** pada admin album 
 
 ---
 
-## PR #37 — Gallery Mobile-First Adapt (2026-07-19, branch `fix/gallery-mobile-adapt`)
+## PR #37 — Gallery Mobile-First Adapt — MERGED (2026-07-19, branch `fix/gallery-mobile-adapt`)
 
 Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-pattern) atas rute `/gallery/[slug]` menemukan theming+perf sudah baik, tapi beberapa celah mobile nyata. Fix diterapkan:
 
@@ -350,4 +308,27 @@ Melanjutkan rekomendasi command yang belum dijalankan (`audit`/`adapt` sudah sel
 **Kebijakan baru: verifikasi manual/browser via Vercel Preview Deployment (2026-07-19):**
 
 Karena app jalan di Vercel Serverless, `astro dev` lokal berbeda perilaku (middleware dev-only, tidak ada cold-start serverless nyata, header cache/edge berbeda) — bisa menyembunyikan bug yang cuma muncul setelah deploy. `AGENTS.md` §"Manual/Browser Verification" baru mewajibkan: prioritaskan testing di URL Vercel Preview Deployment milik branch/PR (auto-di-comment bot Vercel di PR, pola `https://ylx-git-<branch>-msph.vercel.app`) begitu status check `Vercel` = `Ready`/`SUCCESS`, dev lokal tetap boleh untuk iterasi cepat saat menulis kode. Diverifikasi: preview PR #37 (`ylx-git-fix-gallery-mobile-adapt-msph.vercel.app`) aktif, `/` dan `/admin/login` HTTP 200. Commit `574fae3` (doc-only, di branch/PR yang sama).
+
+> **PR #37 merged** via squash ke `master`, tidak ada review manusia yang menahan (hanya komentar bot, semua sudah ditindaklanjuti), semua 9 CI check hijau.
+
+---
+
+## PR #38 — UI/UX Audit P1/P2 Fixes: Landing, Login, Admin Dashboard, Upload (2026-07-19, branch `fix/ui-audit-p1-p2`)
+
+Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti-pattern) via 3 subagent paralel atas 3 area yang belum pernah diaudit — landing (`index.astro`) + login (`admin/login.astro`), dashboard admin (`admin/index.astro`+`AlbumCard`+`AlbumFormModal`), dan detail-album/upload (`AlbumDetail.tsx`+`UploadPage.tsx`). Skor: 15/20, 16/20, 13/20 — tidak ada P0. Semua temuan P1 + P2 yang layak dieksekusi diperbaiki:
+
+| Area | Perbaikan |
+|------|-----------|
+| `admin/login.astro` | Kontras placeholder AA (hapus override lokal `opacity:0.6`), `autocomplete` email/password, landmark `<main>`, focus ring pakai token `--color-accent-ring` baru |
+| `index.astro` | Focus ring disamakan dengan login; input+tombol "Open" stack di ≤360px |
+| `BaseLayout.astro` | Trim 2 weight Playfair Display yang tidak dipakai (400/500) — kurangi request font render-blocking |
+| `UploadPage.tsx` | ARIA `role="progressbar"` di progress bar per-file (sebelumnya cuma progress bar total yang punya ARIA); throttle update progress state supaya tidak re-render seluruh daftar file di tiap tick |
+| `AlbumFormModal.tsx`/`ConfirmDialog.tsx`/`AlbumList.tsx` | `z-index` hardcoded (50/60/10) diganti token `--z-modal`/`--z-dropdown` — modal berpotensi tertutup header sticky admin (`z-index:200`) |
+| `AlbumFormModal.tsx` | `aria-labelledby` mengikuti `<h2>` asli (sebelumnya `aria-label` literal beda teks) |
+| `AlbumCard.tsx`/`AlbumDetail.tsx` | Kontras badge status "submitted" dipertajam (18%→12% tint, sama bug di 2 file); animasi spring under-damped diredam (`damping` dinaikkan ke nilai kritis) |
+| `AlbumDetail.tsx` | Hardcoded `44px` diganti token `--tap-target-min` (4 lokasi) |
+
+**Sengaja dilewati (didokumentasikan, bukan bug):** menyembunyikan tombol reorder foto di balik mode eksplisit (opini subjektif UX, tombol panah sudah berfungsi+berlabel), dan pesan fallback untuk drag HTML5 yang tak berfungsi di touch (alasan sama, tombol panah sudah menutupi).
+
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. Commit `7a1e3b9` di branch `fix/ui-audit-p1-p2`; PR https://github.com/msph1973/ylx/pull/38 → base `master`. **OPEN**, menunggu review/merge.
 

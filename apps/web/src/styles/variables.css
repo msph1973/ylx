@@ -13,6 +13,8 @@
   --color-accent-hover: #c99660;
   /* oklch(54% 0.11 65) — dark variant for bg on colored surfaces */
   --color-accent-dark: #9e7040;
+  /* --color-accent at 20% alpha — focus-ring glow */
+  --color-accent-ring: rgba(184, 134, 78, 0.2);
   --color-success: #4ade80;
   --color-error: #f87171;
 

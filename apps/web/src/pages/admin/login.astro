@@ -5,7 +5,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 ---
 
 <BaseLayout title="Admin Login">
-  <div class="login-page">
+  <main class="login-page">
     <div class="login-card">
       <div class="login-header">
         <h1 class="brand-name">YLx</h1>
@@ -20,6 +20,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
             id="email"
             name="email"
             required
+            autocomplete="username"
             placeholder="admin@ylx.com"
           />
         </div>
@@ -31,7 +32,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
             id="password"
             name="password"
             required
-            placeholder="••••••••"
+            autocomplete="current-password"
           />
         </div>
 
@@ -40,7 +41,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         <button type="submit" class="login-btn">Sign In</button>
       </form>
     </div>
-  </div>
+  </main>
 
   <style>
     .login-page {
@@ -108,12 +109,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .form-group input:focus {
       outline: none;
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(184, 134, 78, 0.2);
-    }
-
-    .form-group input::placeholder {
-      color: var(--color-text-muted);
-      opacity: 0.6;
+      box-shadow: 0 0 0 3px var(--color-accent-ring);
     }
 
     .error-message {

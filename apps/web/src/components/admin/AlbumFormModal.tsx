@@ -182,16 +182,16 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-label={isEdit ? 'Edit Album' : 'Create Album'}
+            aria-labelledby="album-modal-title"
             tabIndex={-1}
             variants={modalVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            transition={{ type: 'spring', stiffness: 400, damping: 30, duration: shouldReduceMotion ? 0 : undefined }}
+            transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 40 }}
           >
             <div className="modal-header">
-              <h2 className="modal-title">{isEdit ? 'Edit Album' : 'New Album'}</h2>
+              <h2 id="album-modal-title" className="modal-title">{isEdit ? 'Edit Album' : 'New Album'}</h2>
               <button
                 className="modal-close"
                 onClick={onClose}
@@ -340,7 +340,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           align-items: center;
           justify-content: center;
           padding: var(--space-4);
-          z-index: 50;
+          z-index: var(--z-modal);
         }
 
         .modal {

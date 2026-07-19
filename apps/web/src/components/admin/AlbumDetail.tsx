@@ -662,7 +662,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             display: inline-flex;
             align-items: center;
             gap: var(--space-2);
-            min-height: 44px;
+            min-height: var(--tap-target-min);
             padding: var(--space-2) var(--space-4);
             background-color: var(--color-surface);
             border: 1px solid var(--color-border);
@@ -708,7 +708,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             letter-spacing: 0.05em;
           }
           .status-badge--active { background-color: color-mix(in srgb, var(--color-success) 15%, transparent); color: var(--color-success); }
-          .status-badge--submitted { background-color: color-mix(in srgb, var(--color-accent) 18%, transparent); color: var(--color-accent); }
+          .status-badge--submitted { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent); }
           .status-badge--locked { background-color: color-mix(in srgb, var(--color-error) 15%, transparent); color: var(--color-error); }
 
           .metadata-grid {
@@ -749,7 +749,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             display: inline-flex;
             align-items: center;
             gap: var(--space-2);
-            min-height: 44px;
+            min-height: var(--tap-target-min);
             padding: var(--space-2) var(--space-4);
             background-color: var(--color-surface);
             border: 1px solid var(--color-border);
@@ -789,7 +789,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .photo-select-toggle,
           .photo-move-btn,
           .link-btn {
-            min-height: 44px;
+            min-height: var(--tap-target-min);
           }
 
           .selection-toggle-btn,
@@ -929,8 +929,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 44px;
-            height: 44px;
+            width: var(--tap-target-min);
+            height: var(--tap-target-min);
             border: none;
             border-radius: var(--radius-md);
             background-color: color-mix(in srgb, var(--color-bg) 78%, transparent);

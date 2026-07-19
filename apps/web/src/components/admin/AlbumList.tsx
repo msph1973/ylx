@@ -380,7 +380,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
         .list-toolbar {
           position: sticky;
           top: 0;
-          z-index: 10;
+          z-index: var(--z-dropdown);
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
