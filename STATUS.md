@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#35** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru** (#36–#40) yang masih naratif penuh di bawah — begitu ada PR ke-5 berikutnya, entri PR #36 dipindah ke arsip (rolling window: simpan 4).
+> **Riwayat detail PR #19–#35** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru dengan narasi penuh** (#36, #37, #38, #40 — #39 doc-only STATUS.md sync, tidak punya section terpisah) yang masih tercantum di bawah — begitu ada PR ke-5 berikutnya, entri PR #36 dipindah ke arsip (rolling window: simpan 4).
 
 ## File Map
 

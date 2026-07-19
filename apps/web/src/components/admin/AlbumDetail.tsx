@@ -174,12 +174,13 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   }, []);
 
   const togglePhotoReorderMode = useCallback(() => {
-    setPhotoReorderMode((prev) => {
-      if (prev) return false;
+    setPhotoReorderMode((prev) => !prev);
+    if (photoReorderMode) {
+      setReorderError(null);
+    } else {
       exitPhotoSelectionMode();
-      return true;
-    });
-  }, [exitPhotoSelectionMode]);
+    }
+  }, [exitPhotoSelectionMode, photoReorderMode]);
 
   const togglePhotoSelection = useCallback((photoId: string) => {
     setSelectedPhotoIds((prev) => {
@@ -466,6 +467,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                   exitPhotoSelectionMode();
                 } else {
                   setPhotoReorderMode(false);
+                  setReorderError(null);
                   setPhotoSelectionMode(true);
                   setBulkPhotoDeleteError(null);
                 }
