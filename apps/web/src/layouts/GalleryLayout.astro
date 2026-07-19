@@ -33,6 +33,9 @@ const { title, clientName = 'Client' } = Astro.props;
     justify-content: space-between;
     align-items: center;
     padding: var(--space-4) var(--space-6);
+    padding-top: max(var(--space-4), env(safe-area-inset-top));
+    padding-left: max(var(--space-6), env(safe-area-inset-left));
+    padding-right: max(var(--space-6), env(safe-area-inset-right));
     border-bottom: 1px solid var(--color-border);
     background-color: var(--color-surface);
     position: sticky;
@@ -58,11 +61,15 @@ const { title, clientName = 'Client' } = Astro.props;
   .gallery-content {
     flex: 1;
     padding: var(--space-6);
+    padding-left: max(var(--space-6), env(safe-area-inset-left));
+    padding-right: max(var(--space-6), env(safe-area-inset-right));
   }
 
   @media (min-width: 768px) {
     .gallery-content {
       padding: var(--space-8);
+      padding-left: max(var(--space-8), env(safe-area-inset-left));
+      padding-right: max(var(--space-8), env(safe-area-inset-right));
     }
   }
 </style>

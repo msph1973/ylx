@@ -16,6 +16,16 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     inputRefs.current[0]?.focus();
   }, []);
 
+  // A rejected PIN otherwise leaves all 4 boxes filled — the user has to
+  // notice the error text and manually backspace every digit before they
+  // can retry. Clear the boxes and refocus automatically instead.
+  useEffect(() => {
+    if (error) {
+      setDigits(['', '', '', '']);
+      inputRefs.current[0]?.focus();
+    }
+  }, [error]);
+
   const onSubmitRef = useRef(onSubmit);
   onSubmitRef.current = onSubmit;
 
@@ -34,6 +44,23 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
   const handleChange = useCallback(
     (index: number, value: string) => {
       if (!/^\d*$/.test(value)) return;
+
+      // OTP autofill can deliver the whole code through a single change event;
+      // spread it across the boxes instead of keeping only the last digit.
+      if (value.length > 1) {
+        const digitsToPlace = value.replace(/\D/g, '').slice(0, 4 - index);
+        if (!digitsToPlace) return;
+        setDigits((prev) => {
+          const next = [...prev];
+          for (let i = 0; i < digitsToPlace.length; i++) {
+            next[index + i] = digitsToPlace[i];
+          }
+          return next;
+        });
+        const focusIndex = Math.min(index + digitsToPlace.length, 3);
+        inputRefs.current[focusIndex]?.focus();
+        return;
+      }
 
       setDigits((prev) => {
         const newDigits = [...prev];
@@ -57,6 +84,23 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     [digits]
   );
 
+  // Splits a pasted/autofilled code (e.g. from an SMS suggestion) across all
+  // 4 boxes instead of dropping everything but the first digit into one box.
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    if (!pasted) return;
+    e.preventDefault();
+
+    setDigits(() => {
+      const next = ['', '', '', ''];
+      for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
+      return next;
+    });
+
+    const focusIndex = Math.min(pasted.length, 3);
+    inputRefs.current[focusIndex]?.focus();
+  }, []);
+
   return (
     <div className="pin-entry">
       <motion.div
@@ -76,10 +120,12 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
               ref={(el) => { inputRefs.current[index] = el; }}
               type="text"
               inputMode="numeric"
+              autoComplete={index === 0 ? 'one-time-code' : 'off'}
               maxLength={1}
               value={digit}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
+              onPaste={handlePaste}
               disabled={isLoading}
               className="pin-digit"
               aria-label={`Digit ${index + 1}`}
