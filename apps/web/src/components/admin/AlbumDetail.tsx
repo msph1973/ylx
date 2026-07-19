@@ -448,13 +448,12 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
         <div className="section-header photos-section-header">
           <h3 className="photos-title">All Photos ({photos.length})</h3>
           <div className="section-actions photo-section-actions">
-            {photos.length > 1 && (
+            {(photos.length > 1 || photoReorderMode) && (
               <button
                 type="button"
                 className={`selection-toggle-btn${photoReorderMode ? ' is-active' : ''}`}
                 onClick={togglePhotoReorderMode}
                 aria-pressed={photoReorderMode}
-                disabled={photoSelectionMode}
               >
                 {photoReorderMode ? 'Done reordering' : 'Reorder photos'}
               </button>
@@ -473,7 +472,6 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 }
               }}
               aria-pressed={photoSelectionMode}
-              disabled={photoReorderMode}
             >
               {photoSelectionMode ? 'Done selecting' : 'Select photos'}
             </button>
