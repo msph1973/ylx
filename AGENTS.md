@@ -58,6 +58,15 @@ The built-in `memory` MCP server holds a knowledge graph — use it **only** for
 - Once a fix or implementation on that branch is complete and verified (`tsc`, lint, tests, build all pass), **commit, push, and open a PR immediately — do not wait for explicit user instruction** to do so. This is a standing user preference, not a one-off request.
 - Still never rewrite/force-push history or touch `master` directly without being asked.
 
+## Manual/Browser Verification — Prefer Vercel Preview Deployment
+
+Since the app runs on Vercel Serverless, a local `astro dev` server behaves differently (dev-only middleware, no real serverless cold-start, different caching/edge headers) — it can hide bugs that only show up once deployed. When a fix/PR needs hands-on or browser verification (visual/UX check, mobile viewport testing, E2E), **prefer testing against that branch's live Vercel Preview Deployment over spinning up local dev**, whenever a preview is available:
+
+- Every push to a non-`master` branch/PR gets its own preview URL, auto-commented by the Vercel GitHub bot on the PR (pattern: `https://ylx-git-<branch-name>-msph.vercel.app`) — check `gh pr view <n> --json comments` or the PR page if the URL isn't already known.
+- Wait for the Vercel check on the PR/commit to report `Ready`/`SUCCESS` before testing (`gh pr view <n> --json statusCheckRollup`) — an in-progress deployment will serve stale or broken content.
+- Local dev (`pnpm dev`) is still fine for tight inner-loop iteration (fast rebuilds while writing code), but before calling a fix verified, re-check it on the actual preview deployment, not just localhost.
+- If no preview exists yet (e.g. branch not pushed), push first so Vercel builds one, rather than relying solely on local dev for the final check.
+
 ## Skills — Always Use the Relevant One
 
 Before starting any task, scan the available Agent Skills and use **every** skill that matches the task's domain (open its doc first). Skipping a matching skill is not allowed unless the user says otherwise. Common matches in this repo: `astro` (framework), `sanity-best-practices` / `sanity-migration` / `content-modeling-best-practices` (CMS + GROQ), `impeccable` (UI/UX audit + fix), `compose:*` (`plan` / `tdd` / `subagent` / `review` / `verify`), `kernel-*` + `debug-browser-session` (browser E2E).
