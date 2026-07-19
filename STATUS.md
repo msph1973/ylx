@@ -314,3 +314,19 @@ Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-p
 
 > Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (17/17), `astro build`, dan detector anti-pattern impeccable (`detect.mjs`) semua pass. Commit `79762ee` (docs housekeeping) + `c05fabe` (fix) di branch `fix/gallery-mobile-adapt`; PR https://github.com/msph1973/ylx/pull/37 → base `master`. Sesuai kebijakan baru di `AGENTS.md` §Git Workflow, commit/push/PR dijalankan otomatis begitu fix selesai & terverifikasi, tanpa menunggu instruksi eksplisit.
 
+**Bot review round 2 (Sourcery + CodeRabbit):**
+
+| Bot | Temuan | Fix |
+|-----|--------|-----|
+| Sourcery | `PhotoLightbox` swipe handler pakai `touches[0]`/`changedTouches[0]` tanpa guard → gesture multi-jari (pinch-zoom) bisa memicu swipe | Guard `touches.length !== 1` di `handleTouchStart`, `changedTouches.length !== 1` di `handleTouchEnd` (commit `a971f79`, dikerjakan user di agent lain) |
+| Sourcery (overall feedback) | Swipe hanya reset di `touchend`, tidak menangani `touchcancel` (gesture terinterupsi — panggilan masuk, gesture nav OS) | Tambah `onTouchCancel` handler di `PhotoLightbox.tsx`/`BlurImage.tsx` yang membersihkan start-point (commit `5f6b9ef`, sesi ini) |
+| Sourcery (overall feedback) | `--selection-bar-h` hardcoded, dipakai ulang untuk posisi toast | **Sengaja dilewati** — tinggi 76px stabil untuk elemen fixed-height; refactor `ResizeObserver` dinilai over-engineering |
+| CodeRabbit | `GalleryPage` — error toast submit tidak dibersihkan saat submit ulang/unlock, bisa tumpang tindih dengan unlock toast | `setError(null)` di awal `handleSubmit` + saat proses unlock (commit `a971f79`) |
+| CodeRabbit | Error toast tidak pakai `safe-area-inset` horizontal (landscape notch) | Disamakan dengan selection bar: `max(var(--space-4), env(safe-area-inset-*))` (commit `a971f79`) |
+| CodeRabbit | `PinEntry.handlePaste` tidak membersihkan slot lama sebelum isi kode pendek → sisa digit basi | `next = ['', '', '', '']` sebelum diisi (commit `a971f79`) |
+| CodeRabbit | `PinEntry.handleChange` OTP autofill lewat satu event `change` cuma menyimpan karakter terakhir | Deteksi `value.length > 1`, sebar digit ke box berikutnya + 2 regression test baru (commit `a971f79`) |
+| CodeRabbit | Pipe (`\|`) di tabel Markdown `STATUS-ARCHIVE.md` merusak rendering | Diganti jadi 2 path terpisah (commit `a971f79`) |
+| CodeRabbit | Kebijakan rolling-window beda angka antara `STATUS.md` (~3) dan arsip (~3) vs isi aktual (4 PR) | Disamakan eksplisit jadi "4 PR terbaru" di kedua file (commit `a971f79`) |
+
+> Semua temuan bot round 2 sudah ✅ FIXED. Commit `a971f79` (oleh user, agent lain) + `5f6b9ef` (touchcancel, sesi ini). `tsc`/`eslint --max-warnings 0`/`vitest run` (19/19)/`astro build` semua pass.
+
