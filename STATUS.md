@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload). Semua audit temuan ✅ FIXED. Tidak ada PR terbuka.
+> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload). Semua audit temuan ✅ FIXED. **PR #40** (mode reorder foto eksplisit + fallback touch) menunggu review/merge.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#34** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru** (#35–#38) yang masih naratif penuh di bawah — begitu ada PR ke-5 berikutnya, entri PR #35 dipindah ke arsip (rolling window: simpan 4).
+> **Riwayat detail PR #19–#35** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru** (#36–#40) yang masih naratif penuh di bawah — begitu ada PR ke-5 berikutnya, entri PR #36 dipindah ke arsip (rolling window: simpan 4).
 
 ## File Map
 
@@ -219,21 +219,6 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 ---
 
-## PR #35 — Fix `new-audit-2.md` Remaining #9, #11 (2026-07-16, branch `fix/audit-2-remaining`)
-
-Dua temuan terakhir dari audit #2 yang belum ditangani di PR #34:
-
-| # | Temuan | Fix (commit `4d1f52e`) |
-|---|--------|---|
-| 9 | `UploadPage.tsx` — tidak ada unmount guard untuk async setState | Tambah `mountedRef` + guard di `endActivity` callback |
-| 11 | `cache.ts` — fail-open contract tidak terjamin kalau fetcher throw sinkron | `await fetcher()` eksplisit; `storeInCache` jadi fire-and-forget pada hard miss |
-
-`new-audit-2.md` header diupdate: "Semua 11 temuan ✅ FIXED".
-
-> Verifikasi: tsc + eslint pass. PR merged via squash (`b4df7dc`). Semua 11 temuan `new-audit-2.md` sekarang selesai.
-
----
-
 ## PR #36 — Mobile-First Impeccable UI (2026-07-16, branch `fix/mobile-first-impeccable`)
 
 User melaporkan **button share link tidak terlihat di mobile** pada admin album detail. Audit menemukan:
@@ -340,4 +325,18 @@ Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti
 | `UploadPage.tsx` — ikon centang selesai upload cuma `aria-label` di `<span>` generik, tidak konsisten terekspos ke assistive tech | Tambah `role="img"` |
 
 > Ditunggu hingga tidak ada review/komentar baru pasca-fix (semua 10 CI check + review bot pass, `mergeStateStatus: CLEAN`), lalu **PR #38 merged** via squash ke `master` (`a1d72b9`).
+
+---
+
+## PR #40 — Mode Reorder Foto Eksplisit + Pesan Fallback Touch (branch `fix/photo-reorder-touch-mode`)
+
+Menuntaskan 2 temuan yang sengaja ditunda di PR #38 (`AlbumDetail.tsx`): tombol panah reorder selalu tampil di setiap foto (padahal HTML5 drag-and-drop tidak berfungsi di layar sentuh tanpa pesan penjelasan apapun).
+
+| Perubahan | Detail |
+|-----------|--------|
+| Mode "Reorder photos" baru | Toggle terpisah dari "Select photos" (saling eksklusif); tombol panah ↑/↓ dan drag-and-drop kini hanya tampil/aktif saat mode ini diaktifkan — tile foto default jadi lebih ringkas |
+| Pesan bantuan touch | Saat mode reorder aktif, teks "Drag isn't supported on touchscreens — use the ↑/↓ buttons..." muncul khusus di perangkat `pointer: coarse` (CSS media query, tidak render di desktop) |
+| Tombol hapus foto | Disembunyikan juga selama mode reorder aktif (konsisten dengan pola mode selection yang sudah ada) |
+
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass.
 
