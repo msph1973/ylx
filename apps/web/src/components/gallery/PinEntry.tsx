@@ -16,6 +16,16 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
     inputRefs.current[0]?.focus();
   }, []);
 
+  // A rejected PIN otherwise leaves all 4 boxes filled — the user has to
+  // notice the error text and manually backspace every digit before they
+  // can retry. Clear the boxes and refocus automatically instead.
+  useEffect(() => {
+    if (error) {
+      setDigits(['', '', '', '']);
+      inputRefs.current[0]?.focus();
+    }
+  }, [error]);
+
   const onSubmitRef = useRef(onSubmit);
   onSubmitRef.current = onSubmit;
 

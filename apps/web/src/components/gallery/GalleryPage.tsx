@@ -24,6 +24,16 @@ function isAlbumLocked(album: AlbumData | null): boolean {
   return album?.status === 'locked' || album?.status === 'submitted';
 }
 
+// `fetch` rejects with a generic TypeError (message often just "Failed to
+// fetch" / "Load failed") when the network itself is down — surfacing that
+// raw text is meaningless on a flaky mobile connection, so translate it.
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof TypeError) {
+    return 'Could not connect. Please check your internet connection and try again.';
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
 export function GalleryPage({ slug }: GalleryPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -35,6 +45,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [photoNotes, setPhotoNotes] = useState<Map<string, string>>(new Map());
   const [showUnlockToast, setShowUnlockToast] = useState(false);
   const unlockToastTimeoutRef = useRef<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimeoutRef = useRef<number | null>(null);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const confirmTimeoutRef = useRef<number | null>(null);
 
   const realtimeCallbacks = useMemo(() => ({
     onAlbumUnlocked: () => {
@@ -53,13 +67,28 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     },
   }), []);
 
-  // Cleanup toast timeout on unmount
+  // Cleanup toast timeouts on unmount
   useEffect(() => {
     return () => {
       if (unlockToastTimeoutRef.current !== null) {
         window.clearTimeout(unlockToastTimeoutRef.current);
       }
+      if (noticeTimeoutRef.current !== null) {
+        window.clearTimeout(noticeTimeoutRef.current);
+      }
+      if (confirmTimeoutRef.current !== null) {
+        window.clearTimeout(confirmTimeoutRef.current);
+      }
     };
+  }, []);
+
+  const showNotice = useCallback((message: string) => {
+    setNotice(message);
+    if (noticeTimeoutRef.current !== null) window.clearTimeout(noticeTimeoutRef.current);
+    noticeTimeoutRef.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimeoutRef.current = null;
+    }, 2500);
   }, []);
 
   useRealtime(isAuthenticated ? (album?.id ?? null) : null, realtimeCallbacks);
@@ -83,7 +112,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       setAlbum(data.album);
       setIsAuthenticated(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
+      setError(getErrorMessage(err, 'Verification failed'));
     } finally {
       setIsLoading(false);
     }
@@ -99,10 +128,15 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         next.delete(photoId);
       } else if (album && next.size < album.maxSelections) {
         next.add(photoId);
+      } else if (album) {
+        // Silently ignoring a tap here reads as a bug ("why didn't my selection
+        // register?"), especially on mobile where there's no hover affordance
+        // to hint the grid is at capacity.
+        showNotice(`You've reached the limit of ${album.maxSelections} photos. Deselect one to choose another.`);
       }
       return next;
     });
-  }, [album]);
+  }, [album, showNotice]);
 
   const setNote = useCallback((photoId: string, note: string) => {
     setPhotoNotes((prev) => {
@@ -113,7 +147,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     });
   }, []);
 
-  const handleSubmit = useCallback(async () => {
+  const doSubmit = useCallback(async () => {
     if (!album || selectedPhotos.size === 0 || isAlbumLocked(album)) return;
 
     setError(null);
@@ -136,9 +170,39 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       // Server sets status to 'submitted' on submit (three-state model: active → submitted → locked).
       setAlbum((prev) => prev ? { ...prev, status: 'submitted' } : prev);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Submission failed');
+      setError(getErrorMessage(err, 'Submission failed'));
     }
   }, [album, selectedPhotos, photoNotes, slug]);
+
+  // Submitting locks the gallery — the client can't change their mind
+  // afterwards without the photographer unlocking it — so a stray tap
+  // shouldn't be able to finalize it. First tap arms a confirmation instead
+  // of submitting immediately.
+  const handleSubmitTap = useCallback(() => {
+    if (!confirmingSubmit) {
+      setConfirmingSubmit(true);
+      if (confirmTimeoutRef.current !== null) window.clearTimeout(confirmTimeoutRef.current);
+      confirmTimeoutRef.current = window.setTimeout(() => {
+        setConfirmingSubmit(false);
+        confirmTimeoutRef.current = null;
+      }, 5000);
+      return;
+    }
+    if (confirmTimeoutRef.current !== null) {
+      window.clearTimeout(confirmTimeoutRef.current);
+      confirmTimeoutRef.current = null;
+    }
+    setConfirmingSubmit(false);
+    void doSubmit();
+  }, [confirmingSubmit, doSubmit]);
+
+  const cancelSubmitConfirm = useCallback(() => {
+    if (confirmTimeoutRef.current !== null) {
+      window.clearTimeout(confirmTimeoutRef.current);
+      confirmTimeoutRef.current = null;
+    }
+    setConfirmingSubmit(false);
+  }, []);
 
   if (!isAuthenticated) {
     return (
@@ -187,21 +251,48 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     );
   }
 
+  const hasPhotos = (album?.photos.length ?? 0) > 0;
+
   return (
     <div className="gallery-view">
       <div className="gallery-selection-bar">
         <span className="selection-count">
-          {selectedPhotos.size} / {album?.maxSelections} selected
+          {confirmingSubmit
+            ? 'Selections are final once submitted. Send now?'
+            : `${selectedPhotos.size} / ${album?.maxSelections} selected`}
         </span>
+        {confirmingSubmit && (
+          <button
+            type="button"
+            className="submit-cancel-btn"
+            onClick={cancelSubmitConfirm}
+          >
+            Cancel
+          </button>
+        )}
         <button
           className="submit-btn"
-          onClick={handleSubmit}
+          onClick={handleSubmitTap}
           disabled={selectedPhotos.size === 0 || isAlbumLocked(album)}
         >
-          {isAlbumLocked(album) ? 'Submitted' : 'Submit Selection'}
+          {isAlbumLocked(album) ? 'Submitted' : confirmingSubmit ? 'Yes, Submit' : 'Submit Selection'}
         </button>
       </div>
 
+      {hasPhotos && (
+        <p className="gallery-instructions">
+          Tap a photo to preview it, then select up to {album?.maxSelections}.
+        </p>
+      )}
+
+      {!hasPhotos ? (
+        <div className="gallery-empty">
+          <p className="gallery-empty-title">No photos yet</p>
+          <p className="gallery-empty-body">
+            Your photographer hasn't uploaded any photos to this gallery yet. Check back soon.
+          </p>
+        </div>
+      ) : (
       <motion.div
         className="photo-grid"
         initial={{ opacity: 0 }}
@@ -211,6 +302,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         {album?.photos.map((photo, index) => {
           const isSelected = selectedPhotos.has(photo.id);
           const isDisabled = isAlbumLocked(album);
+          // First row (visible without scrolling on any device) loads eagerly
+          // at high priority; the rest stay lazy so the LCP candidate isn't
+          // competing with dozens of below-the-fold requests.
+          const isAboveFold = index < 4;
           return (
             <motion.div
               key={photo.id}
@@ -234,6 +329,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 srcSet={photo.thumbnailSrcSet ?? undefined}
                 sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
                 lqip={photo.lqip}
+                loading={isAboveFold ? 'eager' : 'lazy'}
                 alt={`Photo ${index + 1} of ${album.photos.length}`}
               />
               {isSelected && (
@@ -251,6 +347,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           );
         })}
       </motion.div>
+      )}
 
       <AnimatePresence>
         {showUnlockToast && (
@@ -264,6 +361,24 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
           >
             Gallery unlocked — please reselect and resubmit your photos
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tapping a photo past the selection limit used to be a silent no-op
+          — this makes the limit visible instead of looking like a bug. */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            className="info-toast"
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
+          >
+            {notice}
           </motion.div>
         )}
       </AnimatePresence>
@@ -343,8 +458,45 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         .selection-count {
+          flex: 1;
           font-size: var(--text-sm);
           color: var(--color-text-muted);
+        }
+
+        .submit-cancel-btn {
+          min-height: var(--tap-target-min);
+          padding: var(--space-2) var(--space-4);
+          background: none;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          color: var(--color-text-muted);
+          font-weight: var(--font-medium);
+        }
+
+        .gallery-instructions {
+          margin: 0 0 var(--space-4);
+          font-size: var(--text-sm);
+          color: var(--color-text-muted);
+          text-align: center;
+        }
+
+        .gallery-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: var(--space-2);
+          padding: var(--space-8) var(--space-4);
+        }
+
+        .gallery-empty-title {
+          font-size: var(--text-lg);
+          font-weight: var(--font-semibold);
+        }
+
+        .gallery-empty-body {
+          color: var(--color-text-muted);
+          max-width: 40ch;
         }
 
         .submit-btn {
@@ -683,6 +835,27 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           color: inherit;
           font-size: var(--text-base);
           cursor: pointer;
+        }
+
+        /* Info toast (e.g. selection-limit reached) — same slot as the
+           other status toasts, neutral tone since nothing failed. */
+        .info-toast {
+          position: fixed;
+          bottom: calc(var(--selection-bar-h, 76px) + var(--space-4) + env(safe-area-inset-bottom));
+          left: max(var(--space-4), env(safe-area-inset-left));
+          right: max(var(--space-4), env(safe-area-inset-right));
+          margin: 0 auto;
+          max-width: 420px;
+          text-align: center;
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-border);
+          color: var(--color-text);
+          padding: var(--space-3) var(--space-4);
+          border-radius: var(--radius-lg);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          z-index: var(--z-toast);
+          pointer-events: none;
         }
       `}</style>
     </div>

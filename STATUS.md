@@ -330,3 +330,20 @@ Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-p
 
 > Semua temuan bot round 2 sudah ✅ FIXED. Commit `a971f79` (oleh user, agent lain) + `5f6b9ef` (touchcancel, sesi ini). `tsc`/`eslint --max-warnings 0`/`vitest run` (19/19)/`astro build` semua pass.
 
+**Remaining impeccable commands (critique/optimize/onboard/harden gallery + audit admin bonus):**
+
+Melanjutkan rekomendasi command yang belum dijalankan (`audit`/`adapt` sudah selesai sebelumnya). Detector anti-pattern (`detect.mjs`) bersih di gallery & admin sebelum dan sesudah perubahan. Temuan manual (design review + heuristik) dan fix:
+
+| Temuan | Fix |
+|---|---|
+| Grid galeri tanpa foto tampil kosong total tanpa pesan (onboarding gap) | State kosong baru: "No photos yet" + penjelasan |
+| Tidak ada instruksi first-run di atas grid | Baris teks singkat "Tap a photo to preview it, then select up to N" |
+| Menekan foto saat sudah di batas maksimal diam-diam tidak berefek (terlihat seperti bug) | Toast info baru "You've reached the limit of N photos..." (berlaku baik dari grid maupun lightbox, sumber logic sama) |
+| Submit foto langsung mengunci galeri tanpa konfirmasi, padahal aksi tidak bisa dibatalkan sendiri oleh klien | Tap pertama mengarmed konfirmasi ("Selections are final... Send now?" + tombol Cancel), tap kedua baru benar-benar submit (auto-batal setelah 5 detik) |
+| PIN salah menyisakan 4 digit terisi — klien harus hapus manual sebelum mencoba lagi | Digit otomatis dikosongkan + fokus kembali ke kotak pertama saat error muncul |
+| Error jaringan (`fetch` gagal total) menampilkan pesan teknis mentah ("Failed to fetch") | Pesan ramah: "Could not connect. Please check your internet connection and try again." |
+| Semua foto grid dimuat `loading=lazy` termasuk baris pertama yang langsung terlihat (memperlambat LCP) | 4 foto pertama (baris atas layar) dimuat `eager`, sisanya tetap `lazy` |
+| **Audit admin (bonus)** — `SelectionTable`/`AlbumCard` | Tidak ada temuan kritis: tabel sudah scroll horizontal di ≤480px, kartu album sudah full-width responsive. Tombol reply kecil (32px) di bawah AAA (44px) tapi masih lolos AA (24px) — dibiarkan, tidak worth tambahan kompleksitas untuk backoffice density |
+
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` (gallery + admin) semua pass. `critique`/`polish` command formal (skoring heuristik 10-poin + laporan penuh) tidak dijalankan sebagai command terpisah — browser automation tidak tersedia di sesi ini (headless), jadi temuan digabung langsung ke fix di atas alih-alih laporan skor terpisah.
+
