@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-16 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive). Semua audit temuan ✅ FIXED. Tidak ada PR terbuka.
+> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive). Semua audit temuan ✅ FIXED. **PR #37** (gallery mobile-first adapt) terbuka, menunggu review/merge.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#33** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya PR #34–#36 (terbaru) yang masih naratif penuh di bawah — begitu ada PR baru berikutnya, entri PR #34 akan dipindah ke arsip juga (rolling window).
+> **Riwayat detail PR #19–#33** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya PR #34–#37 (terbaru) yang masih naratif penuh di bawah — begitu ada PR baru berikutnya, entri PR #34 akan dipindah ke arsip juga (rolling window).
 
 ## File Map
 
@@ -299,9 +299,9 @@ User melaporkan **button share link tidak terlihat di mobile** pada admin album 
 
 ---
 
-## Gallery Mobile-First Adapt — WIP, belum commit (branch `fix/gallery-mobile-adapt`)
+## PR #37 — Gallery Mobile-First Adapt (2026-07-19, branch `fix/gallery-mobile-adapt`)
 
-Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-pattern) atas rute `/gallery/[slug]` menemukan theming+perf sudah baik, tapi beberapa celah mobile nyata. Fix diterapkan (belum commit/PR, atas permintaan user untuk pindah dulu dari `master` ke branch terpisah):
+Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-pattern) atas rute `/gallery/[slug]` menemukan theming+perf sudah baik, tapi beberapa celah mobile nyata. Fix diterapkan:
 
 | Area | Perubahan |
 |------|-----------|
@@ -312,5 +312,5 @@ Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-p
 | PIN autofill | `PinEntry.tsx` — `onPaste` handler sebar 4 digit sekaligus (dari SMS/clipboard) + `autoComplete="one-time-code"` di digit pertama |
 | Error feedback | `GalleryPage.tsx` — toast error (dismissible) untuk kegagalan submit selection; sebelumnya gagal kirim di koneksi mobile yang flaky senyap total tanpa feedback ke klien |
 
-> Verifikasi: `tsc --noEmit`, `vitest run` (17/17), `astro build`, dan detector anti-pattern impeccable (`detect.mjs`) semua pass. `eslint` menunjukkan 4 error pre-existing di `gallery.spec.ts`/`upload.spec.ts` (tidak disentuh sesi ini, sudah ada sebelum perubahan ini). Belum commit/push/PR — menunggu instruksi user.
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (17/17), `astro build`, dan detector anti-pattern impeccable (`detect.mjs`) semua pass. Commit `79762ee` (docs housekeeping) + `c05fabe` (fix) di branch `fix/gallery-mobile-adapt`; PR https://github.com/msph1973/ylx/pull/37 → base `master`. Sesuai kebijakan baru di `AGENTS.md` §Git Workflow, commit/push/PR dijalankan otomatis begitu fix selesai & terverifikasi, tanpa menunggu instruksi eksplisit.
 
