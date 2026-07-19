@@ -519,9 +519,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
               <div
                 key={photo.id}
                 className={`photo-tile${selectedPhotoIds.has(photo.id) ? ' is-selected' : ''}`}
-                draggable={photoReorderMode && photos.length > 1}
+                draggable={photoReorderMode && photos.length > 1 && !isSavingOrder}
                 onDragStart={(event) => {
-                  if (!photoReorderMode || photos.length < 2) {
+                  if (!photoReorderMode || photos.length < 2 || isSavingOrder) {
                     event.preventDefault();
                     return;
                   }
