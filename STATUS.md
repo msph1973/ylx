@@ -9,7 +9,7 @@ Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber keb
 
 | Item | Value |
 |------|-------|
-| Production URL | https://ylx-msph.vercel.app |
+| Production URL | https://ylx-msph.vercel.app (custom domain `ylex.my.id` juga aktif dipakai, proxy ke URL Vercel di atas) |
 | Sanity Studio | https://ylx-admin.sanity.studio |
 | GitHub Repo | https://github.com/msph1973/ylx |
 | Admin login | Lihat `.env.local` (tidak disimpan di repo) |
