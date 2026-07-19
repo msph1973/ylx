@@ -340,6 +340,5 @@ User melaporkan console Firefox di production menunjukkan CSP `connect-src` viol
 | "Rule set diabaikan karena selector salah" | Rule `::-webkit-scrollbar` di `global.css`; Firefox memang tidak dukung pseudo-element scrollbar vendor-prefixed ini (pakai `scrollbar-width`/`scrollbar-color`), diabaikan secara aman |
 | `_vercel/insights/script.js` gagal dimuat | Same-origin, sudah tercakup `script-src 'self'`; biasa disebabkan ad-blocker browser yang memblokir path script analytics dikenal, bukan masalah CSP/app — `@vercel/analytics` didesain gagal diam-diam |
 
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19, termasuk drift-guard test CSP/vercel.json), `astro build` semua pass. PR https://github.com/msph1973/ylx/pull/41 → base `master`.
->>>>>>> origin/master
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19, termasuk drift-guard test CSP/vercel.json), `astro build` semua pass. PR https://github.com/msph1973/ylx/pull/41 → base `master`, merged squash (`64229392`).
 
