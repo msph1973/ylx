@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#35** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru** (#36–#41) yang masih naratif penuh di bawah — begitu ada PR ke-5 berikutnya, entri PR #36 dipindah ke arsip (rolling window: simpan 4).
+> **Riwayat detail PR #19–#35** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru dengan narasi penuh** (#36, #37, #38, #41 — #39 doc-only STATUS.md sync tanpa section terpisah; #40 masih di PR terpisah yang belum merge ke branch ini) yang masih tercantum di bawah — begitu ada PR ke-5 berikutnya, entri PR #36 dipindah ke arsip (rolling window: simpan 4).
 
 ## File Map
 
@@ -335,6 +335,7 @@ User melaporkan console Firefox di production menunjukkan CSP `connect-src` viol
 **Fix:** tambah `https://*.ably.net wss://*.ably.net` ke `connect-src` di `securityHeaders.ts` (SSR middleware) **dan** `vercel.json` (halaman prerender) — dijaga tetap identik oleh drift-guard test yang sudah ada.
 
 **Item console lain yang dicek (tidak perlu tindakan):**
+
 | Temuan | Alasan aman diabaikan |
 |---|---|
 | `-moz-osx-font-smoothing` "unknown property" | Snippet font-smoothing standar lintas-browser di `global.css`; Firefox hanya kenali properti ini di build macOS — warning kosmetik yang sama muncul di hampir semua situs (mis. Tailwind preflight) |
