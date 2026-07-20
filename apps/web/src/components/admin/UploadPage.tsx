@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
+import { resizeImageInWorker } from '../../lib/imageResizeClient';
 
 interface Album {
   // The admin albums API (/api/admin/albums) returns each album keyed as `id`
@@ -15,7 +16,7 @@ interface Album {
 interface UploadFile {
   file: File;
   id: string;
-  status: 'pending' | 'uploading' | 'done' | 'error';
+  status: 'pending' | 'resizing' | 'uploading' | 'done' | 'error';
   progress: number;
   error?: string;
 }
@@ -307,6 +308,17 @@ export default function UploadPage({ adminName }: UploadPageProps) {
       // re-uploading the file (which would create a duplicate/orphan asset).
       let assetId: string | null = null;
 
+      // Resize/re-encode before the first network attempt — this is CPU-bound and
+      // runs off the main thread (see imageResizeClient), so a big batch doesn't
+      // freeze the UI. It's also idempotent (an already-small file is returned
+      // untouched), so redoing it on a retry is cheap and keeps this function
+      // self-contained rather than needing a separate cache across calls.
+      setFiles(prev => prev.map(f => (f.id === uploadFile.id ? { ...f, status: 'resizing' } : f)));
+      const { file: fileToUpload } = await resizeImageInWorker(uploadFile.file);
+      if (fileToUpload !== uploadFile.file) {
+        setFiles(prev => prev.map(f => (f.id === uploadFile.id ? { ...f, file: fileToUpload } : f)));
+      }
+
       for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
         // Reset to a clean uploading state (also clears a previous error on retry).
         setFiles(prev => prev.map(f =>
@@ -321,7 +333,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
             // the visible percentage actually moves, so a big batch upload doesn't
             // re-render the entire list on every tick.
             let lastReportedPct = -1;
-            assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
+            assetId = await putAssetToSanity(creds, fileToUpload, (pct) => {
               if (pct < 100 && pct - lastReportedPct < 3) return;
               lastReportedPct = pct;
               setFiles(prev => prev.map(f => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
@@ -418,6 +430,19 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   const errorCount = files.filter(f => f.status === 'error').length;
   // The main button both uploads new files and retries failed ones.
   const queuedCount = pendingCount + errorCount;
+
+  // Byte-weighted aggregate so the bar moves continuously as bytes actually
+  // transfer, instead of jumping only when a whole file finishes (which could
+  // look frozen for a long time on a batch of a few large photos). Errored
+  // files still count their full size as "settled" bytes so the bar still
+  // reaches 100% once nothing is in flight, even when some uploads failed.
+  const totalUploadBytes = files.reduce((sum, f) => sum + f.file.size, 0);
+  const loadedUploadBytes = files.reduce((sum, f) => {
+    if (f.status === 'done' || f.status === 'error') return sum + f.file.size;
+    if (f.status === 'uploading') return sum + (f.file.size * f.progress) / 100;
+    return sum; // pending / resizing haven't sent any bytes yet
+  }, 0);
+  const batchProgressPct = totalUploadBytes > 0 ? (loadedUploadBytes / totalUploadBytes) * 100 : 0;
 
   return (
     <div className="upload-page">
@@ -521,19 +546,16 @@ export default function UploadPage({ adminName }: UploadPageProps) {
               <div className="batch-progress-label">
                 <span>Uploaded {doneCount} of {files.length}</span>
               </div>
-              {/* The bar tracks *settled* attempts (done + failed) so it reaches
-                  100% once nothing is in flight, even when some uploads failed;
-                  the label still reports successful uploads. */}
               <div
                 className="batch-progress"
                 role="progressbar"
                 aria-valuemin={0}
-                aria-valuemax={files.length}
-                aria-valuenow={doneCount + errorCount}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(batchProgressPct)}
               >
                 <div
                   className="batch-progress-fill"
-                  style={{ transform: `scaleX(${files.length > 0 ? (doneCount + errorCount) / files.length : 0})` }}
+                  style={{ transform: `scaleX(${batchProgressPct / 100})` }}
                 />
               </div>
             </div>
@@ -566,6 +588,9 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                         </svg>
                       </button>
+                    )}
+                    {uploadFile.status === 'resizing' && (
+                      <span className="status-resizing">Optimizing…</span>
                     )}
                     {uploadFile.status === 'uploading' && (
                       <div
@@ -839,6 +864,12 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         .status-done {
           color: var(--color-success);
           font-weight: var(--font-medium);
+        }
+
+        .status-resizing {
+          color: var(--color-text-muted);
+          font-size: var(--text-xs);
+          white-space: nowrap;
         }
 
         .status-error {
