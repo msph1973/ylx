@@ -1,8 +1,8 @@
 # YLx — Arsip Riwayat PR & Perbaikan
 
-> Ini adalah arsip naratif detail untuk pekerjaan yang sudah **selesai & merged**. `STATUS.md` (root project) adalah satu-satunya sumber kebenaran untuk **kondisi terkini** — file ini murni riwayat historis untuk referensi/audit trail, tidak perlu dibaca di awal setiap sesi.
+> **FROZEN sejak 2026-07-21.** File ini hanya mencakup riwayat PR sampai dengan **PR #40** — tidak ada entri baru ditambahkan ke sini lagi. Mulai PR #41, narasi lengkap task/PR disimpan **lokal** di `~/.junie/tasks/` (di luar repo project, tidak ter-push/ter-review PR) — lihat `~/.junie/tasks/README.md` untuk konvensinya, dan tabel pointer di `STATUS.md` untuk daftar PR terbaru.
 >
-> Struktur: `STATUS.md` menyimpan **4 PR/fix terbaru** sebagai naratif penuh. Saat entri ke-5 ditambahkan, entri paling lama dipindahkan ke sini (rolling window) — bukan dihapus.
+> Ini adalah arsip naratif detail untuk pekerjaan yang sudah **selesai & merged** (s.d. PR #40). `STATUS.md` (root project) adalah satu-satunya sumber kebenaran untuk **kondisi terkini** — file ini murni riwayat historis untuk referensi/audit trail, tidak perlu dibaca di awal setiap sesi.
 
 ---
 
