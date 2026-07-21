@@ -88,8 +88,10 @@ export async function resizeImageForUpload(file: File): Promise<ResizeResult> {
     }
 
     // Same filename — must stay byte-identical for Lightroom filename
-    // matching later on; only the pixel bytes change.
-    const resizedFile = new File([blob], file.name, { type: file.type, lastModified: file.lastModified });
+    // matching later on; only the pixel bytes change. Use `blob.type` (not
+    // `file.type`) so the File's type always matches what was actually
+    // encoded, in case an encoder ever produced a different format.
+    const resizedFile = new File([blob], file.name, { type: blob.type, lastModified: file.lastModified });
     return { file: resizedFile, resized: true };
   } catch (error) {
     // Never throw, never block the caller — worst case we just upload the
