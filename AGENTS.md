@@ -66,7 +66,7 @@ This repo has 2 agent systems working on it: **Junie** (this interactive session
 |---|---|---|
 | `pr-manager` | Verify → commit → push → open PR → confirm preview healthy | Stops at "PR open + preview healthy" — never merges |
 | `security-auditor` | Read-only audit: `requireAdmin`, secrets, bcrypt rounds, Sanity injection, Ably publish | Read-only, no `Edit` tool — reports only |
-| `verification-runner` | Run `tsc`/`eslint`/`vitest`/`build` pipeline, report/fix failures | Verification only, not a general-purpose fixer |
+| `verification-runner` | Run `tsc`/`eslint`/`vitest`/`build` pipeline, report failures | Verification only (no `Edit` tool), not a general-purpose fixer |
 | `review-bot-fixer` | Loop on an already-open PR: read Sourcery/CodeRabbit/CodeQL comments, fix, push, repeat until clean | Stops at "clean, ready for human review" — **never merges**, caps at 5 rounds |
 
 **Division of labor (avoid double work):**
