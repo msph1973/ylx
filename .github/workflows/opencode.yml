@@ -39,6 +39,6 @@ jobs:
       - name: Run opencode
         uses: anomalyco/opencode/github@github-v1.2.25
         env:
-          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
-          model: alibaba/qwen3.7-max
+          model: anthropic/qwen3.7-max
