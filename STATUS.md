@@ -273,7 +273,7 @@ User melaporkan upload 5 foto sekaligus terasa lama tanpa progres pasti. Diagnos
 
 ## PR #44 — Cross-Agent Memory Bank Reference + Untrusted-Context Guardrail (branch `docs/memory-bank-reference`)
 
-`~/.junie/memory/` ternyata punya struktur `system/`/`reference`/`tasks` yang dirawat otomatis oleh **Letta Code** (agent lain yang juga bekerja di repo ini, `.letta/`), bukan sesuatu yang dibuat sesi Junie. `AGENTS.md` diperbarui mereferensikan bank ini (entry point, read-only, `tasks/` bisa basi). CodeRabbit lalu menandai gap keamanan: guardrail belum eksplisit soal anti prompt-injection.
+`~/.junie/memory/` ternyata punya struktur `system/`/`reference`/`tasks` yang dirawat otomatis oleh **Letta Code** (agent lain yang juga bekerja di repo ini, `.letta/`), bukan sesuatu yang dibuat sesi Junie. `AGENTS.md` diperbarui mereferensikan bank ini (entry point, read-only, `tasks/` bisa basi). CodeRabbit lalu menandai gap keamanan: guardrail belum eksplisit soal anti-prompt-injection.
 
 | Perubahan | Detail |
 |-----------|--------|
