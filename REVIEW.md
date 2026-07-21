@@ -85,13 +85,22 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 };
 ```
 
-**Files that MUST have this guard** (verify on every PR touching these):
+**Files that MUST have this guard** (verify on every PR touching these — grep `requireAdmin` under `apps/web/src/pages/api` if this list looks incomplete):
 - `/api/admin/albums.ts`
 - `/api/admin/albums/[id]/index.ts`
+- `/api/admin/albums/[id]/lock.ts`
 - `/api/admin/albums/[id]/unlock.ts`
-- `/api/admin/upload.ts`
-- `/api/admin/workflow.ts`
+- `/api/admin/albums/[id]/reorder.ts`
+- `/api/admin/albums/bulk-delete.ts`
+- `/api/admin/photos/[id].ts`
+- `/api/admin/photos/bulk-delete.ts`
+- `/api/admin/selections/[id].ts`
+- `/api/admin/upload/credentials.ts`
+- `/api/admin/upload/finalize.ts`
 - `/api/auth/create-admin.ts`
+
+> `/api/ably/token.ts` also calls `requireAdmin()`, but only to conditionally grant an extra `admin:updates` subscribe capability — non-admin gallery clients hit the same endpoint for their own channel token, so it's not a reject-if-missing case like the routes above.
+> Mastra is fully removed — `/api/admin/upload.ts` and `/api/admin/workflow.ts` no longer exist (see §10); don't re-add either to this list without re-verifying the file is back.
 
 ### 2.2 Session Cookie Security
 
@@ -128,25 +137,24 @@ return new Response(JSON.stringify({ error: 'DB error', details: String(err) }),
 
 ### 2.4 Rate Limiting
 
-Gallery PIN verify endpoint has brute-force protection. Any new sensitive endpoint should add similar protection.
+Gallery PIN verify + login endpoints have brute-force protection via the shared limiter in `apps/web/src/lib/ratelimit.ts`. Any new sensitive endpoint should reuse it, not hand-roll a new one.
 
 ```typescript
-// Template: in-memory rate limiter (acceptable for Vercel — resets on cold start)
-const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 min
-const attempts = new Map<string, { count: number; resetAt: number }>();
+// ✅ Required — reuse the shared limiter, don't reimplement one inline
+import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from '../../lib/ratelimit';
 
-function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const entry = attempts.get(key);
-  if (!entry || now > entry.resetAt) {
-    attempts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > RATE_LIMIT_MAX;
+const limited = await isRateLimited(`pin:${slug}:${ip}`, 5); // 5 attempts / 15 min window
+if (limited) {
+  return new Response(JSON.stringify({ error: 'Too many attempts' }), {
+    status: 429,
+    headers: { 'Retry-After': RATE_LIMIT_RETRY_AFTER },
+  });
 }
 ```
+
+- Backed by **Upstash Redis (REST)** when `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` are set — persists across serverless cold-starts/instances (a plain in-memory `Map` does not).
+- **Fails closed, not open, in production** (audit finding M-4): if Upstash is unreachable, production degrades to an in-memory fallback at *half* the normal cap, rather than either blocking all traffic or silently allowing unlimited attempts.
+- ❌ Reject a PR that adds a brand-new inline `Map`-based limiter for a new endpoint instead of calling into `ratelimit.ts`.
 
 ### 2.5 Passwords — bcrypt Only
 
@@ -327,12 +335,13 @@ await publishAdminEvent('submission:received', {
 ### 5.3 Client-Side Ably Guard for SSR
 
 ```typescript
-// ✅ getAblyClient() must check for browser environment
-export function getAblyClient(): Ably.Realtime {
+// ✅ getAblyClient(albumId?) must check for browser environment
+export function getAblyClient(albumId?: string): Ably.Realtime {
   if (typeof window === 'undefined') {
-    throw new Error('getAblyClient() called in SSR context');
+    throw new Error('getAblyClient() must only be called in browser context');
   }
-  // ... create/return client
+  // ... create/return the singleton; throws if called again with a
+  // *different* non-null albumId than the one it was first initialized with.
 }
 ```
 
@@ -388,13 +397,13 @@ const variants = shouldReduceMotion
 ```
 
 ### Color Contrast
-- Accent color `#d4a574` on white background → minimum contrast 4.5:1 required
-- Current approved accent: `#c4935f` (4.8:1 on white)
-- Reject any PR that introduces new colors below 4.5:1 for text
+- App uses a **dark theme** (`--color-bg: #0a0a0a`), not a white/light background — always check new colors' contrast against the actual token background, not an assumed light one.
+- Current approved accent: `--color-accent: #b8864e` (4.8:1 on `--color-bg`); `--color-text-muted: #a0a0a0` (4.6:1) — both documented inline in `variables.css`.
+- Minimum contrast for text: 4.5:1 (WCAG AA). Reject any PR introducing a new color below that without a documented ratio comment next to the token (match the existing comment style in `variables.css`).
 
 ---
 
-## 8. Animations — No Bounce/Spring Easing
+## 8. Motion & Layering
 
 Per DESIGN.md and the impeccable skill audit:
 
@@ -414,6 +423,25 @@ style={{ transform: `scaleX(${progress / 100})`, transformOrigin: 'left' }}
 
 // ❌ Layout-thrashing (triggers layout recalculation on every frame)
 style={{ width: `${progress}%` }}
+```
+
+### 8.1 Z-Index — Always Use the Token Scale
+
+`variables.css` defines the full stacking scale. A hardcoded numeric `z-index` bypasses it and can silently sit *below* a sticky/fixed ancestor using a higher token — a real bug found in a mobile-first audit, where a modal's `z-index: 50` lost to the admin sidebar's `var(--z-sticky)` (200), letting the sidebar paint over the modal.
+
+```css
+/* ✅ Correct — always reference the scale */
+--z-base: 0;
+--z-dropdown: 100;
+--z-sticky: 200;
+--z-overlay: 300;
+--z-modal: 400;
+--z-toast: 500;
+
+.modal-backdrop { z-index: var(--z-modal); }
+
+/* ❌ Wrong — arbitrary number, no relation to sticky/overlay chrome */
+.modal-backdrop { z-index: 50; }
 ```
 
 ---
@@ -453,7 +481,8 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `PUBLIC_SANITY_PROJECT_ID` | Everywhere | ✅ |
 | `PUBLIC_SANITY_DATASET` | Everywhere | ✅ |
 | `SANITY_API_TOKEN` | Server-side write ops | ✅ |
-| `ABLY_API_KEY` | Real-time pub/sub | ✅ |
+| `ABLY_API_KEY` | Root key — server-side publish + admin token minting | ✅ |
+| `PUBLIC_ABLY_KEY` | Subscribe-only key — client-side realtime | ✅ |
 | `SESSION_SECRET` | Admin session cookie HMAC signing | ✅ |
 | `UPSTASH_REDIS_REST_URL` | Gallery PIN rate limiter (persistent) | ✅ in production (fails closed if unset; in-memory fallback is dev-only) |
 | `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN rate limiter (persistent) | ✅ in production (fails closed if unset; in-memory fallback is dev-only) |
@@ -491,10 +520,11 @@ Immediately flag for rejection if PR contains any of the following:
 - `useCdn: true` in Sanity write client
 - `order(createdAt desc)` without underscore prefix
 - Missing `useCallback` wrapper on functions passed to `useEffect` deps
+- Hardcoded numeric `z-index` instead of a `--z-*` token
 - `body: JSON.stringify({ selectionIds: ... })` sent to submit endpoint (should be `photoIds`)
 - `setAlbum(data)` when API wraps response in `{ album: ... }`
 
 ---
 
-*Last updated: 2026-07-02 | Based on audit cycles (Jun–Jul 2026) + post-merge testing sessions*
+*Last updated: 2026-07-21 | Based on audit cycles (Jun–Jul 2026) + post-merge testing sessions + accuracy pass against current codebase*
 *Maintained by: Junie AI Agent — update this file after each major bug fix cycle*
