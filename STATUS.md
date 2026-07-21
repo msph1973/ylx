@@ -211,9 +211,10 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `REVIEW.md` | Code review checklist, anti-patterns, auto-reject list |
 | `DESIGN.md` | Design tokens, warna, typography |
 | `PRODUCT.md` | Product requirements |
-| `AGENTS.md` | Architecture overview (perlu update — lihat catatan di bawah) |
+| `AGENTS.md` | Operating rules & session protocol (arsitektur, git workflow, skills, memory — termasuk referensi ke `~/.junie/memory/system` cross-agent memory bank) |
 | `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED (file sudah dihapus, riwayat lengkap di `docs/history/STATUS-ARCHIVE.md`) |
 | `new-audit-2.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, semua ✅ FIXED (PR #34 + #35, merged) |
+| `~/.junie/memory/system/ylx/overview.md` | Cross-agent memory bank (juga dipakai agent lain di luar Junie, mis. Letta Code — `.letta/`) — index ke conventions/gotchas/tooling/architecture; auto-generated, tetap menganggap `STATUS.md`/`AGENTS.md` sebagai sumber kebenaran, jangan diedit manual dari sesi Junie |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
 
