@@ -12,9 +12,9 @@ export function hasValidCsrfOrigin(request: Request, requestUrl: string): boolea
   // caller of these protected routes (admin dashboard, gallery PIN/selection/
   // submit flow) is a real browser context, and a real browser always sends
   // at least one of Origin or Referer on a same-origin or cross-origin
-  // fetch/form-post. When both are absent, treat it as suspicious — a
-  // malicious site can strip both headers (e.g. `no-referrer` meta tag plus
-  // `mode: 'no-cors'` fetch) to try to slip past this check — and fail closed.
+  // fetch/form-post. When both are absent, fail closed: while a legitimate
+  // browser normally provides at least one header, we reject headerless
+  // requests as a defense-in-depth measure.
   if (origin) {
     try {
       const u = new URL(origin);
