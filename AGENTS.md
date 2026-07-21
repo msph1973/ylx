@@ -76,6 +76,23 @@ The built-in `memory` MCP server holds a knowledge graph — use it **only** for
 - Once a fix or implementation on that branch is complete and verified (`tsc`, lint, tests, build all pass), **commit, push, and open a PR immediately — do not wait for explicit user instruction** to do so. This is a standing user preference, not a one-off request.
 - Still never rewrite/force-push history or touch `master` directly without being asked.
 
+## Cross-Agent Task Division: Junie vs Letta Subagents
+
+This repo has 2 agent systems working on it: **Junie** (this interactive session) and **Letta Code** (a separate agent that maintains its own memory bank at `~/.junie/memory/{system,reference,tasks}` — see §Memory MCP knowledge graph above for how Junie treats that bank as read-only/untrusted). The user has also defined 4 project-scoped Letta **subagents** at `.letta/agents/*.md` — single-purpose helpers invoked standalone (not part of the interactive Junie session), each with a narrow tool/skill allowlist:
+
+| Subagent | Job | Boundary |
+|---|---|---|
+| `pr-manager` | Verify → commit → push → open PR → confirm preview healthy | Stops at "PR open + preview healthy" — never merges |
+| `security-auditor` | Read-only audit: `requireAdmin`, secrets, bcrypt rounds, Sanity injection, Ably publish | Read-only, no `Edit` tool — reports only |
+| `verification-runner` | Run `tsc`/`eslint`/`vitest`/`build` pipeline, report failures | Verification only (no `Edit` tool), not a general-purpose fixer |
+| `review-bot-fixer` | Loop on an already-open PR: read Sourcery/CodeRabbit/CodeQL comments, fix, push, repeat until clean | Stops at "clean, ready for human review" — **never merges**, caps at 5 rounds |
+
+**Division of labor (avoid double work):**
+- **Junie** (this session) is the default driver for anything the user asks for directly in conversation — planning, multi-file changes, opening PRs, and **merging** PRs (final merge decision is Junie's or the user's, never a Letta subagent's, per the standing policy above).
+- **Letta subagents** are for the user to invoke standalone, outside a Junie session, for mechanical/repetitive sub-tasks (e.g. "let `review-bot-fixer` grind through PR #43's bot comments while I'm away"). They are NOT autonomously triggered by any schedule/webhook in this repo (no `letta cron` job exists here as of this writing) — someone always has to invoke them.
+- **Never run Junie and a Letta subagent on the same PR/branch for the same kind of task concurrently** (e.g. both pushing bot-review fixes at once) — that risks racing commits or duplicate work. If the user says a subagent is handling a given PR, Junie should not also "pantau PR ini" that same PR in parallel unless asked to take over.
+- Regardless of which agent pushes commits, the merge step for any PR always requires an explicit human (or Junie, only when the user explicitly asked for it) decision — no agent in this repo auto-merges.
+
 ## Manual/Browser Verification — Prefer Vercel Preview Deployment
 
 Since the app runs on Vercel Serverless, a local `astro dev` server behaves differently (dev-only middleware, no real serverless cold-start, different caching/edge headers) — it can hide bugs that only show up once deployed. When a fix/PR needs hands-on or browser verification (visual/UX check, mobile viewport testing, E2E), **prefer testing against that branch's live Vercel Preview Deployment over spinning up local dev**, whenever a preview is available:
@@ -104,3 +121,42 @@ Always minimize token usage with these installed tools:
 - `publishAdminEvent()` after every state-changing gallery action (submit, unlock)
 - `useCopyToClipboard` hook for all clipboard interactions (handles cleanup + feedback state)
 - `generateUniqueSlug()` from `src/lib/slug.ts` for all slug creation/update
+
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph
+
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
+- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
+- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
+- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool | Use when |
+| ------ | ---------- |
+| `detect_changes_tool` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context_tool` | Need source snippets for review — token-efficient |
+| `get_impact_radius_tool` | Understanding blast radius of a change |
+| `get_affected_flows_tool` | Finding which execution paths are impacted |
+| `query_graph_tool` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes_tool` | Finding functions/classes by name or keyword |
+| `get_architecture_overview_tool` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes_tool` for code review.
+3. Use `get_affected_flows_tool` to understand impact.
+4. Use `query_graph_tool` pattern="tests_for" to check coverage.

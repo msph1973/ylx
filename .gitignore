@@ -49,3 +49,8 @@ memory/
 .github/skills/impeccable/
 .github/hooks/impeccable.json
 # impeccable-ignore-end
+# Added by code-review-graph
+.code-review-graph/
+
+# Letta local session pointer (per-machine agent/conversation IDs, not shareable)
+.letta/settings.local.json
