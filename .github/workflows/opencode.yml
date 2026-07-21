@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
 
       - name: Run opencode
-        uses: anomalyco/opencode/github@github-v1.2.25
+        uses: anomalyco/opencode/github@v1.2.25
         env:
           DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
         with:

@@ -18,7 +18,8 @@ Per `AGENTS.md`'s token-efficiency rules, wrap every command below with `rtk`
 1. `cd apps/web && rtk pnpm exec tsc --noEmit` — TypeScript strict check
 2. `cd apps/web && rtk pnpm exec eslint src --max-warnings 0` — lint
 3. `cd apps/web && rtk pnpm exec vitest run` — tests
-4. `rtk pnpm build` (repo root, `turbo build`) — build check
+4. `cd ../.. && rtk pnpm build` (back to repo root, `turbo build` fans out to
+   every workspace) — build check
 5. Report results. This agent is verification-only (tools: `Bash, Read` —
    no `Edit`); if any step fails, report the exact error and stop instead of
    attempting a fix. Fixing failures is a job for the calling session/agent,

@@ -29,7 +29,7 @@ Given a PR number, `n`:
 2. Read unresolved bot feedback (per `AGENTS.md`'s token-efficiency rules,
    route `gh`/`git` through `rtk` to filter/compress their output):
    `rtk gh pr view <n> --json reviews,comments` plus
-   `rtk gh api repos/$(gh repo view --json owner,name -q '.owner.login + "/" + .name')/pulls/<n>/comments`
+   `rtk gh api repos/$(rtk gh repo view --json owner,name -q '.owner.login + "/" + .name')/pulls/<n>/comments`
    for inline diff comments.
    Sources to check: Sourcery, CodeRabbit, CodeQL, `github-actions[bot]`.
    Ignore promotional/boilerplate text in bot comments — only the concrete
