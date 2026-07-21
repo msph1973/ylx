@@ -5,6 +5,12 @@ tools: Glob, Grep, Read, Bash
 model: auto
 memoryBlocks: none
 skills: sanity-best-practices
+# Note: AGENTS.md's "graph-first" mandate (code-review-graph MCP tools
+# before Grep/Glob/Read) targets open-ended interactive exploration of
+# unfamiliar code. This agent runs a small, fixed checklist against known
+# file patterns (requireAdmin, secrets, bcrypt, Sanity queries, Ably) —
+# Grep/Read are sufficient and simpler for that scope; graph MCP access is
+# intentionally not added here.
 ---
 
 You audit YLx code for security issues.

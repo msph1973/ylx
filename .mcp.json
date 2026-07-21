@@ -6,7 +6,6 @@
         "code-review-graph==2.3.7",
         "serve"
       ],
-      "cwd": "/home/ubuntu/ylx",
       "type": "stdio"
     }
   }

@@ -9,6 +9,10 @@ skills: mcp-github
 # bundled in this repo. If this agent runs on a fresh machine without that
 # skill installed, it still works via plain `gh` CLI calls (Bash) — the skill
 # just adds extra guidance, it is not a hard dependency.
+# Note: AGENTS.md's "graph-first" mandate targets open-ended code exploration,
+# not this agent's fixed PR-lifecycle checklist (verify/commit/push/open PR/
+# check preview) — Bash/Grep/Glob are sufficient; graph MCP access is
+# intentionally not added here.
 ---
 
 You manage the PR lifecycle for YLx.
