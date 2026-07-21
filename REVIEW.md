@@ -481,11 +481,11 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `PUBLIC_SANITY_PROJECT_ID` | Everywhere | ✅ |
 | `PUBLIC_SANITY_DATASET` | Everywhere | ✅ |
 | `SANITY_API_TOKEN` | Server-side write ops | ✅ |
-| `ABLY_API_KEY` | Root key — server-side publish + admin token minting | ✅ |
+| `ABLY_API_KEY` | Root key — server-side publish + mints all client tokens (gallery subscribe tokens, plus the extra admin capability when applicable) | ✅ |
 | `PUBLIC_ABLY_KEY` | Subscribe-only key — client-side realtime | ✅ |
 | `SESSION_SECRET` | Admin session cookie HMAC signing | ✅ |
-| `UPSTASH_REDIS_REST_URL` | Gallery PIN rate limiter (persistent) | ✅ in production (fails closed if unset; in-memory fallback is dev-only) |
-| `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN rate limiter (persistent) | ✅ in production (fails closed if unset; in-memory fallback is dev-only) |
+| `UPSTASH_REDIS_REST_URL` | Gallery PIN / login rate limiter (persistent) | ✅ in production — without it, `ratelimit.ts` degrades to an in-memory fallback at half the normal cap (not a full block; see §2.4) |
+| `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN / login rate limiter (persistent) | ✅ in production — same fallback behavior as above |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above
