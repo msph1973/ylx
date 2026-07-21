@@ -18,8 +18,12 @@ Per `AGENTS.md`'s token-efficiency rules, wrap every command below with `rtk`
 1. `cd apps/web && rtk pnpm exec tsc --noEmit` — TypeScript strict check
 2. `cd apps/web && rtk pnpm exec eslint src --max-warnings 0` — lint
 3. `cd apps/web && rtk pnpm exec vitest run` — tests
-4. `cd ../.. && rtk pnpm build` (back to repo root, `turbo build` fans out to
-   every workspace) — build check
+4. `cd "$(git rev-parse --show-toplevel)" && rtk pnpm build` (repo root,
+   `turbo build` fans out to every workspace) — resolving the toplevel via
+   `git rev-parse` instead of a relative `cd ../..` is deliberate: each step
+   above may run as its own independent shell invocation with the working
+   directory reset in between, so a relative path assuming "we're still in
+   apps/web from step 3" isn't safe — build check
 5. Report results. This agent is verification-only (tools: `Bash, Read` —
    no `Edit`); if any step fails, report the exact error and stop instead of
    attempting a fix. Fixing failures is a job for the calling session/agent,
