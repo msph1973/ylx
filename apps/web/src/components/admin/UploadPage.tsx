@@ -402,7 +402,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
       await runWithConcurrency(
         queue,
         async (uploadFile) => {
-          const result = await uploadWithRetry(uploadFile, uploadFile.albumId ?? targetAlbumId);
+          const result = await uploadWithRetry(uploadFile, uploadFile.albumId);
           setFiles(prev => prev.map(f =>
             f.id === uploadFile.id
               ? {

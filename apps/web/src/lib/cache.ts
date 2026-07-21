@@ -15,6 +15,13 @@ interface CacheEnvelope<T> {
   value: T;
 }
 
+// Simple in-memory health signal for the cache layer. This module has no metrics/
+// alerting integration (the app has none anywhere yet), so this is a minimal,
+// zero-dependency way for a future health-check endpoint or manual debugging to
+// detect "is the cache currently degraded" without changing getCached()'s return
+// shape (which 3 existing callers already depend on). `failureCount` is a lifetime
+// total; `degraded` only reflects failures within the last HEALTH_RECOVERY_WINDOW_MS
+// so a past transient outage doesn't report the cache as degraded forever.
 let cacheFailureCount = 0;
 let lastFailureTimestamp = 0;
 const HEALTH_RECOVERY_WINDOW_MS = 60_000;
@@ -75,12 +82,19 @@ function refreshInBackground<T>(
 ): void {
   if (inFlightRefreshes.has(key)) return;
 
+  // Only a storeInCache() failure means Upstash itself is degraded; a fetcher()
+  // rejection is the origin data source failing, which is unrelated to cache
+  // health and shouldn't flip getCacheHealth() to degraded.
   const refresh = fetcher()
-    .then((fresh) => storeInCache(key, fresh, staleTtlSeconds, url, token))
+    .then((fresh) =>
+      storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
+        cacheFailureCount++;
+        lastFailureTimestamp = Date.now();
+        console.warn(`[Cache] background refresh cache-store failed for "${key}":`, err);
+      })
+    )
     .catch((err) => {
-      cacheFailureCount++;
-      lastFailureTimestamp = Date.now();
-      console.warn(`[Cache] background refresh failed for "${key}":`, err);
+      console.warn(`[Cache] background refresh fetch failed for "${key}":`, err);
     })
     .finally(() => inFlightRefreshes.delete(key));
 
@@ -144,6 +158,8 @@ export async function getCached<T>(
     return await fetcher();
   }
 
+  // Hard miss: fetch, store, return. If fetcher throws here there is no cached
+  // value to fall back to, so we let it propagate — the caller gets the error.
   const fresh = await fetcher();
   void storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
     cacheFailureCount++;
@@ -163,6 +179,8 @@ export async function invalidateCache(keys: string | string[]): Promise<void> {
   if (keyList.length === 0) return;
 
   try {
+    // A single DEL with every key is one Upstash round-trip instead of one
+    // per key, which matters for bulk operations (e.g. deleting N albums).
     await upstashPipeline([["DEL", ...keyList]], url, token);
   } catch (err) {
     cacheFailureCount++;
