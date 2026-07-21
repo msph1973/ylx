@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#36** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). `docs/history/STATUS-ARCHIVE.md` **dibekukan** per PR #40 — tidak ada entri baru di sana. Narasi PR #37 dan seterusnya ada di `~/.junie/tasks/` (lokal, lihat tabel di bawah).
+> **Riwayat detail PR #19–#40** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). `docs/history/STATUS-ARCHIVE.md` **dibekukan** per PR #40 — tidak ada entri baru di sana. Narasi PR #41 dan seterusnya ada di `~/.junie/tasks/` (lokal, lihat tabel di bawah).
 
 ## File Map
 
