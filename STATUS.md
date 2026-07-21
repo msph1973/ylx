@@ -304,3 +304,18 @@ User melaporkan upload 5 foto sekaligus terasa lama tanpa progres pasti. Diagnos
 
 > Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (28/28, termasuk 15 test baru untuk `imageResize`/`imageResizeClient`), `astro build` (dikonfirmasi worker ter-bundle sebagai chunk terpisah) semua pass.
 
+**Bot review round (CodeQL + Sourcery + CodeRabbit + `github-actions[bot]`) — direview manual (bukan lewat automasi headless, lihat catatan di bawah):**
+
+| Temuan | Fix |
+|---|---|
+| CodeQL: format string CWE-134 — nama file diinterpolasi langsung ke pesan `console.warn` (bisa disalahartikan sebagai directive `%`) di `imageResize.ts`/`imageResize.worker.ts`, bikin CI check "CodeQL" gagal | Nama file dikirim sebagai field terstruktur terpisah, bukan disisipkan ke string pesan |
+| `github-actions[bot]`/CodeRabbit: `bitmap.close()` tidak dipanggil di beberapa jalur early-return/throw (termasuk jalur sukses) — kebocoran resource `ImageBitmap` yang didekode | Konsolidasi ke satu `try/finally { bitmap.close() }` di `resizeImageForUpload`, `encodeToBlob` tidak lagi menutup bitmap sendiri |
+| CodeRabbit (Major): `new Worker()`/`postMessage()` bisa throw sinkron dan me-reject Promise alih-alih fallback; worker yang error diam-diam tetap dipakai ulang, bikin tiap request berikutnya menunggu penuh 30 detik | `imageResizeClient.ts`: dispatch dibungkus try/catch (fallback ke file asli); tambah `onerror`/`onmessageerror` yang langsung menyelesaikan semua request tertunda dengan file aslinya masing-masing lalu buang instance worker yang rusak |
+| Sourcery: tombol batal foto hilang saat status `'resizing'` (cuma tampil saat `'pending'`) | Tombol batal kini juga tampil saat `'resizing'` |
+| CodeRabbit: `batchProgressPct` tidak dijamin dalam rentang [0,100] | Dibatasi `Math.min(100, Math.max(0, ...))` |
+| CodeRabbit (coding guideline): transisi `.batch-progress-fill`/`.progress-fill` belum eksplisit menghormati `prefers-reduced-motion` (sudah tercakup aturan global `*` di `global.css`, tapi ditambah override lokal eksplisit mengikuti pola `GalleryPage.tsx`) | Tambah `@media (prefers-reduced-motion: reduce) { transition: none; }` lokal |
+
+> Catatan keputusan: sempat dipertimbangkan otomasi review-fix via Junie GitHub Action, tapi dibatalkan — input `junie_guidelines_filename` action tersebut default membaca `.junie/guidelines.md`, bukan `AGENTS.md` di root yang dipakai project ini, jadi berisiko aturan project (rtk, git workflow, dst.) tidak terbaca penuh oleh proses headless. Review tetap dilakukan manual dalam sesi interaktif.
+
+> Verifikasi ulang: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (31/31, +3 test regresi worker-failure), `astro build` semua pass. Commit `1a3d05a` di-push ke `fix/upload-image-resize`; PR #43 masih terbuka.
+
