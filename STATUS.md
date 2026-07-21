@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-21 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#40** mode reorder foto eksplisit + fallback touch, **#41** CSP connect-src fix (*.ably.net), **#44** cross-agent memory bank guardrail. Semua audit temuan ✅ FIXED. **Terbuka:** PR #43 (resize foto client-side sebelum upload), PR #45 (tooling config code-review-graph/Letta/opencode), PR #46 (pindahkan narasi task/PR ke ~/.junie/tasks/, dokumen ini). Narasi lengkap tiap PR: `~/.junie/tasks/` (lokal, lihat bagian "Riwayat Task/PR" di bawah).
+> Last updated: 2026-07-21 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#40** mode reorder foto eksplisit + fallback touch, **#41** CSP connect-src fix (*.ably.net), **#44** cross-agent memory bank guardrail, **#45** tooling config (code-review-graph/Letta/opencode), **#46** pindahkan narasi task/PR ke ~/.junie/tasks/. Semua audit temuan ✅ FIXED. **Terbuka:** PR #43 (resize foto client-side sebelum upload). Narasi lengkap tiap PR: `~/.junie/tasks/` (lokal, lihat bagian "Riwayat Task/PR" di bawah).
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -36,7 +36,7 @@ Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber keb
 
 ```
 Photographer creates album      ✅  AlbumFormModal.tsx (CRUD: create/edit/delete)
-Photographer uploads photos     ✅  UploadPage.tsx — direct-to-Sanity (lewati 4.5MB Vercel), paralel 3x + auto-retry
+Photographer uploads photos     ✅  UploadPage.tsx — direct-to-Sanity (lewati 4.5MB Vercel), paralel 3x + auto-retry, resize client-side (Web Worker) sebelum kirim
 Photographer copies share link  ✅  AlbumDetail — "Copy Gallery Link" + "Copy PIN"
 Client opens homepage           ✅  index.astro — form "Access Your Gallery" + redirect
 Client enters PIN               ✅  PinEntry.tsx + rate limiter 5x/15min per IP
@@ -233,8 +233,7 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #41 | CSP connect-src fix (*.ably.net) | MERGED | `~/.junie/tasks/PR-41-csp-ably.md` |
 | #43 | Resize foto client-side sebelum upload | OPEN | `~/.junie/tasks/PR-43-upload-resize.md` |
 | #44 | Cross-agent memory bank guardrail | MERGED | `~/.junie/tasks/PR-44-memory-bank.md` |
-| #45 | Tooling config (code-review-graph/Letta/opencode) | OPEN | `~/.junie/tasks/PR-45-tooling-config.md` |
-| #46 | Pindahkan narasi task/PR ke `~/.junie/tasks/` (dokumen ini) | OPEN | `~/.junie/tasks/PR-46-task-memory-reorg.md` |
+| #45 | Tooling config (code-review-graph/Letta/opencode) | MERGED | `~/.junie/tasks/PR-45-tooling-config.md` |
+| #46 | Pindahkan narasi task/PR ke `~/.junie/tasks/` | MERGED | `~/.junie/tasks/PR-46-task-memory-reorg.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
-
