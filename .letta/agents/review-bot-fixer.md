@@ -17,7 +17,7 @@ to manually re-trigger a fix after every bot comment round.
 
 Given a PR number, `n`:
 
-1. `gh pr checkout <n>` — this resolves the correct head ref (including forks,
+1. `rtk gh pr checkout <n>` — this resolves the correct head ref (including forks,
    which a plain `git fetch origin && git checkout <branch>` would miss or
    push to the wrong remote) and leaves you on that branch. Never create a
    new branch — this agent only pushes follow-up commits to the existing one.
@@ -26,8 +26,10 @@ Given a PR number, `n`:
    the user's or Junie's own branch). Do not point this agent at a PR from an
    external fork without a human first reviewing the diff — it checks out
    and executes that branch's code (tests/build) on this machine.
-2. Read unresolved bot feedback: `gh pr view <n> --json reviews,comments` plus
-   `gh api repos/$(gh repo view --json owner,name -q '.owner.login + "/" + .name')/pulls/<n>/comments`
+2. Read unresolved bot feedback (per `AGENTS.md`'s token-efficiency rules,
+   route `gh`/`git` through `rtk` to filter/compress their output):
+   `rtk gh pr view <n> --json reviews,comments` plus
+   `rtk gh api repos/$(gh repo view --json owner,name -q '.owner.login + "/" + .name')/pulls/<n>/comments`
    for inline diff comments.
    Sources to check: Sourcery, CodeRabbit, CodeQL, `github-actions[bot]`.
    Ignore promotional/boilerplate text in bot comments — only the concrete
