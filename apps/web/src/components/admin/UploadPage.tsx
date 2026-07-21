@@ -442,7 +442,11 @@ export default function UploadPage({ adminName }: UploadPageProps) {
     if (f.status === 'uploading') return sum + (f.file.size * f.progress) / 100;
     return sum; // pending / resizing haven't sent any bytes yet
   }, 0);
-  const batchProgressPct = totalUploadBytes > 0 ? (loadedUploadBytes / totalUploadBytes) * 100 : 0;
+  // Clamped defensively — rounding/future changes to the byte math above
+  // must never push this past what aria-valuenow/scaleX can sanely render.
+  const batchProgressPct = totalUploadBytes > 0
+    ? Math.min(100, Math.max(0, (loadedUploadBytes / totalUploadBytes) * 100))
+    : 0;
 
   return (
     <div className="upload-page">
@@ -582,7 +586,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                     )}
                   </div>
                   <div className="file-status">
-                    {uploadFile.status === 'pending' && (
+                    {(uploadFile.status === 'pending' || uploadFile.status === 'resizing') && (
                       <button className="btn-icon" onClick={() => removeFile(uploadFile.id)} aria-label="Remove file">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1015,6 +1019,13 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           transform-origin: left;
           transform: scaleX(0);
           transition: transform var(--transition-fast);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .batch-progress-fill,
+          .progress-fill {
+            transition: none;
+          }
         }
 
         @media (max-width: 480px) {

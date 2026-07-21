@@ -34,8 +34,10 @@ workerSelf.onmessage = async (event) => {
   } catch (error) {
     // Belt-and-suspenders: `resizeImageForUpload` itself should never throw,
     // but if it somehow does, still respond so the main thread's request
-    // doesn't hang forever waiting for this id.
-    console.warn(`imageResize.worker: failed to resize "${file.name}", using original`, error);
+    // doesn't hang forever waiting for this id. Filename is passed as a
+    // structured field (not interpolated into the message) so a crafted
+    // filename can't be misread as a console format-string directive.
+    console.warn('imageResize.worker: failed to resize file, using original', { fileName: file.name, error });
     workerSelf.postMessage({ id, result: { file, resized: false } });
   }
 };

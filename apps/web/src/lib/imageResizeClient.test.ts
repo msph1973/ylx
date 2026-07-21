@@ -5,7 +5,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // `onmessage` manually to simulate the worker's response.
 class MockWorker {
   onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  onmessageerror: ((event: MessageEvent) => void) | null = null;
   postMessage = vi.fn();
+  terminate = vi.fn();
 }
 
 let lastWorkerInstance: MockWorker | null = null;
@@ -86,5 +89,61 @@ describe("resizeImageInWorker", () => {
     await vi.advanceTimersByTimeAsync(30_000);
 
     await expect(promise).resolves.toEqual({ file, resized: false });
+  });
+
+  it("falls back to the original file when the worker throws while dispatching", async () => {
+    const { resizeImageInWorker } = await import("./imageResizeClient");
+    const file = makeFile();
+    lastWorkerInstance = null;
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          this.postMessage = vi.fn(() => {
+            throw new Error("postMessage failed");
+          });
+          lastWorkerInstance = this;
+        }
+      },
+    );
+
+    await expect(resizeImageInWorker(file)).resolves.toEqual({ file, resized: false });
+  });
+
+  it("falls back to the original file when constructing the worker throws", async () => {
+    vi.stubGlobal(
+      "Worker",
+      class {
+        constructor() {
+          throw new Error("Worker construction not supported");
+        }
+      },
+    );
+    const { resizeImageInWorker } = await import("./imageResizeClient");
+    const file = makeFile();
+
+    await expect(resizeImageInWorker(file)).resolves.toEqual({ file, resized: false });
+  });
+
+  it("resolves in-flight requests with their own original file and rebuilds the worker after a crash", async () => {
+    const { resizeImageInWorker } = await import("./imageResizeClient");
+    const file1 = makeFile("a.jpg");
+    const file2 = makeFile("b.jpg");
+
+    const p1 = resizeImageInWorker(file1);
+    const p2 = resizeImageInWorker(file2);
+    const crashedWorker = lastWorkerInstance!;
+
+    crashedWorker.onerror?.({} as ErrorEvent);
+
+    await expect(p1).resolves.toEqual({ file: file1, resized: false });
+    await expect(p2).resolves.toEqual({ file: file2, resized: false });
+    expect(crashedWorker.terminate).toHaveBeenCalledTimes(1);
+
+    // The next request must not reuse the dead instance.
+    const file3 = makeFile("c.jpg");
+    void resizeImageInWorker(file3);
+    expect(lastWorkerInstance).not.toBe(crashedWorker);
   });
 });

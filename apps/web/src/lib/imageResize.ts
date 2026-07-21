@@ -20,6 +20,9 @@ const SUPPORTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 // Draws the (already-decoded) bitmap at the target size and re-encodes it.
 // Prefers OffscreenCanvas since it's the only canvas API available inside a
 // Worker; falls back to a real <canvas> only when we're on the main thread.
+// Does NOT close the bitmap — the caller owns its whole lifecycle (see the
+// `finally` in `resizeImageForUpload`) so it's freed exactly once regardless
+// of which path returns or throws.
 async function encodeToBlob(
   bitmap: ImageBitmap,
   targetWidth: number,
@@ -31,7 +34,6 @@ async function encodeToBlob(
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
-    bitmap.close();
     return canvas.convertToBlob({ type, quality: UPLOAD_RESIZE_QUALITY });
   }
 
@@ -42,7 +44,6 @@ async function encodeToBlob(
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
-    bitmap.close();
     return new Promise((resolve) => {
       canvas.toBlob(resolve, type, UPLOAD_RESIZE_QUALITY);
     });
@@ -60,15 +61,18 @@ export async function resizeImageForUpload(file: File): Promise<ResizeResult> {
     return { file, resized: false };
   }
 
+  // Declared outside the try block so the `finally` below can always close it,
+  // regardless of which branch returns or throws (fixes a decoded-bitmap leak
+  // on every early-return/throw path that used to close it ad hoc).
+  let bitmap: ImageBitmap | null = null;
   try {
     // `imageOrientation: 'from-image'` makes the decoded bitmap respect
     // embedded EXIF orientation the same way an `<img>` tag does — the
     // default ignores it, which would rotate phone-shot photos after resize.
-    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
 
     if (bitmap.width <= UPLOAD_RESIZE_MAX_DIMENSION && bitmap.height <= UPLOAD_RESIZE_MAX_DIMENSION) {
       // Already small enough — don't re-encode and lose quality for nothing.
-      bitmap.close();
       return { file, resized: false };
     }
 
@@ -89,8 +93,12 @@ export async function resizeImageForUpload(file: File): Promise<ResizeResult> {
     return { file: resizedFile, resized: true };
   } catch (error) {
     // Never throw, never block the caller — worst case we just upload the
-    // original, full-size file.
-    console.warn(`resizeImageForUpload: failed to resize "${file.name}", using original`, error);
+    // original, full-size file. Filename is passed as a structured field
+    // (not interpolated into the message) so a crafted filename can't be
+    // misread as a console format-string directive.
+    console.warn('resizeImageForUpload: failed to resize file, using original', { fileName: file.name, error });
     return { file, resized: false };
+  } finally {
+    bitmap?.close();
   }
 }
