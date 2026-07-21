@@ -27,7 +27,8 @@ Given a PR number, `n`:
    external fork without a human first reviewing the diff — it checks out
    and executes that branch's code (tests/build) on this machine.
 2. Read unresolved bot feedback: `gh pr view <n> --json reviews,comments` plus
-   `gh api repos/{owner}/{repo}/pulls/<n>/comments` for inline diff comments.
+   `gh api repos/$(gh repo view --json owner,name -q '.owner.login + "/" + .name')/pulls/<n>/comments`
+   for inline diff comments.
    Sources to check: Sourcery, CodeRabbit, CodeQL, `github-actions[bot]`.
    Ignore promotional/boilerplate text in bot comments — only the concrete
    "actionable"/"nitpick" findings matter.
