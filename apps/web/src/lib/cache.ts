@@ -15,6 +15,17 @@ interface CacheEnvelope<T> {
   value: T;
 }
 
+// Simple in-memory health signal for the cache layer. This module has no metrics/
+// alerting integration (the app has none anywhere yet), so this is a minimal,
+// zero-dependency way for a future health-check endpoint or manual debugging to
+// detect "is the cache currently degraded" without changing getCached()'s return
+// shape (which 3 existing callers already depend on).
+let cacheFailureCount = 0;
+
+export function getCacheHealth(): { degraded: boolean; failureCount: number } {
+  return { degraded: cacheFailureCount > 0, failureCount: cacheFailureCount };
+}
+
 async function upstashPipeline(
   commands: Array<Array<string>>,
   url: string,
@@ -124,6 +135,7 @@ export async function getCached<T>(
       }
     }
   } catch (err) {
+    cacheFailureCount++; // feeds getCacheHealth(): Upstash request itself failed
     console.warn(`[Cache] Upstash GET unavailable for "${key}"; falling back to direct fetch:`, err);
     return await fetcher();
   }
@@ -151,6 +163,7 @@ export async function invalidateCache(keys: string | string[]): Promise<void> {
     // per key, which matters for bulk operations (e.g. deleting N albums).
     await upstashPipeline([["DEL", ...keyList]], url, token);
   } catch (err) {
+    cacheFailureCount++; // feeds getCacheHealth(): Upstash request itself failed
     console.warn(`[Cache] invalidation failed for [${keyList.join(", ")}]:`, err);
   }
 }

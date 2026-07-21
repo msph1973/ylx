@@ -14,6 +14,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src',
+      // Astro's virtual "astro:middleware" module only exists inside Astro's
+      // build pipeline; middleware.ts needs it resolvable to be unit-testable.
+      'astro:middleware': '/src/test/stubs/astroMiddleware.ts',
     },
   },
 });

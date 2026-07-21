@@ -3,15 +3,18 @@ import { CONTENT_SECURITY_POLICY, STRICT_TRANSPORT_SECURITY } from "./lib/securi
 
 const CSRF_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
 
-function hasValidCsrfOrigin(request: Request, requestUrl: string): boolean {
+export function hasValidCsrfOrigin(request: Request, requestUrl: string): boolean {
   const origin = request.headers.get("origin");
   const referer = request.headers.get("referer");
 
   // Same-origin requests carry the Origin header on cross-site submissions
-  // but same-site navigations may omit it while including Referer.  When both
-  // are absent the request is likely a same-origin form POST from a non-browser
-  // HTTP client (e.g. curl, server-to-server) — sameSite=lax already blocks
-  // cross-origin cookie transmission, so allowing this path is safe.
+  // but same-site navigations may omit it while including Referer. Every
+  // caller of these protected routes (admin dashboard, gallery PIN/selection/
+  // submit flow) is a real browser context, and a real browser always sends
+  // at least one of Origin or Referer on a same-origin or cross-origin
+  // fetch/form-post. When both are absent, treat it as suspicious — a
+  // malicious site can strip both headers (e.g. `no-referrer` meta tag plus
+  // `mode: 'no-cors'` fetch) to try to slip past this check — and fail closed.
   if (origin) {
     try {
       const u = new URL(origin);
@@ -30,7 +33,7 @@ function hasValidCsrfOrigin(request: Request, requestUrl: string): boolean {
     }
   }
 
-  return true;
+  return false;
 }
 
 function csrfForbidden(): Response {
