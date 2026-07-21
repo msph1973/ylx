@@ -415,3 +415,55 @@ Karena app jalan di Vercel Serverless, `astro dev` lokal berbeda perilaku (middl
 > **PR #37 merged** via squash ke `master`, tidak ada review manusia yang menahan (hanya komentar bot, semua sudah ditindaklanjuti), semua 9 CI check hijau.
 
 ---
+
+## PR #38 — UI/UX Audit P1/P2 Fixes: Landing, Login, Admin Dashboard, Upload — MERGED (2026-07-19, branch `fix/ui-audit-p1-p2`)
+
+Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti-pattern) via 3 subagent paralel atas 3 area yang belum pernah diaudit — landing (`index.astro`) + login (`admin/login.astro`), dashboard admin (`admin/index.astro`+`AlbumCard`+`AlbumFormModal`), dan detail-album/upload (`AlbumDetail.tsx`+`UploadPage.tsx`). Skor: 15/20, 16/20, 13/20 — tidak ada P0. Semua temuan P1 + P2 yang layak dieksekusi diperbaiki:
+
+| Area | Perbaikan |
+|------|-----------|
+| `admin/login.astro` | Kontras placeholder AA (hapus override lokal `opacity:0.6`), `autocomplete` email/password, landmark `<main>`, focus ring pakai token `--color-accent-ring` baru |
+| `index.astro` | Focus ring disamakan dengan login; input+tombol "Open" stack di ≤360px |
+| `BaseLayout.astro` | Trim 2 weight Playfair Display yang tidak dipakai (400/500) — kurangi request font render-blocking |
+| `UploadPage.tsx` | ARIA `role="progressbar"` di progress bar per-file (sebelumnya cuma progress bar total yang punya ARIA); throttle update progress state supaya tidak re-render seluruh daftar file di tiap tick |
+| `AlbumFormModal.tsx`/`ConfirmDialog.tsx`/`AlbumList.tsx` | `z-index` hardcoded (50/60/10) diganti token `--z-modal`/`--z-dropdown` — modal berpotensi tertutup header sticky admin (`z-index:200`) |
+| `AlbumFormModal.tsx` | `aria-labelledby` mengikuti `<h2>` asli (sebelumnya `aria-label` literal beda teks) |
+| `AlbumCard.tsx`/`AlbumDetail.tsx` | Kontras badge status "submitted" dipertajam (18%→12% tint, sama bug di 2 file); animasi spring under-damped diredam (`damping` dinaikkan ke nilai kritis) |
+| `AlbumDetail.tsx` | Hardcoded `44px` diganti token `--tap-target-min` (4 lokasi) |
+
+**Sengaja dilewati (didokumentasikan, bukan bug):** menyembunyikan tombol reorder foto di balik mode eksplisit (opini subjektif UX, tombol panah sudah berfungsi+berlabel), dan pesan fallback untuk drag HTML5 yang tak berfungsi di touch (alasan sama, tombol panah sudah menutupi) — dituntaskan belakangan di PR #40.
+
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. Commit `7a1e3b9` di branch `fix/ui-audit-p1-p2`; PR https://github.com/msph1973/ylx/pull/38 → base `master`.
+
+**Bot review round (CodeRabbit):**
+
+| Temuan | Fix (commit `9eb9b69`) |
+|---|---|
+| `AlbumFormModal.tsx` — spring physics (`stiffness`/`damping`) selalu override `duration`, jadi `duration:0` untuk `prefers-reduced-motion` diam-diam diabaikan (animasi tetap berjalan) | Branch eksplisit: `{ duration: 0 }` (tween) saat reduced motion, spring config hanya dipakai kalau tidak |
+| `UploadPage.tsx` — ikon centang selesai upload cuma `aria-label` di `<span>` generik, tidak konsisten terekspos ke assistive tech | Tambah `role="img"` |
+
+> Ditunggu hingga tidak ada review/komentar baru pasca-fix (semua 10 CI check + review bot pass, `mergeStateStatus: CLEAN`), lalu **PR #38 merged** via squash ke `master` (`a1d72b9`).
+
+---
+
+## PR #40 — Mode Reorder Foto Eksplisit + Pesan Fallback Touch — MERGED (branch `fix/photo-reorder-touch-mode`)
+
+Menuntaskan 2 temuan yang sengaja ditunda di PR #38 (`AlbumDetail.tsx`): tombol panah reorder selalu tampil di setiap foto (padahal HTML5 drag-and-drop tidak berfungsi di layar sentuh tanpa pesan penjelasan apapun).
+
+| Perubahan | Detail |
+|-----------|--------|
+| Mode "Reorder photos" baru | Toggle terpisah dari "Select photos" (saling eksklusif); tombol panah ↑/↓ dan drag-and-drop kini hanya tampil/aktif saat mode ini diaktifkan — tile foto default jadi lebih ringkas |
+| Pesan bantuan touch | Saat mode reorder aktif, teks "Drag isn't supported on touchscreens — use the ↑/↓ buttons..." muncul khusus di perangkat `pointer: coarse` (CSS media query, tidak render di desktop) |
+| Tombol hapus foto | Disembunyikan juga selama mode reorder aktif (konsisten dengan pola mode selection yang sudah ada) |
+
+**Bot review (Junie automated review — `github-actions[bot]`):**
+
+| Temuan | Fix |
+|---|---|
+| Tombol "Reorder photos"/"Done reordering" hilang kalau jumlah foto turun jadi 1 saat mode reorder aktif (mis. via tab lain) — pengguna terjebak tanpa cara keluar | Guard tombol ditambah `\|\| photoReorderMode` supaya tetap tampil |
+| Prop `disabled` di kedua tombol toggle membuat cabang peralihan mode di `onClick` masing-masing jadi tidak pernah tercapai | `disabled` dihapus — kedua handler sudah membersihkan state mode lain dengan benar, jadi peralihan langsung kini benar-benar berfungsi |
+| Tile foto tetap bisa mulai drag saat `isSavingOrder` (permintaan reorder sebelumnya masih diproses) — berisiko permintaan reorder tumpang tindih | `draggable`/`onDragStart` ditambah guard `!isSavingOrder` |
+
+> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. **PR #40 merged** via squash ke `master` (`35ff157`).
+
+---
