@@ -15,15 +15,14 @@ interface CacheEnvelope<T> {
   value: T;
 }
 
-// Simple in-memory health signal for the cache layer. This module has no metrics/
-// alerting integration (the app has none anywhere yet), so this is a minimal,
-// zero-dependency way for a future health-check endpoint or manual debugging to
-// detect "is the cache currently degraded" without changing getCached()'s return
-// shape (which 3 existing callers already depend on).
 let cacheFailureCount = 0;
+let lastFailureTimestamp = 0;
+const HEALTH_RECOVERY_WINDOW_MS = 60_000;
 
-export function getCacheHealth(): { degraded: boolean; failureCount: number } {
-  return { degraded: cacheFailureCount > 0, failureCount: cacheFailureCount };
+export function getCacheHealth(): { degraded: boolean; failureCount: number; lastFailureMs: number } {
+  const timeSinceLastFailure = Date.now() - lastFailureTimestamp;
+  const degraded = lastFailureTimestamp > 0 && timeSinceLastFailure < HEALTH_RECOVERY_WINDOW_MS;
+  return { degraded, failureCount: cacheFailureCount, lastFailureMs: timeSinceLastFailure };
 }
 
 async function upstashPipeline(
@@ -78,7 +77,11 @@ function refreshInBackground<T>(
 
   const refresh = fetcher()
     .then((fresh) => storeInCache(key, fresh, staleTtlSeconds, url, token))
-    .catch((err) => console.warn(`[Cache] background refresh failed for "${key}":`, err))
+    .catch((err) => {
+      cacheFailureCount++;
+      lastFailureTimestamp = Date.now();
+      console.warn(`[Cache] background refresh failed for "${key}":`, err);
+    })
     .finally(() => inFlightRefreshes.delete(key));
 
   inFlightRefreshes.set(key, refresh);
@@ -135,15 +138,16 @@ export async function getCached<T>(
       }
     }
   } catch (err) {
-    cacheFailureCount++; // feeds getCacheHealth(): Upstash request itself failed
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] Upstash GET unavailable for "${key}"; falling back to direct fetch:`, err);
     return await fetcher();
   }
 
-  // Hard miss: fetch, store, return. If fetcher throws here there is no cached
-  // value to fall back to, so we let it propagate — the caller gets the error.
   const fresh = await fetcher();
   void storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
   });
   return fresh;
@@ -159,11 +163,10 @@ export async function invalidateCache(keys: string | string[]): Promise<void> {
   if (keyList.length === 0) return;
 
   try {
-    // A single DEL with every key is one Upstash round-trip instead of one
-    // per key, which matters for bulk operations (e.g. deleting N albums).
     await upstashPipeline([["DEL", ...keyList]], url, token);
   } catch (err) {
-    cacheFailureCount++; // feeds getCacheHealth(): Upstash request itself failed
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] invalidation failed for [${keyList.join(", ")}]:`, err);
   }
 }

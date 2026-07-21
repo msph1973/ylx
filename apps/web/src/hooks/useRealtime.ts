@@ -59,10 +59,6 @@ export function useRealtime(
       for (const [eventType, handler] of Object.entries(handlers)) {
         channel.unsubscribe(eventType, handler as (message: Ably.Message) => void);
       }
-      // unsubscribe() alone leaves the channel instance (and its connection/
-      // buffer state) alive in the Ably client's internal map forever; release()
-      // actually frees it, which matters because an admin can browse many albums
-      // (and thus many different channels) in one session.
       try {
         ably.channels.release(channelName);
       } catch (err) {

@@ -350,20 +350,19 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         } catch (err) {
           const e = err as RetryableError;
           lastError = e?.message || 'Upload failed';
-          // A stale/invalid token affects every file — drop the cache so the next
-          // attempt (this file or another) re-fetches fresh credentials.
+          let canRetry = e?.retryable === true && attempt < MAX_UPLOAD_ATTEMPTS;
+
           if (e?.status === 401) {
             credsRef.current = null;
             try {
-              await getCredentials(); // re-fetch immediately; don't wait for the next attempt to discover the token is gone
+              await getCredentials();
+              canRetry = attempt < MAX_UPLOAD_ATTEMPTS;
             } catch {
-              // fresh fetch failed too; the next attempt's own getCredentials() call will surface this error naturally
+              canRetry = false;
             }
           }
 
-          const canRetry = e?.retryable === true && attempt < MAX_UPLOAD_ATTEMPTS;
           if (!canRetry) break;
-          // Exponential backoff: 800ms, 1600ms, ...
           await delay(Math.min(MAX_RETRY_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
         }
       }
@@ -375,19 +374,17 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
   const startUpload = useCallback(async () => {
     if (!selectedAlbum) return;
-    const targetAlbumId = selectedAlbum; // freeze for this whole batch
-    // Process pending files and re-attempt previously failed ones in one pass.
+    const targetAlbumId = selectedAlbum;
     const queueIds = files
       .filter(f => f.status === 'pending' || f.status === 'error')
       .map(f => f.id);
     if (queueIds.length === 0) return;
 
-    // Stamp albumId onto every queued file now, so a later independent retryFile()
-    // call (possibly after the dropdown changes) still targets this same album.
-    setFiles(prev => prev.map(f => (queueIds.includes(f.id) ? { ...f, albumId: targetAlbumId } : f)));
+    const queueIdSet = new Set(queueIds);
+    setFiles(prev => prev.map(f => (queueIdSet.has(f.id) ? { ...f, albumId: f.albumId ?? targetAlbumId } : f)));
     const queue = files
-      .filter(f => queueIds.includes(f.id))
-      .map(f => ({ ...f, albumId: targetAlbumId }));
+      .filter(f => queueIdSet.has(f.id))
+      .map(f => ({ ...f, albumId: f.albumId ?? targetAlbumId }));
 
     // Refresh credentials once per batch.
     credsRef.current = null;
