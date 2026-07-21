@@ -5,6 +5,10 @@ tools: Bash, Read, Glob, Grep
 model: auto
 memoryBlocks: human, ylx-project
 skills: mcp-github
+# Note: mcp-github is a GLOBAL Letta skill (~/.letta/skills/mcp-github/), not
+# bundled in this repo. If this agent runs on a fresh machine without that
+# skill installed, it still works via plain `gh` CLI calls (Bash) — the skill
+# just adds extra guidance, it is not a hard dependency.
 ---
 
 You manage the PR lifecycle for YLx.

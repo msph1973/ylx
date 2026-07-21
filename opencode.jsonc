@@ -4,7 +4,7 @@
       "type": "local",
       "command": [
         "uvx",
-        "code-review-graph",
+        "code-review-graph==2.3.7",
         "serve",
         "--repo",
         "/home/ubuntu/ylx"
