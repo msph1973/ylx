@@ -98,6 +98,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 - `/api/admin/upload/credentials.ts`
 - `/api/admin/upload/finalize.ts`
 - `/api/auth/create-admin.ts`
+- `/api/gallery/[slug]/selections.ts` — admin-only despite living under the `gallery/[slug]` route (admin dashboard polls a single album's selections through it)
 
 > `/api/ably/token.ts` also calls `requireAdmin()`, but only to conditionally grant an extra `admin:updates` subscribe capability — non-admin gallery clients hit the same endpoint for their own channel token, so it's not a reject-if-missing case like the routes above.
 > Mastra is fully removed — `/api/admin/upload.ts` and `/api/admin/workflow.ts` no longer exist (see §10); don't re-add either to this list without re-verifying the file is back.
@@ -141,7 +142,7 @@ Gallery PIN verify + login endpoints have brute-force protection via the shared 
 
 ```typescript
 // ✅ Required — reuse the shared limiter, don't reimplement one inline
-import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from '../../lib/ratelimit';
+import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from '@/lib/ratelimit';
 
 const limited = await isRateLimited(`pin:${slug}:${ip}`, 5); // 5 attempts / 15 min window
 if (limited) {
@@ -482,7 +483,6 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `PUBLIC_SANITY_DATASET` | Everywhere | ✅ |
 | `SANITY_API_TOKEN` | Server-side write ops | ✅ |
 | `ABLY_API_KEY` | Root key — server-side publish + mints all client tokens (gallery subscribe tokens, plus the extra admin capability when applicable) | ✅ |
-| `PUBLIC_ABLY_KEY` | Subscribe-only key — client-side realtime | ✅ |
 | `SESSION_SECRET` | Admin session cookie HMAC signing | ✅ |
 | `UPSTASH_REDIS_REST_URL` | Gallery PIN / login rate limiter (persistent) | ✅ in production — without it, `ratelimit.ts` degrades to an in-memory fallback at half the normal cap (not a full block; see §2.4) |
 | `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN / login rate limiter (persistent) | ✅ in production — same fallback behavior as above |
@@ -491,6 +491,8 @@ Any PR adding a new `process.env.X` call must:
 1. Document the variable above
 2. Add it to `apps/web/.env.example`
 3. Confirm it's added to Vercel env vars (both environments)
+
+> `PUBLIC_ABLY_KEY` is listed in `.env.example`/`README.md`/`CONTEXT.md` but is **not actually read anywhere in the app** (confirmed via grep) — the client instead authenticates through `authUrl: /api/ably/token` precisely so no Ably key is ever exposed to the browser (see the security note already in `STATUS.md`). Left out of the table above since it isn't a variable a PR needs to set for anything to work; flag for cleanup (remove from the docs above, or wire it up) rather than treating it as a required var.
 
 ---
 
