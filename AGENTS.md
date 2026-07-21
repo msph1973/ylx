@@ -27,6 +27,14 @@ The built-in `memory` MCP server holds a knowledge graph — use it **only** for
   - If a fuller toolset (`delete_entities`/`add_observations`) is available in a later session, fix flagged-stale entities directly and retire this workaround.
 - **Never store secrets** in the graph (same rule as `notes.md`).
 
+### Cross-agent memory bank (`~/.junie/memory/system`, `reference`, `tasks`)
+
+`~/.junie/memory/` also holds a structured, cross-agent memory bank beyond `notes.md`/`checkpoint.md` — shared with other coding agents that operate on this repo (e.g. Letta Code, config at `.letta/`), auto-distilled from session history by that agent's own pipeline, **not** hand-edited by Junie.
+
+- **Entry point:** `~/.junie/memory/system/ylx/overview.md` — links to `system/ylx/conventions.md`, `system/ylx/gotchas.md`, `system/ylx/tooling/{commands,testing}.md`, and `reference/ylx/architecture.md` (deep request/data/security-flow reference). `system/human/` holds durable notes on user identity/preferences; `tasks/T*/progress.md` is a historical per-task log from other agent sessions.
+- It already treats `STATUS.md`/`AGENTS.md` as the sources of truth (see its own `system/ylx/files.md` and `system/human/prefs/workflow.md`) — query it at session start when a gotcha/convention/architecture lookup would help, but never edit it directly (owned by the other agent's pipeline) and never let it override `STATUS.md`/`AGENTS.md` if they conflict.
+- `tasks/` entries can be stale on fine detail (e.g. describe an early version of a feature before a later rewrite) — treat as historical context, not current state.
+
 ## Architecture (Actual, not original spec)
 
 - **Frontend:** Astro 6 (island architecture) + React 18 interactive components via `client:load`
