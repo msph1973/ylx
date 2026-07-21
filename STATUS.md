@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-21 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#40** mode reorder foto eksplisit + fallback touch, **#41** CSP connect-src fix (*.ably.net). Semua audit temuan ✅ FIXED. **Terbuka:** PR #43 (resize foto client-side sebelum upload), PR #44 (cross-agent memory bank guardrail), PR #45 (tooling config code-review-graph/Letta/opencode), PR #46 (pindahkan narasi task/PR ke ~/.junie/tasks/, dokumen ini). Narasi lengkap tiap PR: `~/.junie/tasks/` (lokal, lihat bagian "Riwayat Task/PR" di bawah).
+> Last updated: 2026-07-21 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#40** mode reorder foto eksplisit + fallback touch, **#41** CSP connect-src fix (*.ably.net), **#44** cross-agent memory bank guardrail. Semua audit temuan ✅ FIXED. **Terbuka:** PR #43 (resize foto client-side sebelum upload), PR #45 (tooling config code-review-graph/Letta/opencode), PR #46 (pindahkan narasi task/PR ke ~/.junie/tasks/, dokumen ini). Narasi lengkap tiap PR: `~/.junie/tasks/` (lokal, lihat bagian "Riwayat Task/PR" di bawah).
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -211,10 +211,11 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `REVIEW.md` | Code review checklist, anti-patterns, auto-reject list |
 | `DESIGN.md` | Design tokens, warna, typography |
 | `PRODUCT.md` | Product requirements |
-| `AGENTS.md` | Operating rules & session protocol (arsitektur, git workflow, skills, memory) |
+| `AGENTS.md` | Operating rules & session protocol (arsitektur, git workflow, skills, memory — termasuk referensi ke `~/.junie/memory/system` cross-agent memory bank) |
 | `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED (file sudah dihapus, riwayat lengkap di `docs/history/STATUS-ARCHIVE.md`) |
 | `new-audit-2.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, semua ✅ FIXED (PR #34 + #35, merged) |
 | `~/.junie/tasks/README.md` | Konvensi penyimpanan narasi task/PR lokal (di luar repo, tidak ter-push) — mulai PR #41 |
+| `~/.junie/memory/system/ylx/overview.md` | Cross-agent memory bank (juga dipakai agent lain di luar Junie, mis. Letta Code — `.letta/`) — index ke conventions/gotchas/tooling/architecture; auto-generated, tetap menganggap `STATUS.md`/`AGENTS.md` sebagai sumber kebenaran, jangan diedit manual dari sesi Junie |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
 
@@ -231,7 +232,7 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #40 | Mode reorder foto eksplisit + fallback touch | MERGED | `~/.junie/tasks/PR-40-photo-reorder-touch-mode.md` |
 | #41 | CSP connect-src fix (*.ably.net) | MERGED | `~/.junie/tasks/PR-41-csp-ably.md` |
 | #43 | Resize foto client-side sebelum upload | OPEN | `~/.junie/tasks/PR-43-upload-resize.md` |
-| #44 | Cross-agent memory bank guardrail | OPEN | `~/.junie/tasks/PR-44-memory-bank.md` |
+| #44 | Cross-agent memory bank guardrail | MERGED | `~/.junie/tasks/PR-44-memory-bank.md` |
 | #45 | Tooling config (code-review-graph/Letta/opencode) | OPEN | `~/.junie/tasks/PR-45-tooling-config.md` |
 | #46 | Pindahkan narasi task/PR ke `~/.junie/tasks/` (dokumen ini) | OPEN | `~/.junie/tasks/PR-46-task-memory-reorg.md` |
 
