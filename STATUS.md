@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-19 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#40** mode reorder foto eksplisit + fallback touch, **#41** CSP connect-src fix (*.ably.net). Semua audit temuan ✅ FIXED. Tidak ada PR terbuka.
+> Last updated: 2026-07-21 | PR MERGED: **#19** admin dashboard, **#20** PIN rate-limit, **#21** direct-to-Sanity upload, **#22** Astro 5→6, **#23** impeccable CLI, **#25** junie review workflow, **#26** gallery-upload improvements, **#27** long-term audit improvements (CSP/HSTS + hybrid rendering + Upstash KV cache), **#28** admin login rate-limit (H-1), **#29** session revocation (M-1), **#30** Ably realtime album scoping (M-2), **#32** selection notes & gallery link improvements, **#33** Vercel Web Analytics, **#34** new-audit-2.md findings #1-#8,#10, **#35** new-audit-2.md #9,#11, **#36** mobile-first impeccable (share buttons visible + upload responsive), **#37** gallery mobile-first adapt, **#38** UI/UX audit P1/P2 (landing/login/dashboard/upload), **#40** mode reorder foto eksplisit + fallback touch, **#41** CSP connect-src fix (*.ably.net). Semua audit temuan ✅ FIXED. **Terbuka:** PR #43 (resize foto client-side sebelum upload), PR #44 (cross-agent memory bank guardrail), PR #45 (tooling config code-review-graph/Letta/opencode). Narasi lengkap tiap PR: `~/.junie/tasks/` (lokal, lihat bagian "Riwayat Task/PR" di bawah).
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -52,7 +52,7 @@ Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
 
 ---
 
-> **Riwayat detail PR #19–#36** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). Detail lengkap: `docs/history/STATUS-ARCHIVE.md`. Hanya **4 PR terbaru dengan narasi penuh** (#37, #38, #40, #41 — #39 doc-only STATUS.md sync, tidak punya section terpisah) yang masih tercantum di bawah — begitu ada PR ke-5 berikutnya, entri PR #37 dipindah ke arsip (rolling window: simpan 4).
+> **Riwayat detail PR #19–#36** + sinkronisasi `new-audit.md` (admin dashboard, rate-limit hardening, direct-to-Sanity upload, impeccable CLI, gallery/upload perf, security audit M-1..L-6, selection notes/gallery link, Vercel Analytics) — semua sudah **MERGED**, sudah baked-in ke codebase saat ini (lihat File Map & Core User Flow). `docs/history/STATUS-ARCHIVE.md` **dibekukan** per PR #40 — tidak ada entri baru di sana. Narasi PR #37 dan seterusnya ada di `~/.junie/tasks/` (lokal, lihat tabel di bawah).
 
 ## File Map
 
@@ -134,7 +134,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 > Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) + threat model 2026-07-10 (H-1) selesai. Realtime browser auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` (dataset private). Known gap: Playwright e2e admin fixture (`tests/helpers/adminSession.ts`) pakai cookie palsu tanpa doc Sanity asli — akan ditolak `getSession()` sampai ada fixture seed nyata (di luar scope, didokumentasikan di helper).
 >
-> Detail lengkap tiap fix (root cause, commit, PR, riwayat review bot): `docs/history/STATUS-ARCHIVE.md`.
+> Detail lengkap tiap fix (root cause, commit, PR, riwayat review bot): `docs/history/STATUS-ARCHIVE.md` (s.d. PR #40, dibekukan) atau `~/.junie/tasks/` (PR #41 dan seterusnya, lokal).
 
 ---
 
@@ -211,135 +211,28 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `REVIEW.md` | Code review checklist, anti-patterns, auto-reject list |
 | `DESIGN.md` | Design tokens, warna, typography |
 | `PRODUCT.md` | Product requirements |
-| `AGENTS.md` | Architecture overview (perlu update — lihat catatan di bawah) |
+| `AGENTS.md` | Operating rules & session protocol (arsitektur, git workflow, skills, memory) |
 | `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED (file sudah dihapus, riwayat lengkap di `docs/history/STATUS-ARCHIVE.md`) |
 | `new-audit-2.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, semua ✅ FIXED (PR #34 + #35, merged) |
+| `~/.junie/tasks/README.md` | Konvensi penyimpanan narasi task/PR lokal (di luar repo, tidak ter-push) — mulai PR #41 |
 
 > `CONTEXT.md` sudah sangat outdated — jangan jadikan referensi utama. Gunakan `STATUS.md` ini.
 
 ---
 
-## PR #37 — Gallery Mobile-First Adapt — MERGED (2026-07-19, branch `fix/gallery-mobile-adapt`)
+## Riwayat Task/PR — Sekarang Disimpan Lokal (`~/.junie/tasks/`)
 
-Follow-up dari PR #36: audit teknis (dimensi a11y/perf/theming/responsive/anti-pattern) atas rute `/gallery/[slug]` menemukan theming+perf sudah baik, tapi beberapa celah mobile nyata. Fix diterapkan:
+Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde review bot, verifikasi) **tidak lagi ditulis di sini** — pindah ke `~/.junie/tasks/` (di luar repo project, tidak pernah ter-commit/ter-push/ter-review PR). Lihat `~/.junie/tasks/README.md` untuk konvensinya. `docs/history/STATUS-ARCHIVE.md` **dibekukan** per PR #40 (tidak ada entri baru).
 
-| Area | Perubahan |
-|------|-----------|
-| Safe-area (notch) | `viewport-fit=cover` di `BaseLayout.astro`; `env(safe-area-inset-*)` di header/content (`GalleryLayout.astro`) dan lightbox backdrop (`GalleryPage.tsx`) |
-| Thumb-zone | `.gallery-selection-bar` (hitung + submit) dipindah dari atas konten ke `position: fixed` di bawah layar; `.gallery-view`/`.unlock-toast` disesuaikan agar tidak tertutup |
-| Lightbox footer | `flex-wrap` + note-input `order`/`flex-basis: 100%` di ≤480px supaya tidak sesak (sebelumnya 4 kontrol sejajar di satu baris) |
-| Swipe gesture | `PhotoLightbox.tsx`/`BlurImage.tsx` — touch-based swipe kiri/kanan untuk navigasi foto (mirror tombol panah/keyboard yang sudah ada) |
-| PIN autofill | `PinEntry.tsx` — `onPaste` handler sebar 4 digit sekaligus (dari SMS/clipboard) + `autoComplete="one-time-code"` di digit pertama |
-| Error feedback | `GalleryPage.tsx` — toast error (dismissible) untuk kegagalan submit selection; sebelumnya gagal kirim di koneksi mobile yang flaky senyap total tanpa feedback ke klien |
+| PR | Judul | Status | File lokal |
+|----|-------|--------|-----------|
+| #37 | Gallery mobile-first adapt | MERGED | `~/.junie/tasks/PR-37-gallery-mobile-adapt.md` |
+| #38 | UI/UX audit P1/P2 (landing/login/dashboard/upload) | MERGED | `~/.junie/tasks/PR-38-ui-audit-p1-p2.md` |
+| #40 | Mode reorder foto eksplisit + fallback touch | MERGED | `~/.junie/tasks/PR-40-photo-reorder-touch-mode.md` |
+| #41 | CSP connect-src fix (*.ably.net) | MERGED | `~/.junie/tasks/PR-41-csp-ably.md` |
+| #43 | Resize foto client-side sebelum upload | OPEN | `~/.junie/tasks/PR-43-upload-resize.md` |
+| #44 | Cross-agent memory bank guardrail | OPEN | `~/.junie/tasks/PR-44-memory-bank.md` |
+| #45 | Tooling config (code-review-graph/Letta/opencode) | OPEN | `~/.junie/tasks/PR-45-tooling-config.md` |
 
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (17/17), `astro build`, dan detector anti-pattern impeccable (`detect.mjs`) semua pass. Commit `79762ee` (docs housekeeping) + `c05fabe` (fix) di branch `fix/gallery-mobile-adapt`; PR https://github.com/msph1973/ylx/pull/37 → base `master`. Sesuai kebijakan baru di `AGENTS.md` §Git Workflow, commit/push/PR dijalankan otomatis begitu fix selesai & terverifikasi, tanpa menunggu instruksi eksplisit.
-
-**Bot review round 2 (Sourcery + CodeRabbit):**
-
-| Bot | Temuan | Fix |
-|-----|--------|-----|
-| Sourcery | `PhotoLightbox` swipe handler pakai `touches[0]`/`changedTouches[0]` tanpa guard → gesture multi-jari (pinch-zoom) bisa memicu swipe | Guard `touches.length !== 1` di `handleTouchStart`, `changedTouches.length !== 1` di `handleTouchEnd` (commit `a971f79`, dikerjakan user di agent lain) |
-| Sourcery (overall feedback) | Swipe hanya reset di `touchend`, tidak menangani `touchcancel` (gesture terinterupsi — panggilan masuk, gesture nav OS) | Tambah `onTouchCancel` handler di `PhotoLightbox.tsx`/`BlurImage.tsx` yang membersihkan start-point (commit `5f6b9ef`, sesi ini) |
-| Sourcery (overall feedback) | `--selection-bar-h` hardcoded, dipakai ulang untuk posisi toast | **Sengaja dilewati** — tinggi 76px stabil untuk elemen fixed-height; refactor `ResizeObserver` dinilai over-engineering |
-| CodeRabbit | `GalleryPage` — error toast submit tidak dibersihkan saat submit ulang/unlock, bisa tumpang tindih dengan unlock toast | `setError(null)` di awal `handleSubmit` + saat proses unlock (commit `a971f79`) |
-| CodeRabbit | Error toast tidak pakai `safe-area-inset` horizontal (landscape notch) | Disamakan dengan selection bar: `max(var(--space-4), env(safe-area-inset-*))` (commit `a971f79`) |
-| CodeRabbit | `PinEntry.handlePaste` tidak membersihkan slot lama sebelum isi kode pendek → sisa digit basi | `next = ['', '', '', '']` sebelum diisi (commit `a971f79`) |
-| CodeRabbit | `PinEntry.handleChange` OTP autofill lewat satu event `change` cuma menyimpan karakter terakhir | Deteksi `value.length > 1`, sebar digit ke box berikutnya + 2 regression test baru (commit `a971f79`) |
-| CodeRabbit | Pipe (`\|`) di tabel Markdown `STATUS-ARCHIVE.md` merusak rendering | Diganti jadi 2 path terpisah (commit `a971f79`) |
-| CodeRabbit | Kebijakan rolling-window beda angka antara `STATUS.md` (~3) dan arsip (~3) vs isi aktual (4 PR) | Disamakan eksplisit jadi "4 PR terbaru" di kedua file (commit `a971f79`) |
-
-> Semua temuan bot round 2 sudah ✅ FIXED. Commit `a971f79` (oleh user, agent lain) + `5f6b9ef` (touchcancel, sesi ini). `tsc`/`eslint --max-warnings 0`/`vitest run` (19/19)/`astro build` semua pass.
-
-**Remaining impeccable commands (critique/optimize/onboard/harden gallery + audit admin bonus):**
-
-Melanjutkan rekomendasi command yang belum dijalankan (`audit`/`adapt` sudah selesai sebelumnya). Detector anti-pattern (`detect.mjs`) bersih di gallery & admin sebelum dan sesudah perubahan. Temuan manual (design review + heuristik) dan fix:
-
-| Temuan | Fix |
-|---|---|
-| Grid galeri tanpa foto tampil kosong total tanpa pesan (onboarding gap) | State kosong baru: "No photos yet" + penjelasan |
-| Tidak ada instruksi first-run di atas grid | Baris teks singkat "Tap a photo to preview it, then select up to N" |
-| Menekan foto saat sudah di batas maksimal diam-diam tidak berefek (terlihat seperti bug) | Toast info baru "You've reached the limit of N photos..." (berlaku baik dari grid maupun lightbox, sumber logic sama) |
-| Submit foto langsung mengunci galeri tanpa konfirmasi, padahal aksi tidak bisa dibatalkan sendiri oleh klien | Tap pertama mengarmed konfirmasi ("Selections are final... Send now?" + tombol Cancel), tap kedua baru benar-benar submit (auto-batal setelah 5 detik) |
-| PIN salah menyisakan 4 digit terisi — klien harus hapus manual sebelum mencoba lagi | Digit otomatis dikosongkan + fokus kembali ke kotak pertama saat error muncul |
-| Error jaringan (`fetch` gagal total) menampilkan pesan teknis mentah ("Failed to fetch") | Pesan ramah: "Could not connect. Please check your internet connection and try again." |
-| Semua foto grid dimuat `loading=lazy` termasuk baris pertama yang langsung terlihat (memperlambat LCP) | 4 foto pertama (baris atas layar) dimuat `eager`, sisanya tetap `lazy` |
-| **Audit admin (bonus)** — `SelectionTable`/`AlbumCard` | Tidak ada temuan kritis: tabel sudah scroll horizontal di ≤480px, kartu album sudah full-width responsive. Tombol reply kecil (32px) di bawah AAA (44px) tapi masih lolos AA (24px) — dibiarkan, tidak worth tambahan kompleksitas untuk backoffice density |
-
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` (gallery + admin) semua pass. `critique`/`polish` command formal (skoring heuristik 10-poin + laporan penuh) tidak dijalankan sebagai command terpisah — browser automation tidak tersedia di sesi ini (headless), jadi temuan digabung langsung ke fix di atas alih-alih laporan skor terpisah.
-
-**Kebijakan baru: verifikasi manual/browser via Vercel Preview Deployment (2026-07-19):**
-
-Karena app jalan di Vercel Serverless, `astro dev` lokal berbeda perilaku (middleware dev-only, tidak ada cold-start serverless nyata, header cache/edge berbeda) — bisa menyembunyikan bug yang cuma muncul setelah deploy. `AGENTS.md` §"Manual/Browser Verification" baru mewajibkan: prioritaskan testing di URL Vercel Preview Deployment milik branch/PR (auto-di-comment bot Vercel di PR, pola `https://ylx-git-<branch>-msph.vercel.app`) begitu status check `Vercel` = `Ready`/`SUCCESS`, dev lokal tetap boleh untuk iterasi cepat saat menulis kode. Diverifikasi: preview PR #37 (`ylx-git-fix-gallery-mobile-adapt-msph.vercel.app`) aktif, `/` dan `/admin/login` HTTP 200. Commit `574fae3` (doc-only, di branch/PR yang sama).
-
-> **PR #37 merged** via squash ke `master`, tidak ada review manusia yang menahan (hanya komentar bot, semua sudah ditindaklanjuti), semua 9 CI check hijau.
-
----
-
-## PR #38 — UI/UX Audit P1/P2 Fixes: Landing, Login, Admin Dashboard, Upload — MERGED (2026-07-19, branch `fix/ui-audit-p1-p2`)
-
-Follow-up dari PR #37: audit teknis 5-dimensi (a11y/perf/theming/responsive/anti-pattern) via 3 subagent paralel atas 3 area yang belum pernah diaudit — landing (`index.astro`) + login (`admin/login.astro`), dashboard admin (`admin/index.astro`+`AlbumCard`+`AlbumFormModal`), dan detail-album/upload (`AlbumDetail.tsx`+`UploadPage.tsx`). Skor: 15/20, 16/20, 13/20 — tidak ada P0. Semua temuan P1 + P2 yang layak dieksekusi diperbaiki:
-
-| Area | Perbaikan |
-|------|-----------|
-| `admin/login.astro` | Kontras placeholder AA (hapus override lokal `opacity:0.6`), `autocomplete` email/password, landmark `<main>`, focus ring pakai token `--color-accent-ring` baru |
-| `index.astro` | Focus ring disamakan dengan login; input+tombol "Open" stack di ≤360px |
-| `BaseLayout.astro` | Trim 2 weight Playfair Display yang tidak dipakai (400/500) — kurangi request font render-blocking |
-| `UploadPage.tsx` | ARIA `role="progressbar"` di progress bar per-file (sebelumnya cuma progress bar total yang punya ARIA); throttle update progress state supaya tidak re-render seluruh daftar file di tiap tick |
-| `AlbumFormModal.tsx`/`ConfirmDialog.tsx`/`AlbumList.tsx` | `z-index` hardcoded (50/60/10) diganti token `--z-modal`/`--z-dropdown` — modal berpotensi tertutup header sticky admin (`z-index:200`) |
-| `AlbumFormModal.tsx` | `aria-labelledby` mengikuti `<h2>` asli (sebelumnya `aria-label` literal beda teks) |
-| `AlbumCard.tsx`/`AlbumDetail.tsx` | Kontras badge status "submitted" dipertajam (18%→12% tint, sama bug di 2 file); animasi spring under-damped diredam (`damping` dinaikkan ke nilai kritis) |
-| `AlbumDetail.tsx` | Hardcoded `44px` diganti token `--tap-target-min` (4 lokasi) |
-
-**Sengaja dilewati (didokumentasikan, bukan bug):** menyembunyikan tombol reorder foto di balik mode eksplisit (opini subjektif UX, tombol panah sudah berfungsi+berlabel), dan pesan fallback untuk drag HTML5 yang tak berfungsi di touch (alasan sama, tombol panah sudah menutupi).
-
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. Commit `7a1e3b9` di branch `fix/ui-audit-p1-p2`; PR https://github.com/msph1973/ylx/pull/38 → base `master`.
-
-**Bot review round (CodeRabbit):**
-
-| Temuan | Fix (commit `9eb9b69`) |
-|---|---|
-| `AlbumFormModal.tsx` — spring physics (`stiffness`/`damping`) selalu override `duration`, jadi `duration:0` untuk `prefers-reduced-motion` diam-diam diabaikan (animasi tetap berjalan) | Branch eksplisit: `{ duration: 0 }` (tween) saat reduced motion, spring config hanya dipakai kalau tidak |
-| `UploadPage.tsx` — ikon centang selesai upload cuma `aria-label` di `<span>` generik, tidak konsisten terekspos ke assistive tech | Tambah `role="img"` |
-
-> Ditunggu hingga tidak ada review/komentar baru pasca-fix (semua 10 CI check + review bot pass, `mergeStateStatus: CLEAN`), lalu **PR #38 merged** via squash ke `master` (`a1d72b9`).
-
----
-
-## PR #40 — Mode Reorder Foto Eksplisit + Pesan Fallback Touch — MERGED (branch `fix/photo-reorder-touch-mode`)
-
-Menuntaskan 2 temuan yang sengaja ditunda di PR #38 (`AlbumDetail.tsx`): tombol panah reorder selalu tampil di setiap foto (padahal HTML5 drag-and-drop tidak berfungsi di layar sentuh tanpa pesan penjelasan apapun).
-
-| Perubahan | Detail |
-|-----------|--------|
-| Mode "Reorder photos" baru | Toggle terpisah dari "Select photos" (saling eksklusif); tombol panah ↑/↓ dan drag-and-drop kini hanya tampil/aktif saat mode ini diaktifkan — tile foto default jadi lebih ringkas |
-| Pesan bantuan touch | Saat mode reorder aktif, teks "Drag isn't supported on touchscreens — use the ↑/↓ buttons..." muncul khusus di perangkat `pointer: coarse` (CSS media query, tidak render di desktop) |
-| Tombol hapus foto | Disembunyikan juga selama mode reorder aktif (konsisten dengan pola mode selection yang sudah ada) |
-
-**Bot review (Junie automated review — `github-actions[bot]`):**
-
-| Temuan | Fix |
-|---|---|
-| Tombol "Reorder photos"/"Done reordering" hilang kalau jumlah foto turun jadi 1 saat mode reorder aktif (mis. via tab lain) — pengguna terjebak tanpa cara keluar | Guard tombol ditambah `\|\| photoReorderMode` supaya tetap tampil |
-| Prop `disabled` di kedua tombol toggle membuat cabang peralihan mode di `onClick` masing-masing jadi tidak pernah tercapai | `disabled` dihapus — kedua handler sudah membersihkan state mode lain dengan benar, jadi peralihan langsung kini benar-benar berfungsi |
-| Tile foto tetap bisa mulai drag saat `isSavingOrder` (permintaan reorder sebelumnya masih diproses) — berisiko permintaan reorder tumpang tindih | `draggable`/`onDragStart` ditambah guard `!isSavingOrder` |
-
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19), `astro build`, dan `detect.mjs` semua pass. **PR #40 merged** via squash ke `master` (`35ff157`).
-
----
-
-## PR #41 — Fix CSP `connect-src` Blokir Ably Realtime (`*.ably.net`) — MERGED (2026-07-19, branch `fix/csp-ably-realtime`)
-
-User melaporkan console Firefox di production menunjukkan CSP `connect-src` violation yang memblokir `main.realtime.ably.net` (requestToken XHR + websocket upgrade). Root cause: `connect-src` cuma mengizinkan `*.ably.io`/`*.ably-realtime.com` — ably-js (2.23.0) pakai host utama di domain `*.ably.net` yang tidak pernah masuk allowlist, jadi koneksi realtime utama selalu CSP-blocked dan tiap klien terpaksa jatuh ke fallback host yang lebih lambat (`*.a.fallback.ably-realtime.com`, kebetulan sudah diizinkan — makanya realtime tetap jalan tapi lebih lambat + console penuh error).
-
-**Fix:** tambah `https://*.ably.net wss://*.ably.net` ke `connect-src` di `securityHeaders.ts` (SSR middleware) **dan** `vercel.json` (halaman prerender) — dijaga tetap identik oleh drift-guard test yang sudah ada.
-
-**Item console lain yang dicek (tidak perlu tindakan):**
-
-| Temuan | Alasan aman diabaikan |
-|---|---|
-| `-moz-osx-font-smoothing` "unknown property" | Snippet font-smoothing standar lintas-browser di `global.css`; Firefox hanya kenali properti ini di build macOS — warning kosmetik yang sama muncul di hampir semua situs (mis. Tailwind preflight) |
-| "Rule set diabaikan karena selector salah" | Rule `::-webkit-scrollbar` di `global.css`; Firefox memang tidak dukung pseudo-element scrollbar vendor-prefixed ini (pakai `scrollbar-width`/`scrollbar-color`), diabaikan secara aman |
-| `_vercel/insights/script.js` gagal dimuat | Same-origin, sudah tercakup `script-src 'self'`; biasa disebabkan ad-blocker browser yang memblokir path script analytics dikenal, bukan masalah CSP/app — `@vercel/analytics` didesain gagal diam-diam |
-
-> Verifikasi: `tsc --noEmit`, `eslint --max-warnings 0`, `vitest run` (19/19, termasuk drift-guard test CSP/vercel.json), `astro build` semua pass. PR https://github.com/msph1973/ylx/pull/41 → base `master`, merged squash (`64229392`).
+> Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
 
