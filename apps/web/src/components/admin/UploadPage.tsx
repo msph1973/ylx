@@ -351,19 +351,26 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           const e = err as RetryableError;
           lastError = e?.message || 'Upload failed';
           let canRetry = e?.retryable === true && attempt < MAX_UPLOAD_ATTEMPTS;
+          // A 401 with a freshly-refreshed token is already fixed — the failure
+          // was an expired token, not server load or network congestion, so
+          // there's nothing gained by waiting out the normal backoff delay.
+          let recoveredFrom401 = false;
 
           if (e?.status === 401) {
             credsRef.current = null;
             try {
               await getCredentials();
               canRetry = attempt < MAX_UPLOAD_ATTEMPTS;
+              recoveredFrom401 = true;
             } catch {
               canRetry = false;
             }
           }
 
           if (!canRetry) break;
-          await delay(Math.min(MAX_RETRY_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
+          if (!recoveredFrom401) {
+            await delay(Math.min(MAX_RETRY_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
+          }
         }
       }
 

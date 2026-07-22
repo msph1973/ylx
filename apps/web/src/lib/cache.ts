@@ -27,8 +27,13 @@ let lastFailureTimestamp = 0;
 const HEALTH_RECOVERY_WINDOW_MS = 60_000;
 
 export function getCacheHealth(): { degraded: boolean; failureCount: number; lastFailureMs: number } {
+  // No failure has ever been recorded: Date.now() - 0 would be a huge, misleading
+  // "time since last failure" — report -1 to mean "never failed" instead.
+  if (lastFailureTimestamp === 0) {
+    return { degraded: false, failureCount: cacheFailureCount, lastFailureMs: -1 };
+  }
   const timeSinceLastFailure = Date.now() - lastFailureTimestamp;
-  const degraded = lastFailureTimestamp > 0 && timeSinceLastFailure < HEALTH_RECOVERY_WINDOW_MS;
+  const degraded = timeSinceLastFailure < HEALTH_RECOVERY_WINDOW_MS;
   return { degraded, failureCount: cacheFailureCount, lastFailureMs: timeSinceLastFailure };
 }
 
