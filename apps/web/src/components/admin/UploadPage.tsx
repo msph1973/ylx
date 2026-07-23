@@ -19,6 +19,11 @@ interface UploadFile {
   status: 'pending' | 'resizing' | 'uploading' | 'done' | 'error';
   progress: number;
   error?: string;
+  // Stamped with the target album the first time this file starts uploading, so
+  // a later independent retry (or a batch retry after the admin changes the
+  // dropdown) always targets the SAME album the file was originally queued
+  // against, instead of silently re-targeting whatever album is currently selected.
+  albumId?: string;
 }
 
 interface UploadPageProps {
@@ -51,6 +56,7 @@ const UPLOAD_CONCURRENCY = 3;
 // 1 initial attempt + up to 2 retries for transient failures.
 const MAX_UPLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 800;
+const MAX_RETRY_DELAY_MS = 30_000; // hard ceiling even if MAX_UPLOAD_ATTEMPTS grows later
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -175,7 +181,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   const activeCountRef = useRef(0);
   const beginActivity = useCallback(() => {
     activeCountRef.current += 1;
-    setIsUploading(true);
+    if (mountedRef.current) setIsUploading(true);
   }, []);
   const endActivity = useCallback(() => {
     activeCountRef.current = Math.max(0, activeCountRef.current - 1);
@@ -344,14 +350,27 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         } catch (err) {
           const e = err as RetryableError;
           lastError = e?.message || 'Upload failed';
-          // A stale/invalid token affects every file — drop the cache so the next
-          // attempt (this file or another) re-fetches fresh credentials.
-          if (e?.status === 401) credsRef.current = null;
+          let canRetry = e?.retryable === true && attempt < MAX_UPLOAD_ATTEMPTS;
+          // A 401 with a freshly-refreshed token is already fixed — the failure
+          // was an expired token, not server load or network congestion, so
+          // there's nothing gained by waiting out the normal backoff delay.
+          let recoveredFrom401 = false;
 
-          const canRetry = e?.retryable === true && attempt < MAX_UPLOAD_ATTEMPTS;
+          if (e?.status === 401) {
+            credsRef.current = null;
+            try {
+              await getCredentials();
+              canRetry = attempt < MAX_UPLOAD_ATTEMPTS;
+              recoveredFrom401 = true;
+            } catch {
+              canRetry = false;
+            }
+          }
+
           if (!canRetry) break;
-          // Exponential backoff: 800ms, 1600ms, ...
-          await delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+          if (!recoveredFrom401) {
+            await delay(Math.min(MAX_RETRY_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
+          }
         }
       }
 
@@ -362,9 +381,17 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
   const startUpload = useCallback(async () => {
     if (!selectedAlbum) return;
-    // Process pending files and re-attempt previously failed ones in one pass.
-    const queue = files.filter(f => f.status === 'pending' || f.status === 'error');
-    if (queue.length === 0) return;
+    const targetAlbumId = selectedAlbum;
+    const queueIds = files
+      .filter(f => f.status === 'pending' || f.status === 'error')
+      .map(f => f.id);
+    if (queueIds.length === 0) return;
+
+    const queueIdSet = new Set(queueIds);
+    setFiles(prev => prev.map(f => (queueIdSet.has(f.id) ? { ...f, albumId: f.albumId ?? targetAlbumId } : f)));
+    const queue = files
+      .filter(f => queueIdSet.has(f.id))
+      .map(f => ({ ...f, albumId: f.albumId ?? targetAlbumId }));
 
     // Refresh credentials once per batch.
     credsRef.current = null;
@@ -382,7 +409,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
       await runWithConcurrency(
         queue,
         async (uploadFile) => {
-          const result = await uploadWithRetry(uploadFile, selectedAlbum);
+          const result = await uploadWithRetry(uploadFile, uploadFile.albumId);
           setFiles(prev => prev.map(f =>
             f.id === uploadFile.id
               ? {
@@ -403,13 +430,14 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
   // Retry one failed file on demand (independent of the main batch button).
   const retryFile = useCallback(async (id: string) => {
-    if (!selectedAlbum) return;
     const target = files.find(f => f.id === id);
     if (!target) return;
+    const targetAlbumId = target.albumId ?? selectedAlbum;
+    if (!targetAlbumId) return;
 
     beginActivity();
     try {
-      const result = await uploadWithRetry(target, selectedAlbum);
+      const result = await uploadWithRetry(target, targetAlbumId);
       setFiles(prev => prev.map(f =>
         f.id === id
           ? {
@@ -417,6 +445,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
               status: result.ok ? 'done' : 'error',
               progress: result.ok ? 100 : 0,
               error: result.ok ? undefined : result.error,
+              albumId: targetAlbumId, // keep it stamped for any further retry
             }
           : f
       ));
@@ -461,6 +490,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
         <select
           id="album-select"
           value={selectedAlbum}
+          disabled={isUploading}
           onChange={(e) => {
             setSelectedAlbum(e.target.value);
             if (albums.length === 0) fetchAlbums();

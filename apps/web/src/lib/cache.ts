@@ -15,6 +15,28 @@ interface CacheEnvelope<T> {
   value: T;
 }
 
+// Simple in-memory health signal for the cache layer. This module has no metrics/
+// alerting integration (the app has none anywhere yet), so this is a minimal,
+// zero-dependency way for a future health-check endpoint or manual debugging to
+// detect "is the cache currently degraded" without changing getCached()'s return
+// shape (which 3 existing callers already depend on). `failureCount` is a lifetime
+// total; `degraded` only reflects failures within the last HEALTH_RECOVERY_WINDOW_MS
+// so a past transient outage doesn't report the cache as degraded forever.
+let cacheFailureCount = 0;
+let lastFailureTimestamp = 0;
+const HEALTH_RECOVERY_WINDOW_MS = 60_000;
+
+export function getCacheHealth(): { degraded: boolean; failureCount: number; lastFailureMs: number } {
+  // No failure has ever been recorded: Date.now() - 0 would be a huge, misleading
+  // "time since last failure" — report -1 to mean "never failed" instead.
+  if (lastFailureTimestamp === 0) {
+    return { degraded: false, failureCount: cacheFailureCount, lastFailureMs: -1 };
+  }
+  const timeSinceLastFailure = Date.now() - lastFailureTimestamp;
+  const degraded = timeSinceLastFailure < HEALTH_RECOVERY_WINDOW_MS;
+  return { degraded, failureCount: cacheFailureCount, lastFailureMs: timeSinceLastFailure };
+}
+
 async function upstashPipeline(
   commands: Array<Array<string>>,
   url: string,
@@ -65,9 +87,20 @@ function refreshInBackground<T>(
 ): void {
   if (inFlightRefreshes.has(key)) return;
 
+  // Only a storeInCache() failure means Upstash itself is degraded; a fetcher()
+  // rejection is the origin data source failing, which is unrelated to cache
+  // health and shouldn't flip getCacheHealth() to degraded.
   const refresh = fetcher()
-    .then((fresh) => storeInCache(key, fresh, staleTtlSeconds, url, token))
-    .catch((err) => console.warn(`[Cache] background refresh failed for "${key}":`, err))
+    .then((fresh) =>
+      storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
+        cacheFailureCount++;
+        lastFailureTimestamp = Date.now();
+        console.warn(`[Cache] background refresh cache-store failed for "${key}":`, err);
+      })
+    )
+    .catch((err) => {
+      console.warn(`[Cache] background refresh fetch failed for "${key}":`, err);
+    })
     .finally(() => inFlightRefreshes.delete(key));
 
   inFlightRefreshes.set(key, refresh);
@@ -124,6 +157,8 @@ export async function getCached<T>(
       }
     }
   } catch (err) {
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] Upstash GET unavailable for "${key}"; falling back to direct fetch:`, err);
     return await fetcher();
   }
@@ -132,6 +167,8 @@ export async function getCached<T>(
   // value to fall back to, so we let it propagate — the caller gets the error.
   const fresh = await fetcher();
   void storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
   });
   return fresh;
@@ -151,6 +188,8 @@ export async function invalidateCache(keys: string | string[]): Promise<void> {
     // per key, which matters for bulk operations (e.g. deleting N albums).
     await upstashPipeline([["DEL", ...keyList]], url, token);
   } catch (err) {
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] invalidation failed for [${keyList.join(", ")}]:`, err);
   }
 }

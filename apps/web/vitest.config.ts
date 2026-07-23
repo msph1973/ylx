@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
@@ -13,7 +14,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src',
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Astro's virtual "astro:middleware" module only exists inside Astro's
+      // build pipeline; middleware.ts needs it resolvable to be unit-testable.
+      'astro:middleware': fileURLToPath(new URL('./src/test/stubs/astroMiddleware.ts', import.meta.url)),
     },
   },
 });
