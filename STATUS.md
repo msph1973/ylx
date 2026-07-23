@@ -237,7 +237,7 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #46 | Pindahkan narasi task/PR ke `~/.junie/tasks/` | MERGED | `~/.junie/tasks/PR-46-task-memory-reorg.md` |
 | #47 | Sync STATUS.md (doc-only, tandai #43 merged) | MERGED | `~/.junie/tasks/PR-47-status-sync.md` |
 | #48 | REVIEW.md accuracy pass + z-index token rule | MERGED | `~/.junie/tasks/PR-48-review-md-accuracy.md` |
-| #49 | Sync STATUS.md (doc-only, tandai #48 merged) | MERGED | — (doc-only, tidak ada narasi terpisah) |
+| #49 | Sync STATUS.md (doc-only, tandai #48 merged) | MERGED | `~/.junie/tasks/PR-49-status-sync.md` |
 | #50 | Audit #3: 7 temuan valid diperbaiki (Ably leak, CSRF, cache health, upload race/backoff/creds/mountedRef) | MERGED | `~/.junie/tasks/PR-50-audit3-valid-findings.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
