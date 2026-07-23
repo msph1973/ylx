@@ -719,6 +719,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         .lightbox-nav {
+          min-width: var(--tap-target-min);
           min-height: var(--tap-target-min);
           background: none;
           border: 1px solid rgba(255,255,255,0.25);

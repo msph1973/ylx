@@ -107,13 +107,16 @@ export function PhotoLightbox({
   if (!photo) return null;
 
   return (
-    // The backdrop itself is NOT animated (no initial/exit opacity fade): a fading
-    // backdrop briefly sits at partial opacity, letting the page content behind it
-    // (e.g. the gallery instructions text) show through for a moment — confirmed
-    // visually during mobile testing. Full coverage from the very first frame
-    // avoids that, while the content below still gets a nice scale/opacity pop-in.
+    // The backdrop has no `initial`/`animate` opacity fade-IN: fading in from
+    // transparent briefly let the page content behind it (e.g. the gallery
+    // instructions text) show through — confirmed visually during mobile
+    // testing. It's full-opaque from the first frame instead. The fade-OUT on
+    // close is kept (`exit`/`transition` below) since there's no bleed-through
+    // risk while the lightbox is already closing.
     <motion.div
       className="lightbox-backdrop"
+      exit={{ opacity: 0 }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
