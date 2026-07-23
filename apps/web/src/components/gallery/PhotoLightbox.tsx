@@ -92,6 +92,18 @@ export function PhotoLightbox({
     touchStart.current = null;
   }, []);
 
+  // Without this, the background gallery page can still rubber-band/scroll
+  // behind the fixed-position backdrop on mobile Safari (e.g. while swiping
+  // near an edge, or when the note input's focus triggers an auto-scroll) —
+  // lock it for as long as the lightbox is mounted, restore on close.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   if (!photo) return null;
 
   return (
@@ -118,7 +130,9 @@ export function PhotoLightbox({
         tabIndex={-1}
       >
         <div className="lightbox-header">
-          <span className="lightbox-counter">{currentIndex + 1} / {photos.length}</span>
+          {/* Announces the new position to screen readers on arrow/swipe navigation,
+              since navigating doesn't remount the dialog (no fresh aria-label read). */}
+          <span className="lightbox-counter" aria-live="polite" aria-atomic="true">{currentIndex + 1} / {photos.length}</span>
           <span className="lightbox-filename">{photo.filename}</span>
           <button className="lightbox-close" onClick={onClose} aria-label="Close lightbox">✕</button>
         </div>
