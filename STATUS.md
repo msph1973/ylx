@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-23 | PR MERGED: #19–#51 (lihat tabel pointer di bawah). All audit findings ✅ FIXED. **PR open: #52** (fix lightbox backdrop fade-in). Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-07-23 | PR MERGED: #19–#52 (lihat tabel pointer di bawah). All audit findings ✅ FIXED. Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -240,6 +240,6 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #49 | Sync STATUS.md (doc-only, tandai #48 merged) | MERGED | `~/.junie/tasks/PR-49-status-sync.md` |
 | #50 | Audit #3: 7 temuan valid diperbaiki (Ably leak, CSRF, cache health, upload race/backoff/creds/mountedRef) | MERGED | `~/.junie/tasks/PR-50-audit3-valid-findings.md` |
 | #51 | Sync STATUS.md (doc-only, tandai #50 merged) | MERGED | `~/.junie/tasks/PR-51-status-sync.md` |
-| #52 | Fix lightbox backdrop fade-in (teks halaman tembus sesaat) | OPEN | `~/.junie/tasks/PR-52-lightbox-backdrop-fade.md` |
+| #52 | Fix lightbox backdrop fade-in (teks halaman tembus sesaat) | MERGED | `~/.junie/tasks/PR-52-lightbox-backdrop-fade.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
