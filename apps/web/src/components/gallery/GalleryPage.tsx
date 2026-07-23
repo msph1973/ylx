@@ -778,12 +778,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           transition: border-color var(--transition-fast);
         }
 
-        /* var(--color-text-muted): the previous rgba(255,255,255,0.4) measured
-           ~3.8:1 against this input's background, below the 4.5:1 minimum for
-           placeholder text. */
-        .lightbox-note-input::placeholder {
-          color: var(--color-text-muted);
-        }
+        /* No local ::placeholder rule here — global.css's input::placeholder
+           already sets color: var(--color-text-muted) (≈6.7:1 contrast, fixing
+           the previous rgba(255,255,255,0.4) that measured ~3.8:1, below the
+           4.5:1 AA minimum) — a local override here would be a duplicate
+           source of truth. */
 
         .lightbox-note-input:focus {
           border-color: var(--color-accent);

@@ -95,12 +95,21 @@ export function PhotoLightbox({
   // Without this, the background gallery page can still rubber-band/scroll
   // behind the fixed-position backdrop on mobile Safari (e.g. while swiping
   // near an edge, or when the note input's focus triggers an auto-scroll) —
-  // lock it for as long as the lightbox is mounted, restore on close.
+  // lock it for as long as the lightbox is mounted, restore on close. On
+  // desktop, hiding the scrollbar shrinks the usable viewport width and
+  // causes a layout jump — compensate with right padding equal to the
+  // scrollbar's own width so the page doesn't shift under the modal.
   useEffect(() => {
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
     document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
     };
   }, []);
 
