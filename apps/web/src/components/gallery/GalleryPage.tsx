@@ -667,8 +667,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 44px;
-          min-height: 44px;
+          min-width: var(--tap-target-min);
+          min-height: var(--tap-target-min);
           background: none;
           border: none;
           color: rgba(255,255,255,0.7);
@@ -719,7 +719,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         .lightbox-nav {
-          min-height: 44px;
+          min-width: var(--tap-target-min);
+          min-height: var(--tap-target-min);
           background: none;
           border: 1px solid rgba(255,255,255,0.25);
           border-radius: var(--radius-md);
@@ -741,7 +742,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }
 
         .lightbox-select {
-          min-height: 44px;
+          min-height: var(--tap-target-min);
           padding: var(--space-2) var(--space-6);
           border-radius: var(--radius-md);
           font-weight: var(--font-medium);
@@ -766,7 +767,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
         .lightbox-note-input {
           flex: 1;
-          min-height: 44px;
+          min-height: var(--tap-target-min);
           padding: var(--space-2) var(--space-3);
           background-color: rgba(255,255,255,0.1);
           border: 1px solid rgba(255,255,255,0.25);
@@ -777,9 +778,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           transition: border-color var(--transition-fast);
         }
 
-        .lightbox-note-input::placeholder {
-          color: rgba(255,255,255,0.4);
-        }
+        /* No local ::placeholder rule here — global.css's input::placeholder
+           already sets color: var(--color-text-muted) (≈6.7:1 contrast, fixing
+           the previous rgba(255,255,255,0.4) that measured ~3.8:1, below the
+           4.5:1 AA minimum) — a local override here would be a duplicate
+           source of truth. */
 
         .lightbox-note-input:focus {
           border-color: var(--color-accent);

@@ -92,13 +92,38 @@ export function PhotoLightbox({
     touchStart.current = null;
   }, []);
 
+  // Without this, the background gallery page can still rubber-band/scroll
+  // behind the fixed-position backdrop on mobile Safari (e.g. while swiping
+  // near an edge, or when the note input's focus triggers an auto-scroll) —
+  // lock it for as long as the lightbox is mounted, restore on close. On
+  // desktop, hiding the scrollbar shrinks the usable viewport width and
+  // causes a layout jump — compensate with right padding equal to the
+  // scrollbar's own width so the page doesn't shift under the modal.
+  useEffect(() => {
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, []);
+
   if (!photo) return null;
 
   return (
+    // The backdrop has no `initial`/`animate` opacity fade-IN: fading in from
+    // transparent briefly let the page content behind it (e.g. the gallery
+    // instructions text) show through — confirmed visually during mobile
+    // testing. It's full-opaque from the first frame instead. The fade-OUT on
+    // close is kept (`exit`/`transition` below) since there's no bleed-through
+    // risk while the lightbox is already closing.
     <motion.div
       className="lightbox-backdrop"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
       onClick={onClose}
@@ -117,7 +142,9 @@ export function PhotoLightbox({
         tabIndex={-1}
       >
         <div className="lightbox-header">
-          <span className="lightbox-counter">{currentIndex + 1} / {photos.length}</span>
+          {/* Announces the new position to screen readers on arrow/swipe navigation,
+              since navigating doesn't remount the dialog (no fresh aria-label read). */}
+          <span className="lightbox-counter" aria-live="polite" aria-atomic="true">{currentIndex + 1} / {photos.length}</span>
           <span className="lightbox-filename">{photo.filename}</span>
           <button className="lightbox-close" onClick={onClose} aria-label="Close lightbox">✕</button>
         </div>
