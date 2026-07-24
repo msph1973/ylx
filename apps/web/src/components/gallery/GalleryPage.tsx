@@ -811,7 +811,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           font-size: var(--text-sm);
           font-weight: var(--font-medium);
           z-index: var(--z-toast);
-          max-width: calc(100vw - 2rem);
+          max-width: calc(100vw - 2rem - env(safe-area-inset-left) - env(safe-area-inset-right));
           text-align: center;
           pointer-events: none;
         }

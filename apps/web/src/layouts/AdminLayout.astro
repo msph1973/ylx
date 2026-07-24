@@ -217,7 +217,7 @@ const navItems = [
       z-index: var(--z-sticky);
       background-color: var(--color-surface);
       border-top: 1px solid var(--color-border);
-      height: 64px;
+      height: calc(64px + env(safe-area-inset-bottom));
       padding-bottom: env(safe-area-inset-bottom);
     }
 
