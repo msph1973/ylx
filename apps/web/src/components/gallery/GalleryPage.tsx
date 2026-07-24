@@ -509,8 +509,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           transition: all var(--transition-fast);
         }
 
-        .submit-btn:hover:not(:disabled) {
-          background-color: var(--color-accent-hover);
+        @media (hover: hover) {
+          .submit-btn:hover:not(:disabled) {
+            background-color: var(--color-accent-hover);
+          }
         }
 
         .submit-btn:disabled {
@@ -534,8 +536,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           transition: border-color var(--transition-fast);
         }
 
-        .photo-item:hover {
-          border-color: var(--color-border);
+        @media (hover: hover) {
+          .photo-item:hover {
+            border-color: var(--color-border);
+          }
         }
 
         .photo-item:focus-visible {
@@ -679,8 +683,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           transition: color var(--transition-fast);
         }
 
-        .lightbox-close:hover {
-          color: #fff;
+        @media (hover: hover) {
+          .lightbox-close:hover {
+            color: #fff;
+          }
         }
 
         .lightbox-img {
@@ -731,9 +737,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           transition: all var(--transition-fast);
         }
 
-        .lightbox-nav:hover:not(:disabled) {
-          border-color: rgba(255,255,255,0.6);
-          color: #fff;
+        @media (hover: hover) {
+          .lightbox-nav:hover:not(:disabled) {
+            border-color: rgba(255,255,255,0.6);
+            color: #fff;
+          }
         }
 
         .lightbox-nav:disabled {
@@ -760,9 +768,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           color: var(--color-bg);
         }
 
-        .lightbox-select:hover:not(.selected) {
-          border-color: var(--color-accent);
-          color: var(--color-accent);
+        @media (hover: hover) {
+          .lightbox-select:hover:not(.selected) {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
         }
 
         .lightbox-note-input {
@@ -801,7 +811,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           font-size: var(--text-sm);
           font-weight: var(--font-medium);
           z-index: var(--z-toast);
-          white-space: nowrap;
+          max-width: calc(100vw - 2rem - env(safe-area-inset-left) - env(safe-area-inset-right));
+          text-align: center;
           pointer-events: none;
         }
 

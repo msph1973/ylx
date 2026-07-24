@@ -201,7 +201,7 @@ const navItems = [
 
     .admin-main {
       margin-left: 0;
-      padding-bottom: 72px; /* space for bottom nav */
+      padding-bottom: calc(72px + env(safe-area-inset-bottom)); /* space for bottom nav + safe area */
     }
 
     .header-brand {
@@ -217,7 +217,10 @@ const navItems = [
       z-index: var(--z-sticky);
       background-color: var(--color-surface);
       border-top: 1px solid var(--color-border);
-      height: 64px;
+      height: calc(64px + env(safe-area-inset-bottom));
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
     }
 
     .mobile-nav-item {

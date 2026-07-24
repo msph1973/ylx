@@ -445,7 +445,9 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           cursor: pointer;
         }
 
-        .search-clear:hover { color: var(--color-text); background-color: var(--color-bg); }
+        @media (hover: hover) {
+          .search-clear:hover { color: var(--color-text); background-color: var(--color-bg); }
+        }
 
         .select-toggle {
           flex-shrink: 0;
@@ -461,7 +463,9 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           transition: all var(--transition-fast);
         }
 
-        .select-toggle:hover { color: var(--color-text); border-color: var(--color-accent); }
+        @media (hover: hover) {
+          .select-toggle:hover { color: var(--color-text); border-color: var(--color-accent); }
+        }
         .select-toggle.active { color: var(--color-accent); border-color: var(--color-accent); }
 
         .status-filter {
@@ -489,7 +493,9 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           transition: all var(--transition-fast);
         }
 
-        .filter-chip:hover { color: var(--color-text); border-color: var(--color-text-muted); }
+        @media (hover: hover) {
+          .filter-chip:hover { color: var(--color-text); border-color: var(--color-text-muted); }
+        }
 
         .filter-chip.active {
           color: var(--color-text);
@@ -537,7 +543,9 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           min-height: 44px;
           padding: 0;
         }
-        .link-btn:hover:not(:disabled) { text-decoration: underline; }
+        @media (hover: hover) {
+          .link-btn:hover:not(:disabled) { text-decoration: underline; }
+        }
         .link-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .selection-count {
@@ -562,9 +570,11 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           transition: all var(--transition-fast);
         }
 
-        .bulk-delete-btn:hover:not(:disabled) {
-          background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
-          border-color: var(--color-error);
+        @media (hover: hover) {
+          .bulk-delete-btn:hover:not(:disabled) {
+            background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+            border-color: var(--color-error);
+          }
         }
 
         .bulk-delete-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -623,9 +633,11 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           transition: border-color var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
         }
 
-        .pagination-btn:hover:not(:disabled) {
-          border-color: var(--color-accent);
-          color: var(--color-accent);
+        @media (hover: hover) {
+          .pagination-btn:hover:not(:disabled) {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
         }
 
         .pagination-btn:disabled {
