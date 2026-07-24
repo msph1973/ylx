@@ -795,7 +795,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           left: 50%;
           transform: translateX(-50%);
           background-color: var(--color-success);
-          color: #fff;
+          color: var(--color-bg);
           padding: var(--space-3) var(--space-6);
           border-radius: var(--radius-lg);
           font-size: var(--text-sm);
@@ -818,7 +818,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           justify-content: space-between;
           gap: var(--space-3);
           background-color: var(--color-error);
-          color: #fff;
+          color: var(--color-bg);
           padding: var(--space-3) var(--space-4);
           border-radius: var(--radius-lg);
           font-size: var(--text-sm);
