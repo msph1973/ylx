@@ -84,7 +84,7 @@ export async function createAdmin(data: {
   name: string;
   role?: string;
 }): Promise<Omit<AdminUser, "password"> | null> {
-  if (data.password.length < 8) {
+  if (typeof data.password !== "string" || [...data.password].length < 8) {
     throw new Error("Password must be at least 8 characters");
   }
 

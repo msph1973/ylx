@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    if (password.length < 8) {
+    if (typeof password !== "string" || [...password].length < 8) {
       return new Response(
         JSON.stringify({ error: "Password must be at least 8 characters" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
