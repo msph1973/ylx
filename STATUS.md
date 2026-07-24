@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-24 | PR MERGED: #19–#57 (lihat tabel pointer di bawah). All audit findings ✅ FIXED. Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-07-24 | PR MERGED: #19–#52, #54–#57 (lihat tabel pointer di bawah). Audit 2026-07-23: 11 dari ~23 temuan ✅ FIXED lewat PR di atas; 8 sisanya butuh perubahan lebih besar (backend/arsitektur) atau sengaja ditunda (konflik dengan fix sebelumnya) — lihat `/tmp/ylx-audit-2026-07-23.md` (lokal, di luar repo). Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -241,7 +241,7 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #50 | Audit #3: 7 temuan valid diperbaiki (Ably leak, CSRF, cache health, upload race/backoff/creds/mountedRef) | MERGED | `~/.junie/tasks/PR-50-audit3-valid-findings.md` |
 | #51 | Sync STATUS.md (doc-only, tandai #50 merged) | MERGED | `~/.junie/tasks/PR-51-status-sync.md` |
 | #52 | Fix lightbox backdrop fade-in (teks halaman tembus sesaat) | MERGED | `~/.junie/tasks/PR-52-lightbox-backdrop-fade.md` |
-| #53 | Sync STATUS.md (doc-only, tandai #52 merged) | MERGED | `~/.junie/tasks/PR-53-status-sync.md` |
+| #53 | Skrip E2E `browser-act` untuk alur inti galeri (dibatalkan, tidak jadi dipakai) | CLOSED (tidak di-merge) | `~/.junie/tasks/PR-53-e2e-browseract.md` |
 | #54 | Fix toast text contrast fails WCAG AA | MERGED | `~/.junie/tasks/PR-54-toast-contrast.md` |
 | #55 | Fix mobile UX: safe-area, hover guards, font-size, toast overflow | MERGED | `~/.junie/tasks/PR-55-mobile-ux.md` |
 | #56 | Perf: React.memo on BlurImage and AlbumCard | MERGED | `~/.junie/tasks/PR-56-perf-memo.md` |
