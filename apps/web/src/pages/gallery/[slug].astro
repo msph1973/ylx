@@ -6,5 +6,5 @@ const { slug } = Astro.params;
 ---
 
 <GalleryLayout title="Gallery" clientName="">
-  <GalleryPage slug={slug!} client:load />
+  <GalleryPage slug={slug!} client:idle />
 </GalleryLayout>

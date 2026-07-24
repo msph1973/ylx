@@ -49,6 +49,7 @@ export function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet,
         sizes={sizes}
         alt={alt}
         loading={loading}
+        decoding="async"
         className={`blur-img${loaded ? ' loaded' : ''}`}
         onLoad={() => setLoaded(true)}
       />
