@@ -22,7 +22,7 @@ interface AlbumCardProps {
   onToggleSelect?: (album: AlbumCardData) => void;
 }
 
-export function AlbumCard({
+export const AlbumCard = React.memo(function AlbumCard({
   album,
   onClick,
   selectionMode = false,
@@ -255,4 +255,4 @@ export function AlbumCard({
       `}</style>
     </motion.button>
   );
-}
+});
