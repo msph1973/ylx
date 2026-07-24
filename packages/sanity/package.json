@@ -9,7 +9,8 @@
     "./schemas": "./schemas/index.ts",
     "./lib/queries": "./lib/queries.ts",
     "./lib/admin": "./lib/admin.ts",
-    "./lib/constants": "./lib/constants.ts"
+    "./lib/constants": "./lib/constants.ts",
+    "./lib/thumbnails": "./lib/thumbnails.ts"
   },
   "scripts": {
     "build": "tsc",
