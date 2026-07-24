@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient, urlFor } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
+import { thumbnailUrl, thumbnailSrcSet } from "@ylx/sanity/lib/thumbnails";
 import {
   isLimitReached,
   isRateLimited,
@@ -178,29 +179,17 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   const photos = (album.photos ?? []).map((photo) => {
     // `.auto("format")` negotiates WebP/AVIF per client (typically 30-60% smaller
     // than the original JPEG) and `.quality()` tunes compression — both were
-    // missing, so the CDN served full-quality originals. The 2x thumbnail feeds a
+    // missing, so the CDN served full-quality originals. The 2x candidate feeds a
     // srcset so retina phones get a sharp tile without every device paying for it.
-    const thumb1x = urlFor(photo.image)
-      .width(400)
-      .height(400)
-      .fit("crop")
-      .auto("format")
-      .quality(75)
-      .url();
-    const thumb2x = urlFor(photo.image)
-      .width(800)
-      .height(800)
-      .fit("crop")
-      .auto("format")
-      .quality(70)
-      .url();
+    // Shared with the admin endpoint's thumbnail generation via `@ylx/sanity/lib/thumbnails`
+    // so both stay in sync with one source of truth.
     return {
       id: photo._id,
       filename: photo.filename,
-      thumbnailUrl: thumb1x,
+      thumbnailUrl: thumbnailUrl(photo.image),
       // Width descriptors (paired with the grid's `sizes`) let the browser pick by
       // actual layout width *and* density, rather than density alone (`1x/2x`).
-      thumbnailSrcSet: `${thumb1x} 400w, ${thumb2x} 800w`,
+      thumbnailSrcSet: thumbnailSrcSet(photo.image),
       // Keep the original 1200px full-size — `.auto("format").quality()` already
       // trims bytes; widening to 1600 would have added bandwidth per photo.
       url: urlFor(photo.image).width(1200).auto("format").quality(80).url(),

@@ -4,6 +4,7 @@ import {
   albumWithSelectionsQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
+import { thumbnailUrl, thumbnailSrcSet } from "@ylx/sanity/lib/thumbnails";
 import { requireAdmin } from "../../../../../lib/auth";
 import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../../../lib/slug";
 import { publishAdminEvent } from "../../../../../lib/ably";
@@ -20,20 +21,6 @@ interface SanityPhotoRaw {
   filename: string;
   image: SanityImageRef;
   lqip?: string | null;
-}
-
-/** Build a square, cropped thumbnail URL for an uploaded photo.
- *  `.auto("format")` serves WebP/AVIF where supported and `.quality()` tunes
- *  compression — both were missing, so the admin grid downloaded full-quality
- *  originals for tiles that only render ~100-130px. */
-function thumbnailUrl(image: SanityImageRef): string {
-  return urlFor(image)
-    .width(400)
-    .height(400)
-    .fit("crop")
-    .auto("format")
-    .quality(75)
-    .url();
 }
 
 interface SanitySelectionRaw {
@@ -118,6 +105,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
         filename: p.filename,
         url: urlFor(p.image).auto("format").quality(80).url(),
         thumbnailUrl: thumbnailUrl(p.image),
+        thumbnailSrcSet: thumbnailSrcSet(p.image),
         lqip: p.lqip ?? null,
       })),
       selections: selections.map((s) => ({

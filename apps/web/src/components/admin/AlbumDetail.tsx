@@ -6,6 +6,7 @@ import { SelectionTable } from './SelectionTable';
 import { CopyFilenamesButton } from './CopyFilenamesButton';
 import { AlbumFormModal } from './AlbumFormModal';
 import { ConfirmDialog } from './ConfirmDialog';
+import { BlurImage } from '@/components/gallery/BlurImage';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import { getAlbumStatusMeta } from '@/lib/albumStatus';
 
@@ -21,6 +22,7 @@ interface AlbumPhoto {
   filename: string;
   url: string;
   thumbnailUrl: string;
+  thumbnailSrcSet?: string | null;
   lqip?: string | null;
 }
 
@@ -551,11 +553,13 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                     {selectedPhotoIds.has(photo.id) ? 'Selected' : 'Select'}
                   </button>
                 )}
-                <img
+                <BlurImage
                   className="photo-thumb"
                   src={photo.thumbnailUrl}
                   alt={photo.filename}
-                  loading="lazy"
+                  lqip={photo.lqip}
+                  srcSet={photo.thumbnailSrcSet ?? undefined}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
                   draggable={false}
                 />
                 {!photoSelectionMode && !photoReorderMode && (
@@ -961,11 +965,28 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .photo-thumb {
             width: 100%;
             aspect-ratio: 1 / 1;
-            object-fit: cover;
             border-radius: var(--radius-md);
             background-color: var(--color-surface);
             border: 1px solid var(--color-border);
             display: block;
+            overflow: hidden;
+          }
+
+          .photo-thumb.blur-wrap {
+            background-size: cover;
+            background-position: center;
+          }
+
+          .photo-thumb.blur-wrap .blur-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+          }
+
+          .photo-thumb.blur-wrap .blur-img.loaded {
+            opacity: 1;
           }
 
           .photo-delete {
