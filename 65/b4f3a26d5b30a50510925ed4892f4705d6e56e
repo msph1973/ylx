@@ -1,0 +1,50 @@
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  s_e71aab3040bd0b::t_f4bd5f50d75989 17-21
+  s_e71aab3040bd0b::t_97441e07ed4b0d 98-102
+  s_e71aab3040bd0b::t_1f07d97878ea56 43-48
+apps/web/src/pages/api/admin/albums/[id]/unlock.ts
+  s_e71aab3040bd0b::t_5b4438f9a48a52 25-30
+  s_e71aab3040bd0b::t_dc072f11be4ed4 49-53
+apps/web/src/pages/api/admin/albums/bulk-delete.ts
+  s_e71aab3040bd0b::t_f83633df44e0a5 38-44
+  s_e71aab3040bd0b::t_d3c5cfa8fc6f63 51-55
+  s_e71aab3040bd0b::t_b1782a2fd6c1ce 2,12-14
+  s_e71aab3040bd0b::t_216970ff1886eb 15-16
+apps/web/src/pages/api/admin/albums/[id]/lock.ts
+  s_e71aab3040bd0b::t_d2f8bd852a4e48 25-26
+  s_e71aab3040bd0b::t_88cef4da4f7c8f 41-45
+apps/web/src/pages/api/admin/upload/finalize.ts
+  s_e71aab3040bd0b::t_4c0244b53552aa 198-202
+apps/web/src/lib/cache.ts
+  s_e71aab3040bd0b::t_992b92f1d37f51 201
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  s_e71aab3040bd0b::t_9074678ffa4222 303-306
+apps/web/src/pages/api/gallery/[slug]/verify.ts
+  s_e71aab3040bd0b::t_dd52d0dee56425 12
+  s_e71aab3040bd0b::t_736f527ccb2236 122-127
+apps/web/src/pages/api/admin/photos/[id].ts
+  s_e71aab3040bd0b::t_83a52fd6744897 12-16
+  s_e71aab3040bd0b::t_c5df86aa59d96f 97-101
+  s_e71aab3040bd0b::t_3c5948a110d0b3 49-56
+apps/web/src/pages/api/admin/albums/[id]/reorder.ts
+  s_e71aab3040bd0b::t_41ce11281c0b0b 50
+  s_e71aab3040bd0b::t_038e8b95133d68 5
+  s_e71aab3040bd0b::t_886fc229373159 18
+  s_e71aab3040bd0b::t_35366d9eb84d89 99-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "65b4f3a26d5b30a50510925ed4892f4705d6e56e",
+  "prompts": {},
+  "sessions": {
+    "s_e71aab3040bd0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_06fb42af1ffeu1zxtS4r0IvhnQ",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
