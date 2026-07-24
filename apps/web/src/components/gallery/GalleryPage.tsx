@@ -522,8 +522,6 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: var(--space-2);
-          content-visibility: auto;
-          contain-intrinsic-size: 200px;
         }
 
         .photo-item {
@@ -534,6 +532,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           cursor: pointer;
           border: 2px solid transparent;
           transition: border-color var(--transition-fast);
+          content-visibility: auto;
+          contain-intrinsic-size: 200px;
         }
 
         .photo-item:hover {
