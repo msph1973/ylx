@@ -1,0 +1,39 @@
+apps/web/src/components/admin/UploadPage.tsx
+  s_e71aab3040bd0b::t_93c8c153a158f3 820-823,829
+  s_e71aab3040bd0b::t_ac5125bb151d5b 753-757
+  s_e71aab3040bd0b::t_702c696fbecb85 758-759
+apps/web/src/styles/global.css
+  s_e71aab3040bd0b::t_3f5981c2d3f877 14
+apps/web/src/components/gallery/GalleryPage.tsx
+  s_e71aab3040bd0b::t_1911c44251097a 686-689
+  s_e71aab3040bd0b::t_d84be3304ee305 539-542
+  s_e71aab3040bd0b::t_b60be697c6dfa1 808,814-815
+  s_e71aab3040bd0b::t_3d598ff5f4a9ca 740-744
+  s_e71aab3040bd0b::t_4c10605025fab8 512-515
+  s_e71aab3040bd0b::t_08d9283f102fb2 771-775
+apps/web/src/components/admin/AlbumList.tsx
+  s_e71aab3040bd0b::t_52e9baa9ba4f3d 466-468
+  s_e71aab3040bd0b::t_9f3d4a97e71bf2 448-450
+  s_e71aab3040bd0b::t_e83a7f05214a35 496-498
+  s_e71aab3040bd0b::t_8237c0bf10616c 636-640
+  s_e71aab3040bd0b::t_518b8e6791b944 546-548
+  s_e71aab3040bd0b::t_e3e4570d63ace1 573-577
+apps/web/src/layouts/AdminLayout.astro
+  s_e71aab3040bd0b::t_87347ffb2c15ef 204,221
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ea6c5121967445350ff0144ba9efd3d78d3a814a",
+  "prompts": {},
+  "sessions": {
+    "s_e71aab3040bd0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_06fb42af1ffeu1zxtS4r0IvhnQ",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
