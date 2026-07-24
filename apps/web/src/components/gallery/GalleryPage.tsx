@@ -21,11 +21,7 @@ class LightboxErrorBoundary extends Component<{ children: ReactNode }, { hasErro
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.9)', color: '#fff', fontSize: '1rem',
-        }}>
+        <div className="lightbox-error">
           Failed to load lightbox. Please try again.
         </div>
       );
@@ -439,24 +435,26 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       <AnimatePresence>
         {lightboxIndex !== null && album && (
-          <Suspense fallback={null}>
-            <PhotoLightbox
-              key="lightbox"
-              photos={album.photos}
-              currentIndex={lightboxIndex}
-              isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
-              isDisabled={isAlbumLocked(album)}
-              note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
-              onNoteChange={
-                !isAlbumLocked(album)
-                  ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
-                  : undefined
-              }
-              onClose={closeLightbox}
-              onNavigate={setLightboxIndex}
-              onToggleSelect={togglePhoto}
-            />
-          </Suspense>
+          <LightboxErrorBoundary>
+            <Suspense fallback={<div className="lightbox-loading" />}>
+              <PhotoLightbox
+                key="lightbox"
+                photos={album.photos}
+                currentIndex={lightboxIndex}
+                isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
+                isDisabled={isAlbumLocked(album)}
+                note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
+                onNoteChange={
+                  !isAlbumLocked(album)
+                    ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
+                    : undefined
+                }
+                onClose={closeLightbox}
+                onNavigate={setLightboxIndex}
+                onToggleSelect={togglePhoto}
+              />
+            </Suspense>
+          </LightboxErrorBoundary>
         )}
       </AnimatePresence>
 
@@ -902,6 +900,25 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           font-weight: var(--font-medium);
           z-index: var(--z-toast);
           pointer-events: none;
+        }
+
+        .lightbox-loading {
+          position: fixed;
+          inset: 0;
+          z-index: var(--z-modal);
+          background: rgba(0, 0, 0, 0.7);
+        }
+
+        .lightbox-error {
+          position: fixed;
+          inset: 0;
+          z-index: var(--z-modal);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, 0.9);
+          color: #fff;
+          font-size: 1rem;
         }
       `}</style>
     </div>
