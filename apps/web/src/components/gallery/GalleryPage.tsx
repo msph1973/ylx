@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
-import { PhotoLightbox } from '@/components/gallery/PhotoLightbox';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import type { Photo } from '@ylx/shared';
+
+const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
 
 interface GalleryPageProps {
   slug: string;
@@ -411,22 +412,24 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       <AnimatePresence>
         {lightboxIndex !== null && album && (
-          <PhotoLightbox
-            key="lightbox"
-            photos={album.photos}
-            currentIndex={lightboxIndex}
-            isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
-            isDisabled={isAlbumLocked(album)}
-            note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
-            onNoteChange={
-              !isAlbumLocked(album)
-                ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
-                : undefined
-            }
-            onClose={closeLightbox}
-            onNavigate={setLightboxIndex}
-            onToggleSelect={togglePhoto}
-          />
+          <Suspense fallback={null}>
+            <PhotoLightbox
+              key="lightbox"
+              photos={album.photos}
+              currentIndex={lightboxIndex}
+              isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
+              isDisabled={isAlbumLocked(album)}
+              note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
+              onNoteChange={
+                !isAlbumLocked(album)
+                  ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
+                  : undefined
+              }
+              onClose={closeLightbox}
+              onNavigate={setLightboxIndex}
+              onToggleSelect={togglePhoto}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
