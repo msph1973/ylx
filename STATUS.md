@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-24 | PR MERGED: #19–#52, #54–#57 (lihat tabel pointer di bawah). Audit 2026-07-23: 11 dari ~23 temuan ✅ FIXED lewat PR di atas; 8 sisanya butuh perubahan lebih besar (backend/arsitektur) atau sengaja ditunda (konflik dengan fix sebelumnya) — lihat `/tmp/ylx-audit-2026-07-23.md` (lokal, di luar repo). Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-07-24 | PR MERGED: #19–#52, #54–#57 (lihat tabel pointer di bawah). Sebagian temuan audit 2026-07-23 ✅ FIXED, sebagian sengaja ditunda (lihat narasi PR masing-masing). Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
