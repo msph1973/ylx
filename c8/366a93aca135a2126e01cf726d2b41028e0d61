@@ -1,0 +1,21 @@
+apps/web/src/pages/api/auth/create-admin.ts
+  s_e71aab3040bd0b::t_d36af7337db14a 26-32
+packages/sanity/lib/admin.ts
+  s_e71aab3040bd0b::t_749e53c67023ee 87-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c8366a93aca135a2126e01cf726d2b41028e0d61",
+  "prompts": {},
+  "sessions": {
+    "s_e71aab3040bd0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_06fb42af1ffeu1zxtS4r0IvhnQ",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
