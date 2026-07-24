@@ -745,10 +745,16 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           margin-bottom: var(--space-6);
         }
 
-        .drop-zone:hover,
         .drop-zone.dragging {
           border-color: var(--color-accent);
           background-color: var(--color-surface);
+        }
+
+        @media (hover: hover) {
+          .drop-zone:hover {
+            border-color: var(--color-accent);
+            background-color: var(--color-surface);
+          }
         }
 
         .drop-zone:focus-visible {
@@ -811,13 +817,16 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           padding: 0;
         }
 
-        .btn-text:hover {
-          color: var(--color-text);
+        @media (hover: hover) {
+          .btn-text:hover {
+            color: var(--color-text);
+          }
         }
 
         .file-list {
           max-height: 400px;
           overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         .file-item {
