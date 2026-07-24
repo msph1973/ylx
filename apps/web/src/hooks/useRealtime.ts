@@ -26,47 +26,60 @@ export function useRealtime(
   useEffect(() => {
     if (!albumId) return;
 
-    const ably = getAblyClient(albumId);
-    const channelName = getChannelName(albumId);
-    const channel = ably.channels.get(channelName);
+    let cancelled = false;
+    let channel: Ably.RealtimeChannel | null = null;
+    let ably: Ably.Realtime | null = null;
 
     const handlers: Partial<
       Record<RealtimeEventType, (message: Ably.Message) => void>
     > = {};
 
-    if (callbacks.onPhotoUploaded) {
-      handlers["photo:uploaded"] = (msg) =>
-        callbacksRef.current.onPhotoUploaded?.(msg.data as PhotoUploadedData);
-    }
-    if (callbacks.onSelectionChanged) {
-      handlers["selection:changed"] = (msg) =>
-        callbacksRef.current.onSelectionChanged?.(msg.data as SelectionChangedData);
-    }
-    if (callbacks.onSubmissionReceived) {
-      handlers["submission:received"] = (msg) =>
-        callbacksRef.current.onSubmissionReceived?.(msg.data as SubmissionReceivedData);
-    }
-    if (callbacks.onAlbumUnlocked) {
-      handlers["album:unlocked"] = (msg) =>
-        callbacksRef.current.onAlbumUnlocked?.(msg.data as AlbumUnlockedData);
-    }
+    const setup = async () => {
+      ably = await getAblyClient(albumId);
+      if (cancelled) return;
 
-    for (const [eventType, handler] of Object.entries(handlers)) {
-      channel.subscribe(eventType, handler as (message: Ably.Message) => void);
-    }
+      const channelName = getChannelName(albumId);
+      channel = ably.channels.get(channelName);
+
+      if (callbacksRef.current.onPhotoUploaded) {
+        handlers["photo:uploaded"] = (msg) =>
+          callbacksRef.current.onPhotoUploaded?.(msg.data as PhotoUploadedData);
+      }
+      if (callbacksRef.current.onSelectionChanged) {
+        handlers["selection:changed"] = (msg) =>
+          callbacksRef.current.onSelectionChanged?.(msg.data as SelectionChangedData);
+      }
+      if (callbacksRef.current.onSubmissionReceived) {
+        handlers["submission:received"] = (msg) =>
+          callbacksRef.current.onSubmissionReceived?.(msg.data as SubmissionReceivedData);
+      }
+      if (callbacksRef.current.onAlbumUnlocked) {
+        handlers["album:unlocked"] = (msg) =>
+          callbacksRef.current.onAlbumUnlocked?.(msg.data as AlbumUnlockedData);
+      }
+
+      for (const [eventType, handler] of Object.entries(handlers)) {
+        channel.subscribe(eventType, handler as (message: Ably.Message) => void);
+      }
+    };
+
+    void setup();
 
     return () => {
+      cancelled = true;
       for (const [eventType, handler] of Object.entries(handlers)) {
-        channel.unsubscribe(eventType, handler as (message: Ably.Message) => void);
+        channel?.unsubscribe(eventType, handler as (message: Ably.Message) => void);
       }
       // unsubscribe() alone leaves the channel instance (and its connection/
       // buffer state) alive in the Ably client's internal map forever; release()
       // actually frees it, which matters because an admin can browse many albums
       // (and thus many different channels) in one session.
-      try {
-        ably.channels.release(channelName);
-      } catch (err) {
-        console.warn(`[Realtime] failed to release channel "${channelName}":`, err);
+      if (ably && albumId) {
+        try {
+          ably.channels.release(getChannelName(albumId));
+        } catch (err) {
+          console.warn(`[Realtime] failed to release channel "${getChannelName(albumId)}":`, err);
+        }
       }
     };
   }, [albumId]);

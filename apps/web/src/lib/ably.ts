@@ -1,7 +1,9 @@
-import Ably from "ably";
+import type Ably from "ably";
 
 // Client-side singleton — only created in browser context to avoid SSR leaks.
 let clientInstance: Ably.Realtime | null = null;
+// Promise of the client creation to prevent race conditions when called concurrently.
+let clientPromise: Promise<Ably.Realtime> | null = null;
 // The `albumId` (or `null` for admin/global context) the singleton was first
 // created with — its Ably capability is fixed for the client's lifetime, so
 // a later call with a different albumId would silently keep the wrong scope.
@@ -17,25 +19,32 @@ let clientInstanceAlbumId: string | null = null;
 // connection with that albumId instead of silently ignoring it. Two
 // different non-null albumIds on one singleton is a genuine conflict and
 // throws, since the singleton can only carry one album's capability.
-export function getAblyClient(albumId?: string): Ably.Realtime {
+export async function getAblyClient(albumId?: string): Promise<Ably.Realtime> {
   if (typeof window === "undefined") {
     throw new Error("getAblyClient() must only be called in browser context");
   }
 
   const requestedAlbumId = albumId ?? null;
 
-  if (!clientInstance) {
+  if (!clientPromise) {
     clientInstanceAlbumId = requestedAlbumId;
-    // Authenticate via a server endpoint that mints subscribe-only tokens —
-    // the full API key is never exposed to the browser.
-    clientInstance = new Ably.Realtime({
-      authUrl: "/api/ably/token",
-      authParams: requestedAlbumId ? { albumId: requestedAlbumId } : undefined,
+    // Dynamic import — Ably SDK (~200KB gzipped) only loaded when needed.
+    // Store the promise to prevent race conditions when called concurrently.
+    clientPromise = import("ably").then((AblyModule) => {
+      // Authenticate via a server endpoint that mints subscribe-only tokens —
+      // the full API key is never exposed to the browser.
+      clientInstance = new AblyModule.default.Realtime({
+        authUrl: "/api/ably/token",
+        authParams: requestedAlbumId ? { albumId: requestedAlbumId } : undefined,
+      });
+      return clientInstance;
     });
   } else if (requestedAlbumId !== null && requestedAlbumId !== clientInstanceAlbumId) {
     if (clientInstanceAlbumId === null) {
       clientInstanceAlbumId = requestedAlbumId;
-      clientInstance.auth
+      // Wait for client to be ready before re-authorizing
+      const client = await clientPromise;
+      client.auth
         .authorize({}, { authParams: { albumId: requestedAlbumId } })
         .catch((err) => console.warn("[Ably] re-authorize with albumId failed:", err));
     } else {
@@ -45,26 +54,27 @@ export function getAblyClient(albumId?: string): Ably.Realtime {
       );
     }
   }
-  return clientInstance;
+  return clientPromise;
 }
 
 export function getChannelName(albumId: string): string {
   return `album:${albumId}`;
 }
 
-export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): void {
-  publish("admin:updates", eventType, data);
+export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): Promise<void> {
+  return publish("admin:updates", eventType, data);
 }
 
-export function publishAlbumEvent(albumId: string, eventType: string, data?: Record<string, unknown>): void {
-  publish(getChannelName(albumId), eventType, data);
+export function publishAlbumEvent(albumId: string, eventType: string, data?: Record<string, unknown>): Promise<void> {
+  return publish(getChannelName(albumId), eventType, data);
 }
 
-function publish(channelName: string, eventType: string, data?: Record<string, unknown>): void {
+async function publish(channelName: string, eventType: string, data?: Record<string, unknown>): Promise<void> {
   try {
     const key = process.env.ABLY_API_KEY;
     if (!key) return;
-    const rest = new Ably.Rest({ key });
+    const AblyModule = await import("ably");
+    const rest = new AblyModule.default.Rest({ key });
     const channel = rest.channels.get(channelName);
     void channel.publish(eventType, data ?? {});
   } catch {
