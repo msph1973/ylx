@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
@@ -6,6 +6,33 @@ import { useRealtime } from '@/hooks/useRealtime';
 import type { Photo } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
+
+class LightboxErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error('[LightboxErrorBoundary]', error, info);
+  }
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.9)', color: '#fff', fontSize: '1rem',
+        }}>
+          Failed to load lightbox. Please try again.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface GalleryPageProps {
   slug: string;
