@@ -246,5 +246,9 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #55 | Fix mobile UX: safe-area, hover guards, font-size, toast overflow | MERGED | `~/.junie/tasks/PR-55-mobile-ux.md` |
 | #56 | Perf: React.memo on BlurImage and AlbumCard | MERGED | `~/.junie/tasks/PR-56-perf-memo.md` |
 | #57 | Perf: misc improvements (preconnect, decoding, content-visibility, client:idle) | MERGED | `~/.junie/tasks/PR-57-perf-misc.md` |
+| #58 | Fix STATUS.md pointer row PR #53 (salah tercatat sebagai merged doc-sync) + koreksi klaim "semua audit fixed" | MERGED | — (doc-only, tanpa file narasi terpisah) |
+
+> #59-#64: 6 PR open (dikerjakan user sendiri, menindaklanjuti sisa temuan audit 2026-07-23 Tier 1/2/3) — belum di-merge, belum masuk tabel ini.
+> #65: PR konfigurasi exclude `docs/`/`.junie/`/`.bob/`/`.mimocode/` dari bot review (root cause: PR #63 ikut membawa file noise via `git add` luas) — belum di-merge.
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
