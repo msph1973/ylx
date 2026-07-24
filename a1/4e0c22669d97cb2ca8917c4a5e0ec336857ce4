@@ -1,0 +1,27 @@
+new-audit-2.md
+  s_e71aab3040bd0b::t_88400cdc784eb2 1-138
+docs/compose/specs/2026-06-23-ylx-photo-proofing-design.md
+  s_e71aab3040bd0b::t_88400cdc784eb2 1-111
+docs/compose/plans/2026-06-23-ylx-photo-proofing-plan.md
+  s_e71aab3040bd0b::t_88400cdc784eb2 1-3541
+.junie/plans/ylx-next-steps-gap-analysis.md
+  s_e71aab3040bd0b::t_88400cdc784eb2 1-322
+opencode.jsonc
+  s_e71aab3040bd0b::t_88400cdc784eb2 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a14e0c22669d97cb2ca8917c4a5e0ec336857ce4",
+  "prompts": {},
+  "sessions": {
+    "s_e71aab3040bd0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_06fb42af1ffeu1zxtS4r0IvhnQ",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
