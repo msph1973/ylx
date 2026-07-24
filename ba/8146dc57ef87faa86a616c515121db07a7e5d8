@@ -1,0 +1,23 @@
+apps/web/src/components/gallery/BlurImage.tsx
+  s_e71aab3040bd0b::t_46981ec9cf2d52 57
+  s_e71aab3040bd0b::t_d7fcdda640d907 25
+apps/web/src/components/admin/AlbumCard.tsx
+  s_e71aab3040bd0b::t_53d58f093492d2 258
+  s_e71aab3040bd0b::t_1094dba61d3566 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ba8146dc57ef87faa86a616c515121db07a7e5d8",
+  "prompts": {},
+  "sessions": {
+    "s_e71aab3040bd0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_06fb42af1ffeu1zxtS4r0IvhnQ",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
