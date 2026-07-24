@@ -10,6 +10,7 @@ interface BlurImageProps {
    *  picks the right density/width so retina screens aren't served a soft image. */
   srcSet?: string;
   sizes?: string;
+  draggable?: boolean;
   onTouchStart?: React.TouchEventHandler<HTMLDivElement>;
   onTouchEnd?: React.TouchEventHandler<HTMLDivElement>;
   onTouchCancel?: React.TouchEventHandler<HTMLDivElement>;
@@ -22,7 +23,7 @@ interface BlurImageProps {
  * is what makes the blur-up actually show — an opacity:0 <img> would also hide
  * its own background. Falls back to a plain fade-in when no LQIP is present.
  */
-export const BlurImage = React.memo(function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet, sizes, onTouchStart, onTouchEnd, onTouchCancel }: BlurImageProps) {
+export const BlurImage = React.memo(function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet, sizes, draggable, onTouchStart, onTouchEnd, onTouchCancel }: BlurImageProps) {
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLImageElement>(null);
 
@@ -50,6 +51,7 @@ export const BlurImage = React.memo(function BlurImage({ src, alt, lqip, classNa
         alt={alt}
         loading={loading}
         decoding="async"
+        draggable={draggable}
         className={`blur-img${loaded ? ' loaded' : ''}`}
         onLoad={() => setLoaded(true)}
       />

@@ -36,6 +36,25 @@ function thumbnailUrl(image: SanityImageRef): string {
     .url();
 }
 
+/** Build a responsive srcSet for retina thumbnails. */
+function thumbnailSrcSet(image: SanityImageRef): string {
+  const thumb1x = urlFor(image)
+    .width(400)
+    .height(400)
+    .fit("crop")
+    .auto("format")
+    .quality(75)
+    .url();
+  const thumb2x = urlFor(image)
+    .width(800)
+    .height(800)
+    .fit("crop")
+    .auto("format")
+    .quality(70)
+    .url();
+  return `${thumb1x} 400w, ${thumb2x} 800w`;
+}
+
 interface SanitySelectionRaw {
   _id: string;
   albumId: string;
@@ -118,6 +137,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
         filename: p.filename,
         url: urlFor(p.image).auto("format").quality(80).url(),
         thumbnailUrl: thumbnailUrl(p.image),
+        thumbnailSrcSet: thumbnailSrcSet(p.image),
         lqip: p.lqip ?? null,
       })),
       selections: selections.map((s) => ({

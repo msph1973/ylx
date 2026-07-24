@@ -560,6 +560,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                   lqip={photo.lqip}
                   srcSet={photo.thumbnailSrcSet ?? undefined}
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
+                  draggable={false}
                 />
                 {!photoSelectionMode && !photoReorderMode && (
                   <button
@@ -971,10 +972,21 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             overflow: hidden;
           }
 
+          .photo-thumb.blur-wrap {
+            background-size: cover;
+            background-position: center;
+          }
+
           .photo-thumb.blur-wrap .blur-img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+          }
+
+          .photo-thumb.blur-wrap .blur-img.loaded {
+            opacity: 1;
           }
 
           .photo-delete {
