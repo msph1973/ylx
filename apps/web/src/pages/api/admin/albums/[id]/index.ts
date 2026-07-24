@@ -303,6 +303,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       await invalidateCache([
         CACHE_KEYS.albumsList(),
         ...(existingAlbum.slug?.current ? [CACHE_KEYS.albumBySlug(existingAlbum.slug.current)] : []),
+        ...(newSlugLock && newSlugLock !== existingAlbum.slug?.current ? [CACHE_KEYS.albumBySlug(newSlugLock)] : []),
       ]);
 
       return new Response(
