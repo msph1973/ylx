@@ -49,6 +49,7 @@ export const BlurImage = React.memo(function BlurImage({ src, alt, lqip, classNa
         sizes={sizes}
         alt={alt}
         loading={loading}
+        decoding="async"
         className={`blur-img${loaded ? ' loaded' : ''}`}
         onLoad={() => setLoaded(true)}
       />

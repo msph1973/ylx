@@ -534,6 +534,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           cursor: pointer;
           border: 2px solid transparent;
           transition: border-color var(--transition-fast);
+          content-visibility: auto;
+          contain-intrinsic-size: auto 200px;
         }
 
         @media (hover: hover) {
