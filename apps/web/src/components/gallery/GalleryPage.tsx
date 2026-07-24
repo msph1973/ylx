@@ -1,10 +1,34 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
-import { PhotoLightbox } from '@/components/gallery/PhotoLightbox';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import type { Photo } from '@ylx/shared';
+
+const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
+
+class LightboxErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error('[LightboxErrorBoundary]', error, info);
+  }
+  render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div className="lightbox-error">
+          Failed to load lightbox. Please try again.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface GalleryPageProps {
   slug: string;
@@ -411,22 +435,26 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       <AnimatePresence>
         {lightboxIndex !== null && album && (
-          <PhotoLightbox
-            key="lightbox"
-            photos={album.photos}
-            currentIndex={lightboxIndex}
-            isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
-            isDisabled={isAlbumLocked(album)}
-            note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
-            onNoteChange={
-              !isAlbumLocked(album)
-                ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
-                : undefined
-            }
-            onClose={closeLightbox}
-            onNavigate={setLightboxIndex}
-            onToggleSelect={togglePhoto}
-          />
+          <LightboxErrorBoundary>
+            <Suspense fallback={<div className="lightbox-loading" />}>
+              <PhotoLightbox
+                key="lightbox"
+                photos={album.photos}
+                currentIndex={lightboxIndex}
+                isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
+                isDisabled={isAlbumLocked(album)}
+                note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
+                onNoteChange={
+                  !isAlbumLocked(album)
+                    ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
+                    : undefined
+                }
+                onClose={closeLightbox}
+                onNavigate={setLightboxIndex}
+                onToggleSelect={togglePhoto}
+              />
+            </Suspense>
+          </LightboxErrorBoundary>
         )}
       </AnimatePresence>
 
@@ -872,6 +900,25 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           font-weight: var(--font-medium);
           z-index: var(--z-toast);
           pointer-events: none;
+        }
+
+        .lightbox-loading {
+          position: fixed;
+          inset: 0;
+          z-index: var(--z-modal);
+          background: rgba(0, 0, 0, 0.7);
+        }
+
+        .lightbox-error {
+          position: fixed;
+          inset: 0;
+          z-index: var(--z-modal);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, 0.9);
+          color: #fff;
+          font-size: 1rem;
         }
       `}</style>
     </div>
