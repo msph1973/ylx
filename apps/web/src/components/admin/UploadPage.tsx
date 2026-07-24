@@ -162,6 +162,13 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>('');
   const [files, setFiles] = useState<UploadFile[]>([]);
+  // Keep a ref in sync with files state so callbacks can read the latest value
+  // without needing to re-subscribe on every files change. This avoids recreating
+  // callbacks (and their dependents) on every progress event.
+  const filesRef = useRef<UploadFile[]>(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   // Human-readable summary of files dropped from the last add (bad format/size or
@@ -220,7 +227,8 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles);
     // Names already queued — used to reject duplicate filenames (case-insensitive).
-    const existingNames = new Set(files.map(f => f.file.name.toLowerCase()));
+    // Read from ref to avoid recreating this callback on every files change.
+    const existingNames = new Set(filesRef.current.map(f => f.file.name.toLowerCase()));
     // Names accepted within this same drop batch, so a batch that contains the
     // same filename twice only keeps the first occurrence.
     const seenInBatch = new Set<string>();
@@ -269,7 +277,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
       );
     }
     setSkippedNotice(parts.length > 0 ? `${parts.join('; ')}.` : null);
-  }, [files]);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -430,7 +438,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
   // Retry one failed file on demand (independent of the main batch button).
   const retryFile = useCallback(async (id: string) => {
-    const target = files.find(f => f.id === id);
+    const target = filesRef.current.find(f => f.id === id);
     if (!target) return;
     const targetAlbumId = target.albumId ?? selectedAlbum;
     if (!targetAlbumId) return;
@@ -452,7 +460,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
     } finally {
       endActivity();
     }
-  }, [selectedAlbum, files, uploadWithRetry, beginActivity, endActivity]);
+  }, [selectedAlbum, uploadWithRetry, beginActivity, endActivity]);
 
   const pendingCount = files.filter(f => f.status === 'pending').length;
   const doneCount = files.filter(f => f.status === 'done').length;
