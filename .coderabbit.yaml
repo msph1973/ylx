@@ -1,0 +1,9 @@
+reviews:
+  # Skip session/agent artifacts that are not application code and should
+  # never be part of a PR's intended diff (they occasionally get swept in by
+  # a broad `git add`). See AGENTS.md for why these directories exist.
+  path_filters:
+    - "!docs/**"
+    - "!.junie/**"
+    - "!.bob/**"
+    - "!.mimocode/**"

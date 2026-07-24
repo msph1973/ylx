@@ -1,0 +1,16 @@
+# Keep Sourcery's own defaults, plus skip session/agent artifacts that are
+# not application code (see AGENTS.md — these directories occasionally get
+# swept into a commit by a broad `git add` and are not meant to be reviewed).
+ignore:
+  - .git
+  - venv
+  - .venv
+  - env
+  - .env
+  - .tox
+  - node_modules
+  - vendor
+  - docs/
+  - .junie/
+  - .bob/
+  - .mimocode/

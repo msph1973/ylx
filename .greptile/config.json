@@ -1,0 +1,3 @@
+{
+  "ignorePatterns": "docs/**\n.junie/**\n.bob/**\n.mimocode/**"
+}
