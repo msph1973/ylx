@@ -288,7 +288,13 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       } catch (eventError) {
         console.error("[Albums] PUT publish event failed:", eventError);
       }
-      await invalidateCache(CACHE_KEYS.albumsList());
+      await invalidateCache([
+        CACHE_KEYS.albumsList(),
+        ...(existingAlbum.slug?.current ? [CACHE_KEYS.albumBySlug(existingAlbum.slug.current)] : []),
+        ...(newSlugLock && newSlugLock !== existingAlbum.slug?.current ? [CACHE_KEYS.albumBySlug(newSlugLock)] : []),
+        ...(existingAlbum.customSlug ? [CACHE_KEYS.albumBySlug(existingAlbum.customSlug)] : []),
+        ...(resolvedCustomSlug && resolvedCustomSlug !== existingAlbum.customSlug ? [CACHE_KEYS.albumBySlug(resolvedCustomSlug)] : []),
+      ]);
 
       return new Response(
         JSON.stringify({
@@ -347,11 +353,22 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
+    // Fetch album slug and customSlug for cache invalidation before deletion
+    const album = await sanityClient.fetch<{ slug?: { current: string }; customSlug?: string } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ slug, customSlug }`,
+      { albumId }
+    );
+
     // Cascade-delete the album with its selections, submissions, and photos.
     await cascadeDeleteAlbums([albumId]);
 
     publishAdminEvent("album:deleted", { albumId });
-    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
+    await invalidateCache([
+      CACHE_KEYS.albumsList(),
+      CACHE_KEYS.albumSelections(albumId),
+      ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+    ]);
 
     return new Response(
       JSON.stringify({ success: true }),

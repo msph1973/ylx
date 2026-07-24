@@ -9,6 +9,12 @@ interface PhotoRaw {
   album?: { _ref: string };
 }
 
+interface AlbumSlugRaw {
+  _id: string;
+  slug?: { current: string };
+  customSlug?: string;
+}
+
 export const DELETE: APIRoute = async ({ params, cookies }) => {
   const session = await requireAdmin(cookies);
   if (!session) {
@@ -40,6 +46,14 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     }
 
     const albumId = photo.album?._ref;
+
+    // Fetch album slug and customSlug for cache invalidation
+    const album = albumId
+      ? await sanityClient.fetch<AlbumSlugRaw | null>(
+          `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
+          { albumId }
+        )
+      : null;
 
     // Selections that point at this photo, and the submissions that list them,
     // must be detached before the photo can be removed (strong references).
@@ -81,9 +95,12 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     if (albumId) {
       publishAlbumEvent(albumId, "photo:deleted", { photoId });
     }
-    await invalidateCache(
-      albumId ? [CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)] : CACHE_KEYS.albumsList()
-    );
+    await invalidateCache([
+      CACHE_KEYS.albumsList(),
+      ...(albumId ? [CACHE_KEYS.albumSelections(albumId)] : []),
+      ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+    ]);
 
     return new Response(
       JSON.stringify({ success: true, removedSelections: selectionIds.length }),

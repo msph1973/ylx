@@ -10,7 +10,7 @@ import {
   recordFailedAttempt,
 } from "../../../../lib/ratelimit";
 import { grantAlbumAccess } from "../../../../lib/gallerySession";
-import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
+import { getCached, invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
 interface SanityImageRef {
   _type: string;
@@ -120,7 +120,12 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     });
   }
 
-  const album = await sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug });
+  const album = await getCached<SanityAlbumRaw | null>(
+    CACHE_KEYS.albumBySlug(slug),
+    30, // 30s fresh TTL
+    120, // 120s stale TTL (background refresh)
+    () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
+  );
 
   if (!album) {
     return new Response(JSON.stringify({ error: "Album not found" }), {

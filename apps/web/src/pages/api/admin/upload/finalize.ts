@@ -195,7 +195,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
 
     publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
-    await invalidateCache(CACHE_KEYS.albumsList()); // photoCount changed
+    const albumData = album as { slug?: { current: string }; customSlug?: string };
+    await invalidateCache([
+      CACHE_KEYS.albumsList(),
+      ...(albumData.slug?.current ? [CACHE_KEYS.albumBySlug(albumData.slug.current)] : []),
+      ...(albumData.customSlug ? [CACHE_KEYS.albumBySlug(albumData.customSlug)] : []),
+    ]);
 
     return new Response(
       JSON.stringify({ success: true, photoId: photoDoc._id }),

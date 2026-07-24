@@ -14,6 +14,12 @@ interface PhotoRecord {
   album?: { _ref: string };
 }
 
+interface AlbumSlugRaw {
+  _id: string;
+  slug?: { current: string };
+  customSlug?: string;
+}
+
 export const POST: APIRoute = async ({ cookies, request }) => {
   const session = await requireAdmin(cookies);
   if (!session) {
@@ -34,6 +40,12 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // Fetch album slug and customSlug for cache invalidation
+    const album = await sanityClient.fetch<AlbumSlugRaw | null>(
+      `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
+      { albumId }
+    );
 
     const photos = await sanityClient.fetch<PhotoRecord[]>(
       `*[_type == "photo" && _id in $photoIds]{ _id, album }`,
@@ -84,7 +96,12 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       publishAdminEvent("selection:changed", { albumId });
     }
     publishAlbumEvent(albumId, "photo:deleted", { photoIds: uniquePhotoIds });
-    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
+    await invalidateCache([
+      CACHE_KEYS.albumsList(),
+      CACHE_KEYS.albumSelections(albumId),
+      ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+    ]);
 
     return new Response(
       JSON.stringify({ success: true, deletedCount: uniquePhotoIds.length, removedSelections: selectionIds.length }),

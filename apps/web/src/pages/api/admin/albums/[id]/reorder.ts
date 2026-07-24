@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
+import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 
 interface ReorderBody {
   photoIds?: string[];
@@ -14,6 +15,8 @@ interface AlbumPhotoReference {
 
 interface AlbumReferences {
   _id: string;
+  slug?: { current: string };
+  customSlug?: string;
   photos?: AlbumPhotoReference[];
 }
 
@@ -45,7 +48,7 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     }
 
     const album = await sanityClient.fetch<AlbumReferences | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, photos[]{ _key, _ref } }`,
+      `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug, photos[]{ _key, _ref } }`,
       { albumId }
     );
 
@@ -94,9 +97,12 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
 
     await sanityWriteClient.patch(albumId).set({ photos: reorderedReferences }).commit();
 
-    // No cache invalidation here: `allAlbumsQuery` (cached list) only returns
-    // `photoCount`, not photo order/refs, and the per-album detail/selections
-    // caches don't carry ordering either — reorder can't make either stale.
+    // Invalidate the album-by-slug cache since photo order changed
+    await invalidateCache([
+      ...(album.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+    ]);
+
     publishAdminEvent("album:updated", { albumId, action: "reorder-photos" });
     publishAlbumEvent(albumId, "album:updated", { action: "reorder-photos" });
 
