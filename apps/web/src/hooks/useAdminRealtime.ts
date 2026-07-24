@@ -3,20 +3,31 @@ import { getAblyClient } from "@/lib/ably";
 
 export function useAdminRealtime(onUpdate: () => void): void {
   useEffect(() => {
-    const ably = getAblyClient();
-    const channel = ably.channels.get("admin:updates");
+    let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let channel: any = null;
 
-    const handler = () => {
-      onUpdate();
+    const setup = async () => {
+      const ably = await getAblyClient();
+      if (cancelled) return;
+
+      channel = ably.channels.get("admin:updates");
+
+      const handler = () => {
+        onUpdate();
+      };
+
+      // Subscribe to every admin event (created, uploaded, deleted, locked,
+      // unlocked, submitted, selection changes) so the dashboard always refetches
+      // on any state change without needing to enumerate each event name.
+      channel.subscribe(handler);
     };
 
-    // Subscribe to every admin event (created, uploaded, deleted, locked,
-    // unlocked, submitted, selection changes) so the dashboard always refetches
-    // on any state change without needing to enumerate each event name.
-    channel.subscribe(handler);
+    void setup();
 
     return () => {
-      channel.unsubscribe(handler);
+      cancelled = true;
+      channel?.unsubscribe();
     };
   }, [onUpdate]);
 }

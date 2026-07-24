@@ -1,4 +1,4 @@
-import Ably from "ably";
+import type Ably from "ably";
 
 // Client-side singleton — only created in browser context to avoid SSR leaks.
 let clientInstance: Ably.Realtime | null = null;
@@ -17,7 +17,7 @@ let clientInstanceAlbumId: string | null = null;
 // connection with that albumId instead of silently ignoring it. Two
 // different non-null albumIds on one singleton is a genuine conflict and
 // throws, since the singleton can only carry one album's capability.
-export function getAblyClient(albumId?: string): Ably.Realtime {
+export async function getAblyClient(albumId?: string): Promise<Ably.Realtime> {
   if (typeof window === "undefined") {
     throw new Error("getAblyClient() must only be called in browser context");
   }
@@ -26,9 +26,11 @@ export function getAblyClient(albumId?: string): Ably.Realtime {
 
   if (!clientInstance) {
     clientInstanceAlbumId = requestedAlbumId;
+    // Dynamic import — Ably SDK (~200KB gzipped) only loaded when needed.
+    const AblyModule = await import("ably");
     // Authenticate via a server endpoint that mints subscribe-only tokens —
     // the full API key is never exposed to the browser.
-    clientInstance = new Ably.Realtime({
+    clientInstance = new AblyModule.default.Realtime({
       authUrl: "/api/ably/token",
       authParams: requestedAlbumId ? { albumId: requestedAlbumId } : undefined,
     });
@@ -60,11 +62,12 @@ export function publishAlbumEvent(albumId: string, eventType: string, data?: Rec
   publish(getChannelName(albumId), eventType, data);
 }
 
-function publish(channelName: string, eventType: string, data?: Record<string, unknown>): void {
+async function publish(channelName: string, eventType: string, data?: Record<string, unknown>): Promise<void> {
   try {
     const key = process.env.ABLY_API_KEY;
     if (!key) return;
-    const rest = new Ably.Rest({ key });
+    const AblyModule = await import("ably");
+    const rest = new AblyModule.default.Rest({ key });
     const channel = rest.channels.get(channelName);
     void channel.publish(eventType, data ?? {});
   } catch {
