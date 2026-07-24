@@ -2,6 +2,8 @@ import type Ably from "ably";
 
 // Client-side singleton — only created in browser context to avoid SSR leaks.
 let clientInstance: Ably.Realtime | null = null;
+// Promise of the client creation to prevent race conditions when called concurrently.
+let clientPromise: Promise<Ably.Realtime> | null = null;
 // The `albumId` (or `null` for admin/global context) the singleton was first
 // created with — its Ably capability is fixed for the client's lifetime, so
 // a later call with a different albumId would silently keep the wrong scope.
@@ -24,20 +26,25 @@ export async function getAblyClient(albumId?: string): Promise<Ably.Realtime> {
 
   const requestedAlbumId = albumId ?? null;
 
-  if (!clientInstance) {
+  if (!clientPromise) {
     clientInstanceAlbumId = requestedAlbumId;
     // Dynamic import — Ably SDK (~200KB gzipped) only loaded when needed.
-    const AblyModule = await import("ably");
-    // Authenticate via a server endpoint that mints subscribe-only tokens —
-    // the full API key is never exposed to the browser.
-    clientInstance = new AblyModule.default.Realtime({
-      authUrl: "/api/ably/token",
-      authParams: requestedAlbumId ? { albumId: requestedAlbumId } : undefined,
+    // Store the promise to prevent race conditions when called concurrently.
+    clientPromise = import("ably").then((AblyModule) => {
+      // Authenticate via a server endpoint that mints subscribe-only tokens —
+      // the full API key is never exposed to the browser.
+      clientInstance = new AblyModule.default.Realtime({
+        authUrl: "/api/ably/token",
+        authParams: requestedAlbumId ? { albumId: requestedAlbumId } : undefined,
+      });
+      return clientInstance;
     });
   } else if (requestedAlbumId !== null && requestedAlbumId !== clientInstanceAlbumId) {
     if (clientInstanceAlbumId === null) {
       clientInstanceAlbumId = requestedAlbumId;
-      clientInstance.auth
+      // Wait for client to be ready before re-authorizing
+      const client = await clientPromise;
+      client.auth
         .authorize({}, { authParams: { albumId: requestedAlbumId } })
         .catch((err) => console.warn("[Ably] re-authorize with albumId failed:", err));
     } else {
@@ -47,7 +54,7 @@ export async function getAblyClient(albumId?: string): Promise<Ably.Realtime> {
       );
     }
   }
-  return clientInstance;
+  return clientPromise;
 }
 
 export function getChannelName(albumId: string): string {
