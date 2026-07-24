@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-23 | PR MERGED: #19–#52 (lihat tabel pointer di bawah). All audit findings ✅ FIXED. Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-07-24 | PR MERGED: #19–#57 (lihat tabel pointer di bawah). All audit findings ✅ FIXED. Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -241,5 +241,10 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #50 | Audit #3: 7 temuan valid diperbaiki (Ably leak, CSRF, cache health, upload race/backoff/creds/mountedRef) | MERGED | `~/.junie/tasks/PR-50-audit3-valid-findings.md` |
 | #51 | Sync STATUS.md (doc-only, tandai #50 merged) | MERGED | `~/.junie/tasks/PR-51-status-sync.md` |
 | #52 | Fix lightbox backdrop fade-in (teks halaman tembus sesaat) | MERGED | `~/.junie/tasks/PR-52-lightbox-backdrop-fade.md` |
+| #53 | Sync STATUS.md (doc-only, tandai #52 merged) | MERGED | `~/.junie/tasks/PR-53-status-sync.md` |
+| #54 | Fix toast text contrast fails WCAG AA | MERGED | `~/.junie/tasks/PR-54-toast-contrast.md` |
+| #55 | Fix mobile UX: safe-area, hover guards, font-size, toast overflow | MERGED | `~/.junie/tasks/PR-55-mobile-ux.md` |
+| #56 | Perf: React.memo on BlurImage and AlbumCard | MERGED | `~/.junie/tasks/PR-56-perf-memo.md` |
+| #57 | Perf: misc improvements (preconnect, decoding, content-visibility, client:idle) | MERGED | `~/.junie/tasks/PR-57-perf-misc.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
