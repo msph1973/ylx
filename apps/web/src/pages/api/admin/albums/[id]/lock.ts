@@ -22,8 +22,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       );
     }
 
-    const existing = await sanityClient.fetch<{ _id: string; status: string; slug?: { current: string } } | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, status, slug }`,
+    const existing = await sanityClient.fetch<{ _id: string; status: string; slug?: { current: string }; customSlug?: string } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ _id, status, slug, customSlug }`,
       { albumId }
     );
 
@@ -42,6 +42,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
       ...(existing.slug?.current ? [CACHE_KEYS.albumBySlug(existing.slug.current)] : []),
+      ...(existing.customSlug ? [CACHE_KEYS.albumBySlug(existing.customSlug)] : []),
     ]);
 
     return new Response(JSON.stringify({ success: true, id: albumId }), {

@@ -12,6 +12,7 @@ interface BulkDeleteBody {
 interface AlbumSlugRaw {
   _id: string;
   slug?: { current: string };
+  customSlug?: string;
 }
 
 export const POST: APIRoute = async ({ cookies, request }) => {
@@ -35,12 +36,15 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       );
     }
 
-    // Fetch album slugs for cache invalidation before deletion
+    // Fetch album slugs and customSlugs for cache invalidation before deletion
     const albums = await sanityClient.fetch<AlbumSlugRaw[]>(
-      `*[_type == "album" && _id in $ids]{ _id, slug }`,
+      `*[_type == "album" && _id in $ids]{ _id, slug, customSlug }`,
       { ids }
     );
-    const slugs = albums.map((a) => a.slug?.current).filter((s): s is string => !!s);
+    const slugs = [
+      ...albums.map((a) => a.slug?.current).filter((s): s is string => !!s),
+      ...albums.map((a) => a.customSlug).filter((s): s is string => !!s),
+    ];
 
     // One atomic transaction removes every selected album and its dependents.
     await cascadeDeleteAlbums(ids);

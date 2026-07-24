@@ -16,6 +16,7 @@ interface AlbumPhotoReference {
 interface AlbumReferences {
   _id: string;
   slug?: { current: string };
+  customSlug?: string;
   photos?: AlbumPhotoReference[];
 }
 
@@ -47,7 +48,7 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     }
 
     const album = await sanityClient.fetch<AlbumReferences | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, slug, photos[]{ _key, _ref } }`,
+      `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug, photos[]{ _key, _ref } }`,
       { albumId }
     );
 
@@ -97,9 +98,10 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     await sanityWriteClient.patch(albumId).set({ photos: reorderedReferences }).commit();
 
     // Invalidate the album-by-slug cache since photo order changed
-    await invalidateCache(
-      album.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []
-    );
+    await invalidateCache([
+      ...(album.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+    ]);
 
     publishAdminEvent("album:updated", { albumId, action: "reorder-photos" });
     publishAlbumEvent(albumId, "album:updated", { action: "reorder-photos" });

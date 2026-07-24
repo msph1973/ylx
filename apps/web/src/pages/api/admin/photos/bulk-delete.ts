@@ -17,6 +17,7 @@ interface PhotoRecord {
 interface AlbumSlugRaw {
   _id: string;
   slug?: { current: string };
+  customSlug?: string;
 }
 
 export const POST: APIRoute = async ({ cookies, request }) => {
@@ -40,9 +41,9 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       });
     }
 
-    // Fetch album slug for cache invalidation
+    // Fetch album slug and customSlug for cache invalidation
     const album = await sanityClient.fetch<AlbumSlugRaw | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, slug }`,
+      `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
       { albumId }
     );
 
@@ -99,6 +100,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
 
     return new Response(

@@ -195,10 +195,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
 
     publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
-    const albumSlug = (album as { slug?: { current: string } })?.slug?.current;
+    const albumData = album as { slug?: { current: string }; customSlug?: string };
     await invalidateCache([
       CACHE_KEYS.albumsList(),
-      ...(albumSlug ? [CACHE_KEYS.albumBySlug(albumSlug)] : []),
+      ...(albumData.slug?.current ? [CACHE_KEYS.albumBySlug(albumData.slug.current)] : []),
+      ...(albumData.customSlug ? [CACHE_KEYS.albumBySlug(albumData.customSlug)] : []),
     ]);
 
     return new Response(

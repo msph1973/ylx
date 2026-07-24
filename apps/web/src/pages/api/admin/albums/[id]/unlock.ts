@@ -22,10 +22,10 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       );
     }
 
-    // Fetch album slug for cache invalidation, plus existing selections/submissions to delete
+    // Fetch album slug and customSlug for cache invalidation, plus existing selections/submissions to delete
     const [album, selections, submissions] = await Promise.all([
-      sanityClient.fetch<{ slug?: { current: string } } | null>(
-        `*[_type == "album" && _id == $albumId][0]{ slug }`,
+      sanityClient.fetch<{ slug?: { current: string }; customSlug?: string } | null>(
+        `*[_type == "album" && _id == $albumId][0]{ slug, customSlug }`,
         { albumId }
       ),
       sanityClient.fetch<Array<{ _id: string }>>(
@@ -50,6 +50,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
 
     return new Response(JSON.stringify({ success: true, id: result.results[0]?.id ?? albumId }), {

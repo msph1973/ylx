@@ -12,6 +12,7 @@ interface PhotoRaw {
 interface AlbumSlugRaw {
   _id: string;
   slug?: { current: string };
+  customSlug?: string;
 }
 
 export const DELETE: APIRoute = async ({ params, cookies }) => {
@@ -46,10 +47,10 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
 
     const albumId = photo.album?._ref;
 
-    // Fetch album slug for cache invalidation
+    // Fetch album slug and customSlug for cache invalidation
     const album = albumId
       ? await sanityClient.fetch<AlbumSlugRaw | null>(
-          `*[_type == "album" && _id == $albumId][0]{ _id, slug }`,
+          `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
           { albumId }
         )
       : null;
@@ -98,6 +99,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       CACHE_KEYS.albumsList(),
       ...(albumId ? [CACHE_KEYS.albumSelections(albumId)] : []),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+      ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
 
     return new Response(
