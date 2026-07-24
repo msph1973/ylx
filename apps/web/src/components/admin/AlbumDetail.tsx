@@ -971,7 +971,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             overflow: hidden;
           }
 
-          .photo-thumb .blur-img {
+          .photo-thumb.blur-wrap .blur-img {
             width: 100%;
             height: 100%;
             object-fit: cover;
