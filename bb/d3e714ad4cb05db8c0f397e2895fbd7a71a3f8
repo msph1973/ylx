@@ -1,0 +1,19 @@
+apps/web/src/layouts/AdminLayout.astro
+  s_e71aab3040bd0b::t_bace9518c98d0d 222-223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bbd3e714ad4cb05db8c0f397e2895fbd7a71a3f8",
+  "prompts": {},
+  "sessions": {
+    "s_e71aab3040bd0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_06fb42af1ffeu1zxtS4r0IvhnQ",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
