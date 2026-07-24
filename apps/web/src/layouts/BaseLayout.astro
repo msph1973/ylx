@@ -24,6 +24,7 @@ const { title, description = 'Photo Proofing Gallery Platform' } = Astro.props;
       rel="stylesheet"
     />
     <title>{title} | YLx</title>
+    <slot name="head" />
     <Analytics />
   </head>
   <body>

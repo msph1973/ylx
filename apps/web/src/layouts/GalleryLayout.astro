@@ -10,7 +10,7 @@ const { title, clientName = 'Client' } = Astro.props;
 ---
 
 <BaseLayout title={title}>
-  <link rel="preconnect" href="https://cdn.sanity.io" />
+  <link slot="head" rel="preconnect" href="https://cdn.sanity.io" />
   <div class="gallery-layout">
     <header class="gallery-header">
       <div class="gallery-brand">YLx</div>
