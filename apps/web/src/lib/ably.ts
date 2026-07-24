@@ -61,12 +61,12 @@ export function getChannelName(albumId: string): string {
   return `album:${albumId}`;
 }
 
-export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): void {
-  publish("admin:updates", eventType, data);
+export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): Promise<void> {
+  return publish("admin:updates", eventType, data);
 }
 
-export function publishAlbumEvent(albumId: string, eventType: string, data?: Record<string, unknown>): void {
-  publish(getChannelName(albumId), eventType, data);
+export function publishAlbumEvent(albumId: string, eventType: string, data?: Record<string, unknown>): Promise<void> {
+  return publish(getChannelName(albumId), eventType, data);
 }
 
 async function publish(channelName: string, eventType: string, data?: Record<string, unknown>): Promise<void> {

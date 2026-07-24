@@ -1,11 +1,12 @@
 import { useEffect } from "react";
+import type Ably from "ably";
 import { getAblyClient } from "@/lib/ably";
 
 export function useAdminRealtime(onUpdate: () => void): void {
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let channel: any = null;
+    let channel: Ably.RealtimeChannel | null = null;
+    let handler: (() => void) | null = null;
 
     const setup = async () => {
       const ably = await getAblyClient();
@@ -13,7 +14,7 @@ export function useAdminRealtime(onUpdate: () => void): void {
 
       channel = ably.channels.get("admin:updates");
 
-      const handler = () => {
+      handler = () => {
         onUpdate();
       };
 
@@ -27,7 +28,9 @@ export function useAdminRealtime(onUpdate: () => void): void {
 
     return () => {
       cancelled = true;
-      channel?.unsubscribe();
+      if (channel && handler) {
+        channel.unsubscribe(handler);
+      }
     };
   }, [onUpdate]);
 }

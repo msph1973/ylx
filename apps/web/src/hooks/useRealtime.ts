@@ -27,10 +27,8 @@ export function useRealtime(
     if (!albumId) return;
 
     let cancelled = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let channel: any = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let ably: any = null;
+    let channel: Ably.RealtimeChannel | null = null;
+    let ably: Ably.Realtime | null = null;
 
     const handlers: Partial<
       Record<RealtimeEventType, (message: Ably.Message) => void>
