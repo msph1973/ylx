@@ -54,3 +54,9 @@ memory/
 
 # Letta local session pointer (per-machine agent/conversation IDs, not shareable)
 .letta/settings.local.json
+
+# Other coding agents' local session-artifact dirs (not meant for this repo,
+# no tracked files exist here — see AGENTS.md). Prevents accidental inclusion
+# via a broad `git add` when these are sitting untracked in the working tree.
+.bob/
+.mimocode/

@@ -1,0 +1,17 @@
+# cubic.yaml
+# Configures AI review behavior for cubic (https://docs.cubic.dev/configure/cubic-yaml).
+# Place in repository root to version-control review settings.
+
+version: 1
+
+reviews:
+  ignore:
+    # Session/agent artifacts that are not application code and should never
+    # be part of a PR's intended diff (see AGENTS.md). They occasionally get
+    # swept into a commit by a broad `git add` rather than being added on
+    # purpose, so cubic shouldn't spend review budget on them.
+    files:
+      - "docs/**"
+      - ".junie/**"
+      - ".bob/**"
+      - ".mimocode/**"
