@@ -1,0 +1,26 @@
+apps/web/src/lib/ably.ts
+  s_e71aab3040bd0b::t_69f6deed378be3 1,20,29-30,33
+  s_e71aab3040bd0b::t_ce02701b44d93c 65,69-70
+apps/web/src/hooks/useRealtime.ts
+  s_e71aab3040bd0b::t_570d629f0a0a0b 30-33
+  s_e71aab3040bd0b::t_7924202550b0e8 29,39-41,43-68,71,73,79-84
+apps/web/src/hooks/useAdminRealtime.ts
+  s_e71aab3040bd0b::t_d621222cab5ea5 7-8
+  s_e71aab3040bd0b::t_0ca2f4307a4e1a 6,10-23,26,29-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "accd776302aa892f3b93b19543b669c8911c14ee",
+  "prompts": {},
+  "sessions": {
+    "s_e71aab3040bd0b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_06fb42af1ffeu1zxtS4r0IvhnQ",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
