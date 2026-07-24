@@ -533,7 +533,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           border: 2px solid transparent;
           transition: border-color var(--transition-fast);
           content-visibility: auto;
-          contain-intrinsic-size: 200px;
+          contain-intrinsic-size: auto 200px;
         }
 
         .photo-item:hover {
