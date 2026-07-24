@@ -22,8 +22,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       );
     }
 
-    const existing = await sanityClient.fetch<{ _id: string; status: string } | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, status }`,
+    const existing = await sanityClient.fetch<{ _id: string; status: string; slug?: { current: string } } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ _id, status, slug }`,
       { albumId }
     );
 
@@ -38,7 +38,11 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
     publishAdminEvent("album:locked", { albumId });
     publishAlbumEvent(albumId, "album:locked");
-    await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(albumId)]);
+    await invalidateCache([
+      CACHE_KEYS.albumsList(),
+      CACHE_KEYS.albumSelections(albumId),
+      ...(existing.slug?.current ? [CACHE_KEYS.albumBySlug(existing.slug.current)] : []),
+    ]);
 
     return new Response(JSON.stringify({ success: true, id: albumId }), {
       status: 200,

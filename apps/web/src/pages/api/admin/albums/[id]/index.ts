@@ -300,7 +300,10 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       } catch (eventError) {
         console.error("[Albums] PUT publish event failed:", eventError);
       }
-      await invalidateCache(CACHE_KEYS.albumsList());
+      await invalidateCache([
+        CACHE_KEYS.albumsList(),
+        ...(existingAlbum.slug?.current ? [CACHE_KEYS.albumBySlug(existingAlbum.slug.current)] : []),
+      ]);
 
       return new Response(
         JSON.stringify({
