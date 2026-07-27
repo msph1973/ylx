@@ -9,6 +9,7 @@ dist
 .vercel
 .svelte-kit
 test-results/
+playwright-report/
 .playwright/
 .playwright-mcp/
 .env*
