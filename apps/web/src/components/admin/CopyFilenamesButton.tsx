@@ -1,26 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import type { Selection } from '@ylx/shared';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
+import {
+  formatSelections,
+  EXPORT_FORMAT_LABELS,
+  type ExportFormat,
+} from '../../lib/selectionExport';
 
 interface CopyFilenamesButtonProps {
-  filenames: string[];
+  selections: Selection[];
 }
 
-export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
+export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
   const { copied, error, copy } = useCopyToClipboard(2000);
   const shouldReduceMotion = useReducedMotion();
+  const [format, setFormat] = useState<ExportFormat>('comma');
 
   const handleCopy = () => {
-    const text = filenames.join(', ');
-    copy(text);
+    copy(formatSelections(selections, format));
   };
 
   return (
     <div className="copy-filenames-wrapper">
+      <label className="sr-only" htmlFor="copy-format-select">
+        Copy format
+      </label>
+      <select
+        id="copy-format-select"
+        className="format-select"
+        value={format}
+        onChange={(e) => setFormat(e.target.value as ExportFormat)}
+      >
+        {(Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[]).map((value) => (
+          <option key={value} value={value}>
+            {EXPORT_FORMAT_LABELS[value]}
+          </option>
+        ))}
+      </select>
+
       <button
         className="copy-btn"
         onClick={handleCopy}
-        disabled={filenames.length === 0}
+        disabled={selections.length === 0}
       >
         <svg
           width="16"
@@ -85,6 +107,22 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
           align-items: center;
           gap: var(--space-3);
           position: relative;
+        }
+
+        .format-select {
+          min-height: var(--tap-target-min);
+          padding: var(--space-2) var(--space-3);
+          background-color: var(--color-surface);
+          color: var(--color-text);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          cursor: pointer;
+        }
+
+        .format-select:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 2px;
         }
 
         .copy-btn {
