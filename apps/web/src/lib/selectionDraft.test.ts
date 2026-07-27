@@ -49,6 +49,17 @@ describe("loadDraft cleaning", () => {
     saveDraft(ALBUM, ["deleted-photo"], {});
     expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
   });
+
+  it("deduplicates repeated photo ids", () => {
+    saveDraft(ALBUM, ["p1", "p1", "p2", "p1"], {});
+    expect(loadDraft(ALBUM, PHOTOS, 10)?.photoIds).toEqual(["p1", "p2"]);
+  });
+
+  it("truncates notes longer than 500 characters so submit cannot 400", () => {
+    saveDraft(ALBUM, ["p1"], { p1: "x".repeat(600) });
+    const note = loadDraft(ALBUM, PHOTOS, 10)?.notes.p1;
+    expect(note).toHaveLength(500);
+  });
 });
 
 describe("loadDraft robustness", () => {
@@ -73,6 +84,24 @@ describe("loadDraft robustness", () => {
     vi.setSystemTime(new Date("2026-07-27T00:00:00Z"));
     saveDraft(ALBUM, ["p1"], {});
     vi.setSystemTime(new Date("2026-07-28T00:00:01Z"));
+    expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("discards a draft with a savedAt in the future", () => {
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({ photoIds: ["p1"], notes: {}, savedAt: Date.now() + 10 * 60 * 1000 })
+    );
+    expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("discards a draft with a non-finite savedAt", () => {
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({ photoIds: ["p1"], notes: {}, savedAt: null })
+    );
     expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
     expect(window.localStorage.getItem(KEY)).toBeNull();
   });
