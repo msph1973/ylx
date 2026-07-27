@@ -213,7 +213,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `PRODUCT.md` | Product requirements |
 | `AGENTS.md` | Operating rules & session protocol (arsitektur, git workflow, skills, memory — termasuk referensi ke `~/.junie/memory/system` cross-agent memory bank) |
 | `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED (file sudah dihapus, riwayat lengkap di `docs/history/STATUS-ARCHIVE.md`) |
-| `new-audit-2.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, semua ✅ FIXED (PR #34 + #35, merged) |
+| `new-audit-2.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, semua ✅ FIXED (PR #34 + #35, merged; file sudah dihapus, riwayat lengkap di `docs/history/STATUS-ARCHIVE.md`) |
 | `~/.junie/tasks/README.md` | Konvensi penyimpanan narasi task/PR lokal (di luar repo, tidak ter-push) — mulai PR #41 |
 | `~/.junie/memory/system/ylx/overview.md` | Cross-agent memory bank (juga dipakai agent lain di luar Junie, mis. Letta Code — `.letta/`) — index ke conventions/gotchas/tooling/architecture; auto-generated, tetap menganggap `STATUS.md`/`AGENTS.md` sebagai sumber kebenaran, jangan diedit manual dari sesi Junie |
 
