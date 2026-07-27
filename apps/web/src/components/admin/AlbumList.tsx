@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlbumCard, type AlbumCardData } from './AlbumCard';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -28,8 +28,10 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  const fetchAlbums = useCallback(async () => {
-    setIsLoading(true);
+  const fetchAlbums = useCallback(async (options?: { background?: boolean }) => {
+    // Background refreshes (realtime-triggered) skip the full-list spinner so
+    // the dashboard doesn't flash while the admin is looking at it.
+    if (!options?.background) setIsLoading(true);
     setError(null);
     try {
       const response = await fetch('/api/admin/albums');
@@ -39,7 +41,7 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setIsLoading(false);
+      if (!options?.background) setIsLoading(false);
     }
   }, []);
 
@@ -47,7 +49,25 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
     void fetchAlbums();
   }, [fetchAlbums]);
 
-  useAdminRealtime(fetchAlbums);
+  // Realtime events can arrive in bursts (e.g. draft:progress while a client
+  // is actively picking, or bulk operations emitting several events) —
+  // coalesce them into one background refetch per 500ms window.
+  const refetchTimerRef = useRef<number | null>(null);
+  const coalescedRefetch = useCallback(() => {
+    if (refetchTimerRef.current !== null) return;
+    refetchTimerRef.current = window.setTimeout(() => {
+      refetchTimerRef.current = null;
+      void fetchAlbums({ background: true });
+    }, 500);
+  }, [fetchAlbums]);
+
+  useEffect(() => {
+    return () => {
+      if (refetchTimerRef.current !== null) window.clearTimeout(refetchTimerRef.current);
+    };
+  }, []);
+
+  useAdminRealtime(coalescedRefetch);
 
   // Drop any selected ids that no longer exist after a refetch.
   useEffect(() => {

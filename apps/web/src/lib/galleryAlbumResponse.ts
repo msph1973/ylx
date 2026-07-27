@@ -26,6 +26,7 @@ export interface SanityAlbumRaw {
   status: string;
   maxSelections: number;
   pin: string;
+  lastUnlockedAt?: string | null;
   photos: SanityPhotoRaw[];
 }
 
@@ -50,6 +51,9 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
       eventDate: album.eventDate,
       status: album.status,
       maxSelections: album.maxSelections,
+      // Draft revision marker — the client discards drafts saved before the
+      // most recent unlock (see selectionDraft.loadDraft's notBefore).
+      lastUnlockedAt: album.lastUnlockedAt ?? null,
       photos,
     },
   };

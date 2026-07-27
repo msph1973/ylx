@@ -43,6 +43,7 @@ interface AlbumData {
   eventDate: string;
   maxSelections: number;
   status: string;
+  lastUnlockedAt?: string | null;
   photos: Photo[];
 }
 
@@ -132,10 +133,14 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   const restoreDraft = useCallback((albumData: AlbumData) => {
     if (albumData.status !== 'active') return;
+    // Drafts saved before the album's most recent unlock describe selections
+    // the server already deleted — never restore them.
+    const unlockedAtMs = albumData.lastUnlockedAt ? Date.parse(albumData.lastUnlockedAt) : undefined;
     const draft = loadDraft(
       albumData.id,
       albumData.photos.map((p) => p.id),
-      albumData.maxSelections
+      albumData.maxSelections,
+      Number.isFinite(unlockedAtMs) ? unlockedAtMs : undefined
     );
     if (!draft) return;
     setSelectedPhotos(new Set(draft.photoIds));

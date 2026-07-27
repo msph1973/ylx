@@ -97,6 +97,13 @@ export default defineType({
       type: "datetime",
       readOnly: true,
     }),
+    defineField({
+      name: "lastUnlockedAt",
+      title: "Last Unlocked",
+      description: "Set on every unlock; client drafts saved before this moment are discarded.",
+      type: "datetime",
+      readOnly: true,
+    }),
   ],
   preview: {
     select: {

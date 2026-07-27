@@ -8,6 +8,7 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
   pin,
   maxSelections,
   status,
+  lastUnlockedAt,
   photos[]-> {
     _id,
     filename,

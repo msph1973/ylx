@@ -41,7 +41,10 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     const tx = sanityWriteClient.transaction();
     for (const s of selections) tx.delete(s._id);
     for (const s of submissions) tx.delete(s._id);
-    tx.patch(albumId, { set: { status: "active" } });
+    // lastUnlockedAt is the draft revision marker: the gallery discards any
+    // locally-stored draft saved before this moment, so a client that missed
+    // the realtime unlock event can't restore selections the server deleted.
+    tx.patch(albumId, { set: { status: "active", lastUnlockedAt: new Date().toISOString() } });
     const result = await tx.commit();
 
     await invalidateCache([
