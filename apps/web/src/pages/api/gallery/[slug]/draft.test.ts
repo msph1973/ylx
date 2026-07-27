@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const getCachedMock = vi.fn();
 const hasAlbumAccessMock = vi.fn();
 const cacheSetRawMock = vi.fn();
-const cacheGetRawMock = vi.fn().mockResolvedValue([]);
 const publishAdminEventMock = vi.fn();
 
 vi.mock("@ylx/sanity/client", () => ({
@@ -19,7 +18,6 @@ vi.mock("@ylx/sanity/lib/thumbnails", () => ({
 vi.mock("../../../../lib/cache", () => ({
   getCached: (...args: unknown[]) => getCachedMock(...args),
   cacheSetRaw: (...args: unknown[]) => cacheSetRawMock(...args),
-  cacheGetRaw: (...args: unknown[]) => cacheGetRawMock(...args),
   CACHE_KEYS: {
     albumBySlug: (slug: string) => `cache:gallery:album:${slug}`,
     galleryDraft: (albumId: string) => `draft:gallery:${albumId}`,
@@ -60,7 +58,6 @@ beforeEach(() => {
   getCachedMock.mockReset().mockResolvedValue(ALBUM);
   hasAlbumAccessMock.mockReset().mockReturnValue(true);
   cacheSetRawMock.mockReset().mockResolvedValue(undefined);
-  cacheGetRawMock.mockReset().mockResolvedValue([]);
   publishAdminEventMock.mockReset().mockResolvedValue(undefined);
 });
 
@@ -105,9 +102,9 @@ describe("PUT /api/gallery/[slug]/draft", () => {
   it("stores the progress with a 24h TTL and publishes draft:progress", async () => {
     const res = await call({ count: 7 });
     expect(res.status).toBe(200);
-expect(cacheSetRawMock).toHaveBeenCalledWith(
+    expect(cacheSetRawMock).toHaveBeenCalledWith(
       "draft:gallery:album-1",
-      expect.objectContaining({ count: 7, seq: 0 }),
+      expect.objectContaining({ count: 7 }),
       24 * 60 * 60
     );
     expect(publishAdminEventMock).toHaveBeenCalledWith("draft:progress", {

@@ -72,6 +72,11 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
   }
 
   const progress: GalleryDraftProgress = { count, updatedAt: Date.now() };
+  // Tiny unavoidable race: a PUT that passed the status check just before a
+  // concurrent submit can rewrite this key after submit deleted it. Harmless —
+  // the dashboard ignores draftCount unless the album is `active` (submit
+  // also invalidates the albumBySlug cache so the next PUT sees `submitted`
+  // and 409s), and unlock deletes the key again.
   await cacheSetRaw(CACHE_KEYS.galleryDraft(album._id), progress, DRAFT_TTL_SECONDS);
   await publishAdminEvent("draft:progress", { albumId: album._id, count });
 
@@ -80,3 +85,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     headers: { "Content-Type": "application/json" },
   });
 };
+
+// navigator.sendBeacon can only send POST — the pagehide flush in
+// GalleryPage relies on this alias.
+export const POST = PUT;

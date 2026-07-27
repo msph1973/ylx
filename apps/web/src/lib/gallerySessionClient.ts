@@ -8,6 +8,7 @@ export interface ResumedAlbum {
   eventDate: string;
   status: string;
   maxSelections: number;
+  lastUnlockedAt?: string | null;
   photos: Array<{
     id: string;
     filename: string;
