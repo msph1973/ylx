@@ -50,8 +50,10 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
-    await publishAdminEvent("album:unlocked", { albumId });
-    await publishAlbumEvent(albumId, "album:unlocked");
+    await Promise.all([
+      publishAdminEvent("album:unlocked", { albumId }),
+      publishAlbumEvent(albumId, "album:unlocked"),
+    ]);
 
     return new Response(JSON.stringify({ success: true, id: result.results[0]?.id ?? albumId }), {
       status: 200,

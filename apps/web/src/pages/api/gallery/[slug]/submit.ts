@@ -193,6 +193,12 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     });
   }
 
+  // Status flipped to "submitted" above, so the cached admin albums list
+  // (which includes status) must be invalidated too, not just selections.
+  // Invalidate before publishing so the realtime event reliably signals a
+  // refetch against fresh cache.
+  await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);
+
   // Notify admin dashboard in real-time. publishAdminEvent never throws
   // (failures are logged inside), so a realtime failure can't turn the
   // already-committed, locked submission into a 500.
@@ -200,9 +206,6 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     albumId: album._id,
     count: uniquePhotoIds.length,
   });
-  // Status flipped to "submitted" above, so the cached admin albums list
-  // (which includes status) must be invalidated too, not just selections.
-  await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),
