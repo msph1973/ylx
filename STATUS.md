@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-24 | PR MERGED: #19–#52, #54–#65 (lihat tabel pointer di bawah). Sebagian temuan audit 2026-07-23 ✅ FIXED, sebagian sengaja ditunda (lihat narasi PR masing-masing). Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-07-27 | PR MERGED: #19–#52, #54–#65, #67 (lihat tabel pointer di bawah). Sebagian temuan audit 2026-07-23 ✅ FIXED, sebagian sengaja ditunda (lihat narasi PR masing-masing). Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -254,5 +254,6 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #63 | Audit Tier 2: cache `verify.ts` album fetch (TTL 30s + invalidasi `customSlug`) | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
 | #64 | Audit Tier 3: `UploadPage` pakai `filesRef` (hindari re-buka bug album-race PR #50) | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
 | #65 | Config: exclude `docs/`/`.junie/`/`.bob/`/`.mimocode/` dari bot review (root cause: PR #63 sempat bawa file noise) | MERGED | `~/.junie/tasks/PR-65-bot-review-ignore-paths.md` |
+| #67 | Fix 4 lint pre-existing `consistent-type-imports` di `gallery.spec.ts`/`upload.spec.ts` | MERGED | `~/.junie/tasks/PR-67-lint-type-imports.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
