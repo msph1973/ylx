@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 // 1x1 transparent PNG — loads instantly with no network so blur-up reveals.
 const PIXEL =
@@ -22,7 +23,7 @@ const MOCK_ALBUM = {
 };
 
 async function mockVerify(
-  page: import('@playwright/test').Page,
+  page: Page,
   response: { status?: number; json: unknown },
 ) {
   await page.route('**/api/gallery/*/verify', async (route) => {
@@ -34,7 +35,7 @@ async function mockVerify(
   });
 }
 
-async function enterPin(page: import('@playwright/test').Page, pin: string) {
+async function enterPin(page: Page, pin: string) {
   // Wait for the React island to hydrate before typing. React 18 tags hydrated
   // DOM nodes with __reactFiber$/__reactProps$ properties; once present the
   // onChange handler is wired, so the first digit isn't wiped by a late

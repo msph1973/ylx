@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { seedAdminSession } from './helpers/adminSession';
 
 // Minimal 1x1 JPEG-ish payload — content doesn't matter because the Sanity asset
@@ -12,7 +13,7 @@ const MOCK_ALBUMS = [
   { id: 'album-1', title: 'Album 1', clientName: 'Client 1' },
 ];
 
-async function stubCommon(page: import('@playwright/test').Page) {
+async function stubCommon(page: Page) {
   await page.route('**/api/admin/albums', async (route) => {
     await route.fulfill({ json: { albums: MOCK_ALBUMS } });
   });
@@ -26,7 +27,7 @@ async function stubCommon(page: import('@playwright/test').Page) {
   });
 }
 
-async function addOnePhotoAndSelectAlbum(page: import('@playwright/test').Page) {
+async function addOnePhotoAndSelectAlbum(page: Page) {
   await page.goto('/admin/upload');
   // Selecting the album auto-waits for its <option> to exist, which only happens
   // after the island hydrates and /api/admin/albums resolves — guaranteeing the
