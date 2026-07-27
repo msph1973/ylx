@@ -193,16 +193,13 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     });
   }
 
-  // Notify admin dashboard in real-time. The submission is already committed and
-  // locked, so a realtime failure must not turn a successful submit into a 500.
-  try {
-    await publishAdminEvent("submission:received", {
-      albumId: album._id,
-      count: uniquePhotoIds.length,
-    });
-  } catch (err) {
-    console.error("[Submit] publishAdminEvent failed:", err);
-  }
+  // Notify admin dashboard in real-time. publishAdminEvent never throws
+  // (failures are logged inside), so a realtime failure can't turn the
+  // already-committed, locked submission into a 500.
+  await publishAdminEvent("submission:received", {
+    albumId: album._id,
+    count: uniquePhotoIds.length,
+  });
   // Status flipped to "submitted" above, so the cached admin albums list
   // (which includes status) must be invalidated too, not just selections.
   await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);

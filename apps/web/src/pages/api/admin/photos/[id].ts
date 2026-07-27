@@ -88,12 +88,12 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     tx.delete(photoId);
     await tx.commit();
 
-    publishAdminEvent("photo:deleted", { photoId, albumId });
+    await publishAdminEvent("photo:deleted", { photoId, albumId });
     if (selectionIds.length > 0) {
-      publishAdminEvent("selection:changed", { albumId });
+      await publishAdminEvent("selection:changed", { albumId });
     }
     if (albumId) {
-      publishAlbumEvent(albumId, "photo:deleted", { photoId });
+      await publishAlbumEvent(albumId, "photo:deleted", { photoId });
     }
     await invalidateCache([
       CACHE_KEYS.albumsList(),

@@ -281,13 +281,10 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
         .unset(unsetFields)
         .commit();
 
-      // Notify open admin dashboards so they refetch. Guarded so a realtime
-      // failure can't turn an already-committed update into a 500.
-      try {
-        publishAdminEvent("album:updated", { albumId });
-      } catch (eventError) {
-        console.error("[Albums] PUT publish event failed:", eventError);
-      }
+      // Notify open admin dashboards so they refetch. publishAdminEvent never
+      // throws (failures are logged inside), so an already-committed update
+      // can't turn into a 500 here.
+      await publishAdminEvent("album:updated", { albumId });
       await invalidateCache([
         CACHE_KEYS.albumsList(),
         ...(existingAlbum.slug?.current ? [CACHE_KEYS.albumBySlug(existingAlbum.slug.current)] : []),
@@ -362,7 +359,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     // Cascade-delete the album with its selections, submissions, and photos.
     await cascadeDeleteAlbums([albumId]);
 
-    publishAdminEvent("album:deleted", { albumId });
+    await publishAdminEvent("album:deleted", { albumId });
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),

@@ -36,8 +36,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
     await sanityWriteClient.patch(albumId).set({ status: "locked" }).commit();
 
-    publishAdminEvent("album:locked", { albumId });
-    publishAlbumEvent(albumId, "album:locked");
+    await publishAdminEvent("album:locked", { albumId });
+    await publishAlbumEvent(albumId, "album:locked");
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
