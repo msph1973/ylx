@@ -35,6 +35,19 @@ async function mockVerify(
   });
 }
 
+async function mockSession(
+  page: Page,
+  response: { status?: number; json: unknown },
+) {
+  await page.route('**/api/gallery/*/session', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ status: response.status ?? 200, json: response.json });
+    } else {
+      await route.continue();
+    }
+  });
+}
+
 async function enterPin(page: Page, pin: string) {
   // Wait for the React island to hydrate before typing. React 18 tags hydrated
   // DOM nodes with __reactFiber$/__reactProps$ properties; once present the
@@ -61,6 +74,13 @@ async function enterPin(page: Page, pin: string) {
 }
 
 test.describe('Gallery', () => {
+  // Every page load fires a resume-session probe first; default it to 401 so
+  // tests exercise the PIN flow deterministically (individual tests re-route
+  // to 200 to simulate a valid cookie — later routes take precedence).
+  test.beforeEach(async ({ page }) => {
+    await mockSession(page, { status: 401, json: { error: 'No active gallery session' } });
+  });
+
   test('can access gallery with valid PIN', async ({ page }) => {
     await mockVerify(page, { json: MOCK_ALBUM });
     await page.goto('/gallery/test-album');
@@ -153,5 +173,33 @@ test.describe('Gallery', () => {
     await page.locator('.lightbox-close').click();
     await expect(firstPhoto).not.toHaveClass(/selected/);
     await expect(selectionCount).toContainText('0 / 50 selected');
+  });
+
+  test('restores the draft selection after a reload via the resume session', async ({ page }) => {
+    await mockVerify(page, { json: MOCK_ALBUM });
+    await page.goto('/gallery/test-album');
+
+    await enterPin(page, '1234');
+    await expect(page.locator('.photo-grid')).toBeVisible({ timeout: 10000 });
+
+    // Select the first photo, then wait for the debounced autosave to land.
+    await page.locator('.photo-item').first().click();
+    await page.locator('.lightbox-select').click();
+    await page.locator('.lightbox-close').click();
+    await expect(page.locator('.selection-count')).toContainText('1 / 50 selected');
+    await page.waitForFunction(
+      () => window.localStorage.getItem('ylx:draft:test-album-1') !== null,
+    );
+
+    // Simulate the still-valid signed gallery cookie on the next visit.
+    await mockSession(page, { json: MOCK_ALBUM });
+    await page.reload();
+
+    // Straight into the grid — no PIN screen — with the draft restored.
+    await expect(page.locator('.photo-grid')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('input[aria-label^="Digit"]')).toHaveCount(0);
+    await expect(page.locator('.selection-count')).toContainText('1 / 50 selected');
+    await expect(page.locator('.photo-item').first()).toHaveClass(/selected/);
+    await expect(page.locator('.info-toast')).toContainText('Draft restored');
   });
 });

@@ -1,8 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
-import { sanityClient, sanityWriteClient, urlFor } from "@ylx/sanity/client";
+import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { thumbnailUrl, thumbnailSrcSet } from "@ylx/sanity/lib/thumbnails";
 import {
   isLimitReached,
   isRateLimited,
@@ -11,29 +10,7 @@ import {
 } from "../../../../lib/ratelimit";
 import { grantAlbumAccess } from "../../../../lib/gallerySession";
 import { getCached, invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
-
-interface SanityImageRef {
-  _type: string;
-  asset: { _ref: string };
-}
-
-interface SanityPhotoRaw {
-  _id: string;
-  filename: string;
-  image: SanityImageRef;
-  lqip?: string;
-}
-
-interface SanityAlbumRaw {
-  _id: string;
-  title: string;
-  clientName: string;
-  eventDate: string;
-  status: string;
-  maxSelections: number;
-  pin: string;
-  photos: SanityPhotoRaw[];
-}
+import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
 
 const MAX_ATTEMPTS_PER_IP = 5;
 const MAX_FAILED_ATTEMPTS_PER_ALBUM = 30;
@@ -181,42 +158,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     console.error("[Verify] Failed to update share stats:", err);
   }
 
-  const photos = (album.photos ?? []).map((photo) => {
-    // `.auto("format")` negotiates WebP/AVIF per client (typically 30-60% smaller
-    // than the original JPEG) and `.quality()` tunes compression — both were
-    // missing, so the CDN served full-quality originals. The 2x candidate feeds a
-    // srcset so retina phones get a sharp tile without every device paying for it.
-    // Shared with the admin endpoint's thumbnail generation via `@ylx/sanity/lib/thumbnails`
-    // so both stay in sync with one source of truth.
-    return {
-      id: photo._id,
-      filename: photo.filename,
-      thumbnailUrl: thumbnailUrl(photo.image),
-      // Width descriptors (paired with the grid's `sizes`) let the browser pick by
-      // actual layout width *and* density, rather than density alone (`1x/2x`).
-      thumbnailSrcSet: thumbnailSrcSet(photo.image),
-      // Keep the original 1200px full-size — `.auto("format").quality()` already
-      // trims bytes; widening to 1600 would have added bandwidth per photo.
-      url: urlFor(photo.image).width(1200).auto("format").quality(80).url(),
-      lqip: photo.lqip ?? null,
-    };
-  });
+  const photosResponse = buildGalleryAlbumResponse(album);
 
-  return new Response(
-    JSON.stringify({
-      album: {
-        id: album._id,
-        title: album.title,
-        clientName: album.clientName,
-        eventDate: album.eventDate,
-        status: album.status,
-        maxSelections: album.maxSelections,
-        photos,
-      },
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    }
-  );
+  return new Response(JSON.stringify(photosResponse), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 };
