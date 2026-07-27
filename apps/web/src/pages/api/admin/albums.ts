@@ -42,13 +42,15 @@ export const GET: APIRoute = async ({ cookies }) => {
       photoCount: album.photoCount,
     }));
 
-    // Response carries each album's PIN (sensitive) so it must never be cached
-    // by a shared/CDN cache — `private` restricts reuse to the requesting client.
+    // Response carries each album's PIN (sensitive) plus live draft progress,
+    // so it must never be reused from any HTTP cache — realtime-triggered
+    // refetches need the freshest data, and `no-store` also keeps the PIN off
+    // shared/CDN caches.
     return new Response(JSON.stringify({ albums: formatted }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "private, max-age=0, stale-while-revalidate=30",
+        "Cache-Control": "private, no-store",
       },
     });
   } catch (error) {

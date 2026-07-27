@@ -197,7 +197,16 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   // (which includes status) must be invalidated too, not just selections.
   // Invalidate before publishing so the realtime event reliably signals a
   // refetch against fresh cache.
-  await invalidateCache([CACHE_KEYS.albumsList(), CACHE_KEYS.albumSelections(album._id)]);
+  await invalidateCache([
+    CACHE_KEYS.albumsList(),
+    CACHE_KEYS.albumSelections(album._id),
+    // The live draft-progress key is spent once the real selections exist.
+    CACHE_KEYS.galleryDraft(album._id),
+    // Drop the gallery album cache for the slug this client is using so a
+    // racing draft PUT re-reads `submitted` (and 409s) instead of a stale
+    // `active` entry reviving the just-deleted draft key.
+    CACHE_KEYS.albumBySlug(slug),
+  ]);
 
   // Notify admin dashboard in real-time. publishAdminEvent never throws
   // (failures are logged inside), so a realtime failure can't turn the

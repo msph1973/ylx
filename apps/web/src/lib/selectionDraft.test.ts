@@ -115,6 +115,19 @@ describe("loadDraft robustness", () => {
     expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
     expect(window.localStorage.getItem(KEY)).toBeNull();
   });
+
+  it("discards a draft saved before notBefore (album unlocked after the save)", () => {
+    saveDraft(ALBUM, ["p1"], {});
+    const unlockAfterSave = Date.now() + 1000;
+    expect(loadDraft(ALBUM, PHOTOS, 10, unlockAfterSave)).toBeNull();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("keeps a draft saved after notBefore", () => {
+    const unlockBeforeSave = Date.now() - 1000;
+    saveDraft(ALBUM, ["p1"], {});
+    expect(loadDraft(ALBUM, PHOTOS, 10, unlockBeforeSave)?.photoIds).toEqual(["p1"]);
+  });
 });
 
 describe("clearDraft", () => {
