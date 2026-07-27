@@ -132,7 +132,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Hydration-leak CI guard untuk prop sensitif di `client:*` (L-2 dari `new-audit.md`) | ✅ 2026-07-13, `apps/web/scripts/check-hydration-leak.mjs` |
 | Dependency install-script allowlist (L-5 dari `new-audit.md`) | ✅ 2026-07-13, `pnpm-workspace.yaml` `onlyBuiltDependencies` |
 
-> Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) + threat model 2026-07-10 (H-1) selesai. Realtime browser auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` (dataset private). Known gap: Playwright e2e admin fixture (`tests/helpers/adminSession.ts`) pakai cookie palsu tanpa doc Sanity asli — akan ditolak `getSession()` sampai ada fixture seed nyata (di luar scope, didokumentasikan di helper).
+> Audit keamanan 2026-07-02 (C1/C2/C3/H3+M1) + threat model 2026-07-10 (H-1) selesai. Realtime browser auth via `/api/ably/token` (subscribe-only). Read Sanity server-side pakai `SANITY_API_TOKEN` (dataset private). Playwright e2e admin fixture: doc `playwright-admin` di-seed idempotent via `apps/web/scripts/seed-e2e-admin.mjs` ke dataset `test` (job `e2e` di CI menjalankannya sebelum Playwright).
 >
 > Detail lengkap tiap fix (root cause, commit, PR, riwayat review bot): `docs/history/STATUS-ARCHIVE.md` (s.d. PR #40, dibekukan) atau `~/.junie/tasks/` (PR #41 dan seterusnya, lokal).
 
@@ -146,7 +146,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | Vercel token | `~/.local/share/com.vercel.cli/auth.json` |
 | Kernel browser | `agent-browser -p kernel` + `KERNEL_API_KEY` di `~/.bashrc` |
 | Linear team | `Ylx` | ID: `bc11a289-8943-48bc-9679-87557d86ea0e` |
-| Sanity project | `741sif2l` / dataset `production` (**private** sejak 2026-07-02) |
+| Sanity project | `741sif2l` / dataset `production` (**private** sejak 2026-07-02); dataset `test` (**public**, dummy e2e saja — plan tidak mendukung private kedua) |
 
 ---
 
@@ -154,8 +154,8 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 
 | Item | File | Status |
 |------|------|--------|
-| Gallery E2E (Playwright) | `apps/web/tests/gallery.spec.ts` | ✅ Refreshed ke selektor lightbox+LQIP (PR #17), 5/5 pass via `pnpm test:e2e`; masih tidak di CI (butuh server live + seed) |
-| Admin E2E (Playwright) | `apps/web/tests/admin.spec.ts` | ✅ 4/4 pass lokal (`pnpm exec playwright test tests/admin.spec.ts`, ~14s). Signed-session seed helper `tests/helpers/adminSession.ts` mem-bypass auth-guard `/admin` (C1) via cookie HMAC valid; route API di-mock via `page.route`. Meliputi: pagination, bulk photo delete, reorder (keyboard), lock/unlock |
+| Gallery E2E (Playwright) | `apps/web/tests/gallery.spec.ts` | ✅ Refreshed ke selektor lightbox+LQIP (PR #17), 5/5 pass; jalan di CI (job `e2e` di `ci.yml`) |
+| Admin E2E (Playwright) | `apps/web/tests/admin.spec.ts` | ✅ 4/4 pass. Signed-session helper `tests/helpers/adminSession.ts` + doc Sanity `playwright-admin` (seed: `apps/web/scripts/seed-e2e-admin.mjs`, dataset `test`); route API di-mock via `page.route`. Jalan di CI (job `e2e`). Meliputi: pagination, bulk photo delete, reorder (keyboard), lock/unlock |
 | Email notifikasi | — | Tidak ada |
 | OAuth admin auth | — | Bukan OAuth, pakai email+bcrypt |
 | LQIP / Blurhash | `BlurImage.tsx` + `verify.ts` (`metadata.lqip`) | ✅ Blur-up progressive loading di grid + lightbox (PR #17) |
@@ -213,7 +213,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 | `PRODUCT.md` | Product requirements |
 | `AGENTS.md` | Operating rules & session protocol (arsitektur, git workflow, skills, memory — termasuk referensi ke `~/.junie/memory/system` cross-agent memory bank) |
 | `new-audit.md` | Riwayat temuan security audit — semua (M-1 s/d L-6) sudah ✅ FIXED (file sudah dihapus, riwayat lengkap di `docs/history/STATUS-ARCHIVE.md`) |
-| `new-audit-2.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, semua ✅ FIXED (PR #34 + #35, merged) |
+| `docs/history/STATUS-ARCHIVE.md` | Full-codebase audit #2 (2026-07-13) — 11 temuan baru, semua ✅ FIXED (PR #34 + #35, merged; `new-audit-2.md` sudah dihapus, riwayat lengkap di sini) |
 | `~/.junie/tasks/README.md` | Konvensi penyimpanan narasi task/PR lokal (di luar repo, tidak ter-push) — mulai PR #41 |
 | `~/.junie/memory/system/ylx/overview.md` | Cross-agent memory bank (juga dipakai agent lain di luar Junie, mis. Letta Code — `.letta/`) — index ke conventions/gotchas/tooling/architecture; auto-generated, tetap menganggap `STATUS.md`/`AGENTS.md` sebagai sumber kebenaran, jangan diedit manual dari sesi Junie |
 
