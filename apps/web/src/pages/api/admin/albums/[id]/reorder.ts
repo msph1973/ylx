@@ -103,8 +103,10 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
 
-    await publishAdminEvent("album:updated", { albumId, action: "reorder-photos" });
-    await publishAlbumEvent(albumId, "album:updated", { action: "reorder-photos" });
+    await Promise.all([
+      publishAdminEvent("album:updated", { albumId, action: "reorder-photos" }),
+      publishAlbumEvent(albumId, "album:updated", { action: "reorder-photos" }),
+    ]);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

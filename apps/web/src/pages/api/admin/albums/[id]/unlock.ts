@@ -44,14 +44,14 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     tx.patch(albumId, { set: { status: "active" } });
     const result = await tx.commit();
 
-    await publishAdminEvent("album:unlocked", { albumId });
-    await publishAlbumEvent(albumId, "album:unlocked");
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
+    await publishAdminEvent("album:unlocked", { albumId });
+    await publishAlbumEvent(albumId, "album:unlocked");
 
     return new Response(JSON.stringify({ success: true, id: result.results[0]?.id ?? albumId }), {
       status: 200,

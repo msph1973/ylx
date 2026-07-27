@@ -281,10 +281,6 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
         .unset(unsetFields)
         .commit();
 
-      // Notify open admin dashboards so they refetch. publishAdminEvent never
-      // throws (failures are logged inside), so an already-committed update
-      // can't turn into a 500 here.
-      await publishAdminEvent("album:updated", { albumId });
       await invalidateCache([
         CACHE_KEYS.albumsList(),
         ...(existingAlbum.slug?.current ? [CACHE_KEYS.albumBySlug(existingAlbum.slug.current)] : []),
@@ -292,6 +288,10 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
         ...(existingAlbum.customSlug ? [CACHE_KEYS.albumBySlug(existingAlbum.customSlug)] : []),
         ...(resolvedCustomSlug && resolvedCustomSlug !== existingAlbum.customSlug ? [CACHE_KEYS.albumBySlug(resolvedCustomSlug)] : []),
       ]);
+      // Notify open admin dashboards so they refetch. publishAdminEvent never
+      // throws (failures are logged inside), so an already-committed update
+      // can't turn into a 500 here.
+      await publishAdminEvent("album:updated", { albumId });
 
       return new Response(
         JSON.stringify({
@@ -359,13 +359,13 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     // Cascade-delete the album with its selections, submissions, and photos.
     await cascadeDeleteAlbums([albumId]);
 
-    await publishAdminEvent("album:deleted", { albumId });
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
+    await publishAdminEvent("album:deleted", { albumId });
 
     return new Response(
       JSON.stringify({ success: true }),
