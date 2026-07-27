@@ -85,6 +85,26 @@ describe("formatCsv", () => {
   it("emits only the header for no selections", () => {
     expect(formatCsv([])).toBe("filename,notes");
   });
+
+  it.each(["=", "+", "-", "@"])(
+    "neutralizes notes starting with %s against formula injection",
+    (prefix) => {
+      const csv = formatCsv([makeSelection("IMG_1.jpg", `${prefix}HYPERLINK("http://evil")`)]);
+      expect(csv).toBe(
+        `filename,notes\nIMG_1.jpg,"'${prefix}HYPERLINK(""http://evil"")"`
+      );
+    }
+  );
+
+  it("neutralizes malicious filenames too", () => {
+    const csv = formatCsv([makeSelection("=cmd|calc.jpg", "ok")]);
+    expect(csv).toBe("filename,notes\n'=cmd|calc.jpg,ok");
+  });
+
+  it("neutralizes fields starting with tab or carriage return", () => {
+    const csv = formatCsv([makeSelection("IMG_1.jpg", "\t=SUM(A1)")]);
+    expect(csv).toBe("filename,notes\nIMG_1.jpg,'\t=SUM(A1)");
+  });
 });
 
 describe("formatSelections", () => {

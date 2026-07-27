@@ -16,9 +16,21 @@ export function formatPerLine(selections: Selection[]): string {
   return selections.map((s) => s.photo.filename).join("\n");
 }
 
+// Spreadsheet formula injection guard: client-supplied values starting with
+// =, +, -, @, tab, or CR would otherwise be executed as formulas by Excel /
+// Google Sheets on import (RFC 4180 quoting does NOT prevent this). OWASP
+// mitigation: prefix with a single quote so the value is treated as text.
+function neutralizeFormula(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 // RFC 4180: quote a field when it contains a comma, double quote, or
 // newline; double quotes inside are escaped by doubling them.
-function csvField(value: string): string {
+function csvField(rawValue: string): string {
+  const value = neutralizeFormula(rawValue);
   if (/[",\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }

@@ -58,7 +58,7 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
-        Copy Filenames
+        {format === 'csv' ? 'Copy CSV' : 'Copy Filenames'}
       </button>
 
       <div aria-live="polite" aria-atomic="true">
@@ -105,8 +105,24 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
         .copy-filenames-wrapper {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
           gap: var(--space-3);
           position: relative;
+        }
+
+        /* On narrow screens .section-actions (AlbumDetail) becomes a 2-col
+           grid; claim the full row and stack the controls so neither the
+           select nor the button overflows its cell. */
+        @media (max-width: 480px) {
+          .copy-filenames-wrapper {
+            grid-column: 1 / -1;
+          }
+
+          .copy-filenames-wrapper .format-select,
+          .copy-filenames-wrapper .copy-btn {
+            flex: 1 1 100%;
+            justify-content: center;
+          }
         }
 
         .format-select {
