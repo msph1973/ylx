@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { getAlbumStatusMeta } from '@/lib/albumStatus';
 
@@ -33,7 +33,7 @@ export function getSelectionProgress(album: AlbumCardData, now: number = Date.no
   if (album.status === 'active') {
     if (
       typeof album.draftCount === 'number' &&
-      album.draftCount >= 0 &&
+      album.draftCount > 0 &&
       typeof album.draftUpdatedAt === 'number'
     ) {
       const live = now - album.draftUpdatedAt < DRAFT_FRESH_MS;
@@ -73,20 +73,7 @@ export const AlbumCard = React.memo(function AlbumCard({
   });
 
   const status = getAlbumStatusMeta(album.status);
-  const [nowTick, setNowTick] = React.useState(0);
-  const now = Date.now() + nowTick - nowTick; // stable value, forces recalc on tick
-  const progress = getSelectionProgress(album, Date.now());
-
-  // Auto-clear the "selecting now" badge when the draft freshness expires
-  // so an open dashboard doesn't show stale badges indefinitely.
-  useEffect(() => {
-    if (!progress?.live || !album.draftUpdatedAt) return;
-    const expiresAt = album.draftUpdatedAt + DRAFT_FRESH_MS;
-    const remaining = Math.max(0, expiresAt - Date.now());
-    if (remaining <= 0) return;
-    const timer = setTimeout(() => setNowTick((t) => t + 1), remaining + 100);
-    return () => clearTimeout(timer);
-  }, [progress?.live, album.draftUpdatedAt]);
+  const progress = getSelectionProgress(album);
 
   const handleClick = () => {
     if (selectionMode) {
@@ -142,13 +129,7 @@ export const AlbumCard = React.memo(function AlbumCard({
 
       {progress && (
         <div className="selection-progress">
-          <div
-            className="progress-track"
-            role="progressbar"
-            aria-valuenow={progress.count}
-            aria-valuemin={0}
-            aria-valuemax={progress.max}
-            aria-label={`${progress.count} of ${progress.max} photos selected`}>
+          <div className="progress-track" role="img" aria-label={`${progress.count} of ${progress.max} photos selected`}>
             <div
               className="progress-fill"
               style={{ width: `${Math.min(100, Math.round((progress.count / progress.max) * 100))}%` }}

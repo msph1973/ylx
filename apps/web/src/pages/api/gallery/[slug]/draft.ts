@@ -2,13 +2,12 @@ import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
 import { hasAlbumAccess } from "../../../../lib/gallerySession";
-import { getCached, cacheSetRaw, cacheGetRaw, CACHE_KEYS } from "../../../../lib/cache";
+import { getCached, cacheSetRaw, CACHE_KEYS } from "../../../../lib/cache";
 import { publishAdminEvent } from "../../../../lib/ably";
 import type { SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
 
 export interface GalleryDraftProgress {
   count: number;
-  seq: number;
   updatedAt: number;
 }
 
@@ -60,7 +59,6 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
   }
 
   const count = (body as Record<string, unknown> | null)?.count;
-  const seq = (body as Record<string, unknown> | null)?.seq;
   if (
     typeof count !== "number" ||
     !Number.isInteger(count) ||
@@ -73,31 +71,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     });
   }
 
-// Reject out-of-order writes: a debounced PUT arriving after a later
-  // sendBeacon flush must not overwrite the fresher count with a stale one.
-  // Also validate seq bounds so a malicious gallery visitor can't poison the
-  // cached draft with an extremely large sequence number (DoS for 24h TTL).
-  if (typeof seq === "number") {
-    if (!Number.isSafeInteger(seq) || seq < 0) {
-      return new Response(JSON.stringify({ error: "seq must be a non-negative safe integer" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    // Known limitation: the seq guard is read-then-write, not atomic. Two
-    // concurrent PUTs could both pass the check before either writes. This
-    // is acceptable for draft progress (informational, not transactional) —
-    // an atomic CAS would require Lua scripting on Upstash.
-    const [previous] = await cacheGetRaw<GalleryDraftProgress>([CACHE_KEYS.galleryDraft(album._id)]);
-    if (previous && previous.seq > seq) {
-      return new Response(JSON.stringify({ success: true, discarded: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-  }
-
-  const progress: GalleryDraftProgress = { count, seq: typeof seq === "number" ? seq : 0, updatedAt: Date.now() };
+  const progress: GalleryDraftProgress = { count, updatedAt: Date.now() };
   await cacheSetRaw(CACHE_KEYS.galleryDraft(album._id), progress, DRAFT_TTL_SECONDS);
   await publishAdminEvent("draft:progress", { albumId: album._id, count });
 
@@ -106,7 +80,3 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     headers: { "Content-Type": "application/json" },
   });
 };
-
-// navigator.sendBeacon can only send POST — the pagehide flush in
-// GalleryPage relies on this alias.
-export const POST = PUT;

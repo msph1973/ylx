@@ -9,7 +9,6 @@
 // Configure with UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (no SDK).
 
 import { waitUntil } from "@vercel/functions";
-import { upstashPipeline } from "./upstash";
 
 interface CacheEnvelope<T> {
   storedAt: number;
@@ -36,6 +35,27 @@ export function getCacheHealth(): { degraded: boolean; failureCount: number; las
   const timeSinceLastFailure = Date.now() - lastFailureTimestamp;
   const degraded = timeSinceLastFailure < HEALTH_RECOVERY_WINDOW_MS;
   return { degraded, failureCount: cacheFailureCount, lastFailureMs: timeSinceLastFailure };
+}
+
+async function upstashPipeline(
+  commands: Array<Array<string>>,
+  url: string,
+  token: string
+): Promise<Array<{ result?: unknown }>> {
+  const res = await fetch(`${url}/pipeline`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(commands),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Upstash request failed (${res.status})`);
+  }
+
+  return (await res.json()) as Array<{ result?: unknown }>;
 }
 
 async function storeInCache<T>(

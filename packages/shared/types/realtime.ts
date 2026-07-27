@@ -3,7 +3,8 @@ export type RealtimeEventType =
   | "selection:changed"
   | "submission:received"
   | "album:unlocked"
-  | "selection:replied";
+  | "selection:replied"
+  | "draft:progress";
 
 export interface RealtimeEvent<T = unknown> {
   type: RealtimeEventType;
