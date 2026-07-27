@@ -52,5 +52,9 @@ export function formatSelections(selections: Selection[], format: ExportFormat):
       return formatPerLine(selections);
     case "csv":
       return formatCsv(selections);
+    default: {
+      const exhaustive: never = format;
+      throw new Error(`Unknown export format: ${String(exhaustive)}`);
+    }
   }
 }

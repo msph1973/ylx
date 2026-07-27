@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
@@ -16,6 +16,7 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
   const { copied, error, copy } = useCopyToClipboard(2000);
   const shouldReduceMotion = useReducedMotion();
   const [format, setFormat] = useState<ExportFormat>('comma');
+  const formatSelectId = useId();
 
   const handleCopy = () => {
     copy(formatSelections(selections, format));
@@ -23,11 +24,11 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
 
   return (
     <div className="copy-filenames-wrapper">
-      <label className="sr-only" htmlFor="copy-format-select">
+      <label className="sr-only" htmlFor={formatSelectId}>
         Copy format
       </label>
       <select
-        id="copy-format-select"
+        id={formatSelectId}
         className="format-select"
         value={format}
         onChange={(e) => setFormat(e.target.value as ExportFormat)}
