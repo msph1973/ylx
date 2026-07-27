@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-27 | PR MERGED: #19–#52, #54–#65, #67 (lihat tabel pointer di bawah). Sebagian temuan audit 2026-07-23 ✅ FIXED, sebagian sengaja ditunda (lihat narasi PR masing-masing). Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-07-27 | PR MERGED: #19–#52, #54–#65, #67, #69–#71 (#68 closed, superseded #69) — lihat tabel pointer di bawah. Sprint 1 2026-07-27: Playwright e2e kini jalan di CI, Ably publish di-await, ekspor Lightroom fleksibel. Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -255,5 +255,9 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #64 | Audit Tier 3: `UploadPage` pakai `filesRef` (hindari re-buka bug album-race PR #50) | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
 | #65 | Config: exclude `docs/`/`.junie/`/`.bob/`/`.mimocode/` dari bot review (root cause: PR #63 sempat bawa file noise) | MERGED | `~/.junie/tasks/PR-65-bot-review-ignore-paths.md` |
 | #67 | Fix 4 lint pre-existing `consistent-type-imports` di `gallery.spec.ts`/`upload.spec.ts` | MERGED | `~/.junie/tasks/PR-67-lint-type-imports.md` |
+| #68 | Chore: hapus `new-audit-2.md` obsolete + sync referensi STATUS.md | CLOSED (superseded oleh #69, commit ikut ter-merge di sana) | `~/.junie/tasks/PR-68-71-sprint1.md` |
+| #69 | CI: job `e2e` Playwright (13 tes, dataset Sanity `test` + seed `playwright-admin`, token scoped per-step, permissions least-privilege, guard fork/Dependabot) | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
+| #70 | Realtime: `publish()` Ably di-await + Rest singleton + error log; invalidate cache sebelum publish (race stale-refetch); `Promise.all` multi-publish | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
+| #71 | Ekspor fleksibel: `selectionExport.ts` (comma/per-line/CSV `filename,notes` RFC 4180 + guard formula injection) + format select di `CopyFilenamesButton` | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
