@@ -105,6 +105,11 @@ describe("formatCsv", () => {
     const csv = formatCsv([makeSelection("IMG_1.jpg", "\t=SUM(A1)")]);
     expect(csv).toBe("filename,notes\nIMG_1.jpg,'\t=SUM(A1)");
   });
+
+  it("neutralizes fields starting with line feed", () => {
+    const csv = formatCsv([makeSelection("IMG_1.jpg", "\n=cmd|calc")]);
+    expect(csv).toBe('filename,notes\nIMG_1.jpg,"\'\n=cmd|calc"');
+  });
 });
 
 describe("formatSelections", () => {
