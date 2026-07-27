@@ -1,26 +1,49 @@
-import React from 'react';
+import React, { useState, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import type { Selection } from '@ylx/shared';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
+import {
+  formatSelections,
+  EXPORT_FORMAT_LABELS,
+  type ExportFormat,
+} from '../../lib/selectionExport';
 
 interface CopyFilenamesButtonProps {
-  filenames: string[];
+  selections: Selection[];
 }
 
-export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
+export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
   const { copied, error, copy } = useCopyToClipboard(2000);
   const shouldReduceMotion = useReducedMotion();
+  const [format, setFormat] = useState<ExportFormat>('comma');
+  const formatSelectId = useId();
 
   const handleCopy = () => {
-    const text = filenames.join(', ');
-    copy(text);
+    copy(formatSelections(selections, format));
   };
 
   return (
     <div className="copy-filenames-wrapper">
+      <label className="sr-only" htmlFor={formatSelectId}>
+        Copy format
+      </label>
+      <select
+        id={formatSelectId}
+        className="format-select"
+        value={format}
+        onChange={(e) => setFormat(e.target.value as ExportFormat)}
+      >
+        {(Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[]).map((value) => (
+          <option key={value} value={value}>
+            {EXPORT_FORMAT_LABELS[value]}
+          </option>
+        ))}
+      </select>
+
       <button
         className="copy-btn"
         onClick={handleCopy}
-        disabled={filenames.length === 0}
+        disabled={selections.length === 0}
       >
         <svg
           width="16"
@@ -36,7 +59,7 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
-        Copy Filenames
+        {format === 'csv' ? 'Copy CSV' : 'Copy Filenames'}
       </button>
 
       <div aria-live="polite" aria-atomic="true">
@@ -83,8 +106,40 @@ export function CopyFilenamesButton({ filenames }: CopyFilenamesButtonProps) {
         .copy-filenames-wrapper {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
           gap: var(--space-3);
           position: relative;
+        }
+
+        /* On narrow screens .section-actions (AlbumDetail) becomes a 2-col
+           grid; claim the full row and stack the controls so neither the
+           select nor the button overflows its cell. */
+        @media (max-width: 480px) {
+          .copy-filenames-wrapper {
+            grid-column: 1 / -1;
+          }
+
+          .copy-filenames-wrapper .format-select,
+          .copy-filenames-wrapper .copy-btn {
+            flex: 1 1 100%;
+            justify-content: center;
+          }
+        }
+
+        .format-select {
+          min-height: var(--tap-target-min);
+          padding: var(--space-2) var(--space-3);
+          background-color: var(--color-surface);
+          color: var(--color-text);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          cursor: pointer;
+        }
+
+        .format-select:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 2px;
         }
 
         .copy-btn {

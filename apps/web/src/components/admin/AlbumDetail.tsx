@@ -327,7 +327,6 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
   const status = getAlbumStatusMeta(album.status);
   const isActive = album.status === 'active';
-  const selectedFilenames = album.selections.map((s) => s.photo.filename);
 
   return (
     <AnimatePresence mode="wait">
@@ -441,7 +440,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
         <div className="section-header">
           <h3 className="section-title">Selected Photos ({album.selections.length})</h3>
           <div className="section-actions">
-            <CopyFilenamesButton filenames={selectedFilenames} />
+            <CopyFilenamesButton selections={album.selections} />
           </div>
         </div>
 
