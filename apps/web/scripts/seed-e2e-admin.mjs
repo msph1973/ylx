@@ -16,12 +16,14 @@ const dataset = process.env.PUBLIC_SANITY_DATASET || process.env.SANITY_DATASET;
 const token = process.env.SANITY_API_TOKEN;
 
 if (!projectId || !dataset || !token) {
-  console.error("❌ PUBLIC_SANITY_PROJECT_ID, PUBLIC_SANITY_DATASET and SANITY_API_TOKEN are required");
+  console.error("❌ A Sanity project ID, dataset, and SANITY_API_TOKEN are required (PUBLIC_SANITY_* or SANITY_* env vars)");
   process.exit(1);
 }
 
-if (dataset === "production") {
-  console.error("❌ Refusing to seed e2e fixtures into the production dataset");
+// Allowlist the dedicated e2e dataset rather than only denying production, so
+// a misconfigured staging/other dataset can't be overwritten with fixtures.
+if (dataset !== "test") {
+  console.error(`❌ Refusing to seed e2e fixtures into the "${dataset}" dataset; expected "test"`);
   process.exit(1);
 }
 

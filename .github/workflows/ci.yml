@@ -5,6 +5,11 @@ on:
     branches: [master]
   pull_request:
 
+# Least privilege by default for every job's GITHUB_TOKEN (CodeQL: workflows
+# should set an explicit permissions block). Jobs may narrow further.
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -40,10 +45,21 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # Skip when the Sanity credential is unavailable: fork PRs and Dependabot
+    # runs don't receive Actions secrets, so the seed step would fail. Those
+    # changes are covered by the trusted push run on master instead.
+    if: github.event_name == 'push' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)
+    # Least privilege: this job only reads the repo (artifact upload uses the
+    # actions API, not GITHUB_TOKEN contents scope).
+    permissions:
+      contents: read
     env:
+      # Non-secret build inputs stay at job scope. SANITY_API_TOKEN is NOT here
+      # so it's never exposed to `pnpm install` lifecycle scripts (a malicious
+      # dependency could otherwise exfiltrate it); it's injected only into the
+      # seed and test steps that actually need it.
       PUBLIC_SANITY_PROJECT_ID: 741sif2l
       PUBLIC_SANITY_DATASET: test
-      SANITY_API_TOKEN: ${{ secrets.SANITY_API_TOKEN_E2E }}
       # CI-only session secret — not a production credential. Must be the same
       # value for the dev server (SESSION_SECRET) and the cookie-signing test
       # helper (PLAYWRIGHT_SESSION_SECRET).
@@ -75,9 +91,13 @@ jobs:
 
       - name: Seed e2e admin fixture
         run: node apps/web/scripts/seed-e2e-admin.mjs
+        env:
+          SANITY_API_TOKEN: ${{ secrets.SANITY_API_TOKEN_E2E }}
 
       - name: Run Playwright tests
         run: pnpm --filter @ylx/web test:e2e
+        env:
+          SANITY_API_TOKEN: ${{ secrets.SANITY_API_TOKEN_E2E }}
 
       - name: Upload Playwright report
         if: failure()
