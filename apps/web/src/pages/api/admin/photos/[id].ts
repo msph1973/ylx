@@ -88,18 +88,18 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     tx.delete(photoId);
     await tx.commit();
 
-    publishAdminEvent("photo:deleted", { photoId, albumId });
-    if (selectionIds.length > 0) {
-      publishAdminEvent("selection:changed", { albumId });
-    }
-    if (albumId) {
-      publishAlbumEvent(albumId, "photo:deleted", { photoId });
-    }
+    // Invalidate before publishing so the realtime event reliably signals a
+    // refetch against fresh cache.
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       ...(albumId ? [CACHE_KEYS.albumSelections(albumId)] : []),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+    ]);
+    await Promise.all([
+      publishAdminEvent("photo:deleted", { photoId, albumId }),
+      ...(selectionIds.length > 0 ? [publishAdminEvent("selection:changed", { albumId })] : []),
+      ...(albumId ? [publishAlbumEvent(albumId, "photo:deleted", { photoId })] : []),
     ]);
 
     return new Response(

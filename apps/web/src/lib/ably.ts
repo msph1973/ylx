@@ -69,15 +69,30 @@ export function publishAlbumEvent(albumId: string, eventType: string, data?: Rec
   return publish(getChannelName(albumId), eventType, data);
 }
 
+// Server-side REST client singleton — Vercel can reuse the module across
+// invocations, so avoid constructing a new Rest client per publish.
+let restPromise: Promise<Ably.Rest> | null = null;
+
+function getRestClient(key: string): Promise<Ably.Rest> {
+  if (!restPromise) {
+    restPromise = import("ably").then(
+      (AblyModule) => new AblyModule.default.Rest({ key })
+    );
+  }
+  return restPromise;
+}
+
+// Awaits the publish so a serverless function can't be frozen before the
+// event reaches Ably (a fire-and-forget publish was silently lost). Never
+// throws: missing key is a no-op and failures are logged, so call sites can
+// `await` without their own try/catch.
 async function publish(channelName: string, eventType: string, data?: Record<string, unknown>): Promise<void> {
+  const key = process.env.ABLY_API_KEY;
+  if (!key) return;
   try {
-    const key = process.env.ABLY_API_KEY;
-    if (!key) return;
-    const AblyModule = await import("ably");
-    const rest = new AblyModule.default.Rest({ key });
-    const channel = rest.channels.get(channelName);
-    void channel.publish(eventType, data ?? {});
-  } catch {
-    // Silently fail if Ably is not configured or publish fails
+    const rest = await getRestClient(key);
+    await rest.channels.get(channelName).publish(eventType, data ?? {});
+  } catch (err) {
+    console.error("[ably] publish failed", { channel: channelName, eventType }, err);
   }
 }

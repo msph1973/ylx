@@ -36,13 +36,18 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
     await sanityWriteClient.patch(albumId).set({ status: "locked" }).commit();
 
-    publishAdminEvent("album:locked", { albumId });
-    publishAlbumEvent(albumId, "album:locked");
+    // Invalidate before publishing so the realtime event is a reliable
+    // "refetch now" signal against already-fresh cache (avoids a race where
+    // clients refetch the stale pre-lock value with no follow-up event).
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
       ...(existing.slug?.current ? [CACHE_KEYS.albumBySlug(existing.slug.current)] : []),
       ...(existing.customSlug ? [CACHE_KEYS.albumBySlug(existing.customSlug)] : []),
+    ]);
+    await Promise.all([
+      publishAdminEvent("album:locked", { albumId }),
+      publishAlbumEvent(albumId, "album:locked"),
     ]);
 
     return new Response(JSON.stringify({ success: true, id: albumId }), {

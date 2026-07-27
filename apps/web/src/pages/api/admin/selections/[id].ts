@@ -73,14 +73,12 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
       .set({ photographerReply })
       .commit();
 
-    try {
-      publishAdminEvent("selection:replied", {
-        albumId: selection.albumId,
-        selectionId,
-      });
-    } catch (err) {
-      console.error("[Selection PATCH] publishAdminEvent failed:", err);
-    }
+    // publishAdminEvent never throws (failures are logged inside), so a
+    // realtime failure can't turn the committed reply into a 500.
+    await publishAdminEvent("selection:replied", {
+      albumId: selection.albumId,
+      selectionId,
+    });
     // Admin-only `gallery/[slug]/selections.ts` GET caches this album's
     // selections (15s/60s SWR) — without invalidating, a saved reply can
     // appear stale to whoever is viewing that endpoint.

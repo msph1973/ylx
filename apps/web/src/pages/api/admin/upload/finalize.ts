@@ -194,7 +194,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         .commit()
     );
 
-    publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
+    await publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
     const albumData = album as { slug?: { current: string }; customSlug?: string };
     await invalidateCache([
       CACHE_KEYS.albumsList(),

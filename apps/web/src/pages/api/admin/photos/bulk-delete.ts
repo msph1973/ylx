@@ -91,16 +91,16 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 
     await tx.commit();
 
-    publishAdminEvent("photo:deleted", { albumId, photoIds: uniquePhotoIds });
-    if (selectionIds.length > 0) {
-      publishAdminEvent("selection:changed", { albumId });
-    }
-    publishAlbumEvent(albumId, "photo:deleted", { photoIds: uniquePhotoIds });
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+    ]);
+    await Promise.all([
+      publishAdminEvent("photo:deleted", { albumId, photoIds: uniquePhotoIds }),
+      ...(selectionIds.length > 0 ? [publishAdminEvent("selection:changed", { albumId })] : []),
+      publishAlbumEvent(albumId, "photo:deleted", { photoIds: uniquePhotoIds }),
     ]);
 
     return new Response(
