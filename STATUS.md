@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-24 | PR MERGED: #19–#52, #54–#57 (lihat tabel pointer di bawah). Sebagian temuan audit 2026-07-23 ✅ FIXED, sebagian sengaja ditunda (lihat narasi PR masing-masing). Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-07-24 | PR MERGED: #19–#52, #54–#65 (lihat tabel pointer di bawah). Sebagian temuan audit 2026-07-23 ✅ FIXED, sebagian sengaja ditunda (lihat narasi PR masing-masing). Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -247,8 +247,12 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #56 | Perf: React.memo on BlurImage and AlbumCard | MERGED | `~/.junie/tasks/PR-56-perf-memo.md` |
 | #57 | Perf: misc improvements (preconnect, decoding, content-visibility, client:idle) | MERGED | `~/.junie/tasks/PR-57-perf-misc.md` |
 | #58 | Fix STATUS.md pointer row PR #53 (salah tercatat sebagai merged doc-sync) + koreksi klaim "semua audit fixed" | MERGED | — (doc-only, tanpa file narasi terpisah) |
-
-> #59-#64: 6 PR open (dikerjakan user sendiri, menindaklanjuti sisa temuan audit 2026-07-23 Tier 1/2/3) — belum di-merge, belum masuk tabel ini.
-> #65: PR konfigurasi exclude `docs/`/`.junie/`/`.bob/`/`.mimocode/` dari bot review (root cause: PR #63 ikut membawa file noise via `git add` luas) — belum di-merge.
+| #59 | Audit Tier 1: validasi panjang minimum password (min 8 char, Unicode-safe) | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
+| #60 | Audit Tier 1: lazy-load `PhotoLightbox` + error boundary | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
+| #61 | Audit Tier 1: `BlurImage`/LQIP di grid foto admin | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
+| #62 | Audit Tier 2: dynamic import Ably SDK | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
+| #63 | Audit Tier 2: cache `verify.ts` album fetch (TTL 30s + invalidasi `customSlug`) | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
+| #64 | Audit Tier 3: `UploadPage` pakai `filesRef` (hindari re-buka bug album-race PR #50) | MERGED | `~/.junie/tasks/PR-59-64-audit-tier123.md` |
+| #65 | Config: exclude `docs/`/`.junie/`/`.bob/`/`.mimocode/` dari bot review (root cause: PR #63 sempat bawa file noise) | MERGED | `~/.junie/tasks/PR-65-bot-review-ignore-paths.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
