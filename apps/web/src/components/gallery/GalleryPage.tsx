@@ -176,6 +176,48 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     return () => window.clearTimeout(timer);
   }, [isAuthenticated, album, selectedPhotos, photoNotes]);
 
+  // Report only the draft COUNT to the server (photo choices stay private
+  // until submit) so the admin dashboard can show live progress. Longer
+  // debounce than the local autosave — this one costs a network call — and
+  // best-effort: failures are silently ignored.
+  const lastSyncedCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated || !album || album.status !== 'active') return;
+    const count = selectedPhotos.size;
+    if (lastSyncedCountRef.current === count) return;
+    const timer = window.setTimeout(() => {
+      lastSyncedCountRef.current = count;
+      void fetch(`/api/gallery/${slug}/draft`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count }),
+      }).catch(() => {});
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [isAuthenticated, album, selectedPhotos, slug]);
+
+  // Flush the final count when the tab is backgrounded/closed before the
+  // debounce fires — sendBeacon survives page teardown where fetch may not.
+  const selectedCountRef = useRef(0);
+  selectedCountRef.current = selectedPhotos.size;
+  useEffect(() => {
+    if (!isAuthenticated || !album || album.status !== 'active') return;
+    const flush = () => {
+      if (lastSyncedCountRef.current === selectedCountRef.current) return;
+      lastSyncedCountRef.current = selectedCountRef.current;
+      try {
+        navigator.sendBeacon(
+          `/api/gallery/${slug}/draft`,
+          new Blob([JSON.stringify({ count: selectedCountRef.current })], { type: 'application/json' })
+        );
+      } catch {
+        // sendBeacon unsupported/blocked — the debounced sync remains the fallback.
+      }
+    };
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, [isAuthenticated, album, slug]);
+
   const handlePinSubmit = useCallback(async (pin: string) => {
     setIsLoading(true);
     setError(null);

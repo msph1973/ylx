@@ -41,7 +41,7 @@ async function upstashPipeline(
   commands: Array<Array<string>>,
   url: string,
   token: string
-): Promise<Array<{ result?: string | null }>> {
+): Promise<Array<{ result?: unknown }>> {
   const res = await fetch(`${url}/pipeline`, {
     method: "POST",
     headers: {
@@ -55,7 +55,7 @@ async function upstashPipeline(
     throw new Error(`Upstash request failed (${res.status})`);
   }
 
-  return (await res.json()) as Array<{ result?: string | null }>;
+  return (await res.json()) as Array<{ result?: unknown }>;
 }
 
 async function storeInCache<T>(
@@ -133,7 +133,7 @@ export async function getCached<T>(
     const data = await upstashPipeline([["GET", key]], url, token);
     const raw = data?.[0]?.result;
 
-    if (raw) {
+    if (typeof raw === "string") {
       let envelope: CacheEnvelope<T> | undefined;
       try {
         envelope = JSON.parse(raw) as CacheEnvelope<T>;
@@ -200,4 +200,56 @@ export const CACHE_KEYS = {
   albumSelections: (albumId: string): string => `cache:admin:selections:${albumId}`,
   albumBySlug: (slug: string): string => `cache:gallery:album:${slug}`,
   adminSessionVersion: (adminId: string): string => `cache:admin:session-version:${adminId}`,
+  galleryDraft: (albumId: string): string => `draft:gallery:${albumId}`,
 };
+
+// Raw key/value helpers for small ephemeral state (e.g. gallery draft
+// progress) — no SWR envelope semantics, just SET-with-TTL and MGET. Same
+// fail-open contract as the SWR cache: missing config or Upstash errors
+// degrade to no-ops/nulls, never throw.
+
+export async function cacheSetRaw<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return;
+
+  try {
+    await upstashPipeline(
+      [["SET", key, JSON.stringify(value), "EX", String(ttlSeconds)]],
+      url,
+      token
+    );
+  } catch (err) {
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
+    console.warn(`[Cache] raw SET failed for "${key}":`, err);
+  }
+}
+
+// One MGET round-trip for N keys; result[i] corresponds to keys[i] and is
+// null when the key is missing, unparsable, or Upstash is unavailable.
+export async function cacheGetRaw<T>(keys: string[]): Promise<Array<T | null>> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token || keys.length === 0) return keys.map(() => null);
+
+  try {
+    const data = await upstashPipeline([["MGET", ...keys]], url, token);
+    const results = data?.[0]?.result;
+    if (!Array.isArray(results)) return keys.map(() => null);
+    return keys.map((_, i) => {
+      const raw = results[i];
+      if (typeof raw !== "string") return null;
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return null;
+      }
+    });
+  } catch (err) {
+    cacheFailureCount++;
+    lastFailureTimestamp = Date.now();
+    console.warn(`[Cache] raw MGET failed for [${keys.join(", ")}]:`, err);
+    return keys.map(() => null);
+  }
+}
