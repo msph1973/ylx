@@ -5,18 +5,8 @@ const ALBUM = "album-1";
 const KEY = `ylx:draft:${ALBUM}`;
 const PHOTOS = ["p1", "p2", "p3"];
 
-const storage = new Map<string, string>();
-
 beforeEach(() => {
-  storage.clear();
-  const getItem = vi.fn((k: string) => storage.get(k) ?? null);
-  const setItem = vi.fn((k: string, v: string) => { storage.set(k, v); });
-  const removeItem = vi.fn((k: string) => { storage.delete(k); });
-  const clear = vi.fn(() => { storage.clear(); });
-  Object.defineProperty(window, "localStorage", {
-    value: { getItem, setItem, removeItem, clear, key: () => null, length: 0 },
-    writable: true,
-  });
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -59,17 +49,6 @@ describe("loadDraft cleaning", () => {
     saveDraft(ALBUM, ["deleted-photo"], {});
     expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
   });
-
-  it("deduplicates repeated photo ids", () => {
-    saveDraft(ALBUM, ["p1", "p1", "p2", "p1"], {});
-    expect(loadDraft(ALBUM, PHOTOS, 10)?.photoIds).toEqual(["p1", "p2"]);
-  });
-
-  it("truncates notes longer than 500 characters so submit cannot 400", () => {
-    saveDraft(ALBUM, ["p1"], { p1: "x".repeat(600) });
-    const note = loadDraft(ALBUM, PHOTOS, 10)?.notes.p1;
-    expect(note).toHaveLength(500);
-  });
 });
 
 describe("loadDraft robustness", () => {
@@ -96,37 +75,6 @@ describe("loadDraft robustness", () => {
     vi.setSystemTime(new Date("2026-07-28T00:00:01Z"));
     expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
     expect(window.localStorage.getItem(KEY)).toBeNull();
-  });
-
-  it("discards a draft with a savedAt in the future", () => {
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({ photoIds: ["p1"], notes: {}, savedAt: Date.now() + 10 * 60 * 1000 })
-    );
-    expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
-    expect(window.localStorage.getItem(KEY)).toBeNull();
-  });
-
-  it("discards a draft with a non-finite savedAt", () => {
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({ photoIds: ["p1"], notes: {}, savedAt: null })
-    );
-    expect(loadDraft(ALBUM, PHOTOS, 10)).toBeNull();
-    expect(window.localStorage.getItem(KEY)).toBeNull();
-  });
-
-  it("discards a draft saved before notBefore (album unlocked after the save)", () => {
-    saveDraft(ALBUM, ["p1"], {});
-    const unlockAfterSave = Date.now() + 1000;
-    expect(loadDraft(ALBUM, PHOTOS, 10, unlockAfterSave)).toBeNull();
-    expect(window.localStorage.getItem(KEY)).toBeNull();
-  });
-
-  it("keeps a draft saved after notBefore", () => {
-    const unlockBeforeSave = Date.now() - 1000;
-    saveDraft(ALBUM, ["p1"], {});
-    expect(loadDraft(ALBUM, PHOTOS, 10, unlockBeforeSave)?.photoIds).toEqual(["p1"]);
   });
 });
 

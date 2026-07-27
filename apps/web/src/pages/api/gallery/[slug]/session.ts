@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { hasActiveSession, hasAlbumAccess } from "../../../../lib/gallerySession";
+import { hasAlbumAccess } from "../../../../lib/gallerySession";
 import { getCached, CACHE_KEYS } from "../../../../lib/cache";
 import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
 
@@ -16,15 +16,6 @@ export const GET: APIRoute = async ({ params, cookies }) => {
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // Cheap guard: reject unsigned/expired cookies before any Sanity or cache
-  // lookup so unauthenticated probes can't trigger downstream work.
-  if (!hasActiveSession(cookies)) {
-    return new Response(JSON.stringify({ error: "No active gallery session" }), {
-      status: 401,
       headers: { "Content-Type": "application/json" },
     });
   }

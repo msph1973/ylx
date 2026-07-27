@@ -4,7 +4,6 @@ import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
-import { fetchResumeSession } from '@/lib/gallerySessionClient';
 import type { Photo } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
@@ -43,7 +42,6 @@ interface AlbumData {
   eventDate: string;
   maxSelections: number;
   status: string;
-  lastUnlockedAt?: string | null;
   photos: Photo[];
 }
 
@@ -133,14 +131,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   const restoreDraft = useCallback((albumData: AlbumData) => {
     if (albumData.status !== 'active') return;
-    // Drafts saved before the album's most recent unlock describe selections
-    // the server already deleted — never restore them.
-    const unlockedAtMs = albumData.lastUnlockedAt ? Date.parse(albumData.lastUnlockedAt) : undefined;
     const draft = loadDraft(
       albumData.id,
       albumData.photos.map((p) => p.id),
-      albumData.maxSelections,
-      Number.isFinite(unlockedAtMs) ? unlockedAtMs : undefined
+      albumData.maxSelections
     );
     if (!draft) return;
     setSelectedPhotos(new Set(draft.photoIds));
@@ -151,20 +145,23 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, [showNotice]);
 
   // Resume without re-entering the PIN when the signed 24h gallery cookie is
-  // still valid (verify.ts set it on the first successful PIN entry). The
-  // helper aborts after a bounded timeout so a stalled request can't leave
-  // the visitor on the blank pre-PIN screen indefinitely.
+  // still valid (verify.ts set it on the first successful PIN entry).
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const resumed = await fetchResumeSession(slug);
-      if (cancelled) return;
-      if (resumed) {
-        setAlbum(resumed);
-        setIsAuthenticated(true);
-        restoreDraft(resumed);
+      try {
+        const response = await fetch(`/api/gallery/${slug}/session`);
+        if (!cancelled && response.ok) {
+          const data = await response.json();
+          setAlbum(data.album);
+          setIsAuthenticated(true);
+          restoreDraft(data.album);
+        }
+      } catch {
+        // Network failure here just means the PIN screen shows as usual.
+      } finally {
+        if (!cancelled) setSessionChecked(true);
       }
-      setSessionChecked(true);
     })();
     return () => {
       cancelled = true;
@@ -180,55 +177,6 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     }, 500);
     return () => window.clearTimeout(timer);
   }, [isAuthenticated, album, selectedPhotos, photoNotes]);
-
-  // Report only the draft COUNT to the server (photo choices stay private
-  // until submit) so the admin dashboard can show live progress. Longer
-  // debounce than the local autosave — this one costs a network call — and
-  // best-effort: failures are silently ignored.
-  const lastSyncedCountRef = useRef<number | null>(null);
-  // Base seq from Date.now() so a gallery reload doesn't restart at 0
-  // while Redis still has the previous session's higher sequence.
-  const seqRef = useRef(Date.now());
-  useEffect(() => {
-    if (!isAuthenticated || !album || album.status !== 'active') return;
-    const count = selectedPhotos.size;
-    if (lastSyncedCountRef.current === count) return;
-    const timer = window.setTimeout(() => {
-      const seq = seqRef.current++;
-      const body = JSON.stringify({ count, seq });
-      void fetch(`/api/gallery/${slug}/draft`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      }).then(() => {
-        lastSyncedCountRef.current = count;
-      }).catch(() => {});
-    }, 3000);
-    return () => window.clearTimeout(timer);
-  }, [isAuthenticated, album, selectedPhotos, slug]);
-
-  // Flush the final count when the tab is backgrounded/closed before the
-  // debounce fires — sendBeacon survives page teardown where fetch may not.
-  const selectedCountRef = useRef(0);
-  selectedCountRef.current = selectedPhotos.size;
-  useEffect(() => {
-    if (!isAuthenticated || !album || album.status !== 'active') return;
-    const flush = () => {
-      if (lastSyncedCountRef.current === selectedCountRef.current) return;
-      lastSyncedCountRef.current = selectedCountRef.current;
-      const seq = seqRef.current++;
-      try {
-        navigator.sendBeacon(
-          `/api/gallery/${slug}/draft`,
-          new Blob([JSON.stringify({ count: selectedCountRef.current, seq })], { type: 'application/json' })
-        );
-      } catch {
-        // sendBeacon unsupported/blocked — the debounced sync remains the fallback.
-      }
-    };
-    window.addEventListener('pagehide', flush);
-    return () => window.removeEventListener('pagehide', flush);
-  }, [isAuthenticated, album, slug]);
 
   const handlePinSubmit = useCallback(async (pin: string) => {
     setIsLoading(true);
