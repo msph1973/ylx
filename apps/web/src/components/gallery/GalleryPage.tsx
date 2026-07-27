@@ -4,6 +4,7 @@ import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
+import { fetchResumeSession } from '@/lib/gallerySessionClient';
 import type { Photo } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
@@ -145,23 +146,20 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, [showNotice]);
 
   // Resume without re-entering the PIN when the signed 24h gallery cookie is
-  // still valid (verify.ts set it on the first successful PIN entry).
+  // still valid (verify.ts set it on the first successful PIN entry). The
+  // helper aborts after a bounded timeout so a stalled request can't leave
+  // the visitor on the blank pre-PIN screen indefinitely.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const response = await fetch(`/api/gallery/${slug}/session`);
-        if (!cancelled && response.ok) {
-          const data = await response.json();
-          setAlbum(data.album);
-          setIsAuthenticated(true);
-          restoreDraft(data.album);
-        }
-      } catch {
-        // Network failure here just means the PIN screen shows as usual.
-      } finally {
-        if (!cancelled) setSessionChecked(true);
+      const resumed = await fetchResumeSession(slug);
+      if (cancelled) return;
+      if (resumed) {
+        setAlbum(resumed);
+        setIsAuthenticated(true);
+        restoreDraft(resumed);
       }
+      setSessionChecked(true);
     })();
     return () => {
       cancelled = true;

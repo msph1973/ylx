@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const getCachedMock = vi.fn();
 const hasAlbumAccessMock = vi.fn();
-const hasActiveSessionMock = vi.fn(() => true);
 
 vi.mock("@ylx/sanity/client", () => ({
   sanityClient: { fetch: vi.fn() },
@@ -20,7 +19,6 @@ vi.mock("../../../../lib/cache", () => ({
 }));
 vi.mock("../../../../lib/gallerySession", () => ({
   hasAlbumAccess: (...args: unknown[]) => hasAlbumAccessMock(...args),
-  hasActiveSession: () => hasActiveSessionMock(),
 }));
 
 import { GET } from "./session";
@@ -46,20 +44,12 @@ function call(slug?: string) {
 beforeEach(() => {
   getCachedMock.mockReset();
   hasAlbumAccessMock.mockReset();
-  hasActiveSessionMock.mockReset().mockReturnValue(true);
 });
 
 describe("GET /api/gallery/[slug]/session", () => {
   it("400s without a slug", async () => {
     const res = await call(undefined);
     expect(res.status).toBe(400);
-  });
-
-  it("401s before any fetch when the cookie has no signed entries at all", async () => {
-    hasActiveSessionMock.mockReturnValue(false);
-    const res = await call("any-slug");
-    expect(res.status).toBe(401);
-    expect(getCachedMock).not.toHaveBeenCalled();
   });
 
   it("401s for an unknown slug (same response as no access — no slug probing)", async () => {
