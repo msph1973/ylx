@@ -1,0 +1,20 @@
+apps/web/src/lib/selectionExport.ts
+  s_2dba3229f04b7d::t_b6d6434e37ed4a 27-28
+  s_2dba3229f04b7d::t_8455e9142cb223 16-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ea90ab58b68c292349042324259619668273c4c1",
+  "prompts": {},
+  "sessions": {
+    "s_2dba3229f04b7d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0571c5e97ffecp4itFrYjfjLnF",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
