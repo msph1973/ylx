@@ -36,6 +36,12 @@ export async function fetchResumeSession(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  if (externalSignal?.aborted) {
+    controller.abort();
+    clearTimeout(timer);
+    return null;
+  }
+
   const onExternalAbort = () => controller.abort();
   externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
 

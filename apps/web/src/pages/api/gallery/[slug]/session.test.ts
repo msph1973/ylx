@@ -20,7 +20,7 @@ vi.mock("../../../../lib/cache", () => ({
 }));
 vi.mock("../../../../lib/gallerySession", () => ({
   hasAlbumAccess: (...args: unknown[]) => hasAlbumAccessMock(...args),
-  hasActiveSession: (...args: unknown[]) => hasActiveSessionMock(...args),
+  hasActiveSession: () => hasActiveSessionMock(),
 }));
 
 import { GET } from "./session";

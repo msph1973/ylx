@@ -9,6 +9,7 @@
 // Configure with UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (no SDK).
 
 import { waitUntil } from "@vercel/functions";
+import { upstashPipeline } from "./upstash";
 
 interface CacheEnvelope<T> {
   storedAt: number;
@@ -35,40 +36,6 @@ export function getCacheHealth(): { degraded: boolean; failureCount: number; las
   const timeSinceLastFailure = Date.now() - lastFailureTimestamp;
   const degraded = timeSinceLastFailure < HEALTH_RECOVERY_WINDOW_MS;
   return { degraded, failureCount: cacheFailureCount, lastFailureMs: timeSinceLastFailure };
-}
-
-interface PipelineItem {
-  result?: string | null;
-  error?: string;
-}
-
-async function upstashPipeline(
-  commands: Array<Array<string>>,
-  url: string,
-  token: string
-): Promise<Array<PipelineItem>> {
-  const res = await fetch(`${url}/pipeline`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(commands),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Upstash request failed (${res.status})`);
-  }
-
-  const items = (await res.json()) as Array<PipelineItem>;
-
-  // Surface per-command errors so callers can treat them as cache degradation.
-  const firstError = items.find((item) => item.error)?.error;
-  if (firstError) {
-    throw new Error(`Upstash pipeline command failed: ${firstError}`);
-  }
-
-  return items;
 }
 
 async function storeInCache<T>(
@@ -146,7 +113,7 @@ export async function getCached<T>(
     const data = await upstashPipeline([["GET", key]], url, token);
     const raw = data?.[0]?.result;
 
-    if (raw) {
+    if (typeof raw === "string") {
       let envelope: CacheEnvelope<T> | undefined;
       try {
         envelope = JSON.parse(raw) as CacheEnvelope<T>;
