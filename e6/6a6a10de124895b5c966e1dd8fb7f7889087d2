@@ -1,0 +1,30 @@
+apps/web/src/lib/upstash.ts
+  s_2dba3229f04b7d::t_a73fff577f12ad 2-34,36-39
+  s_2dba3229f04b7d::t_17dcc5121fc6c2 35
+  s_2dba3229f04b7d::t_a9810e0fe9ef98 1
+apps/web/src/pages/api/gallery/[slug]/session.test.ts
+  s_2dba3229f04b7d::t_83d2fe605467f9 23
+apps/web/src/lib/ratelimit.ts
+  s_2dba3229f04b7d::t_d3dccfe3fcc047 10-11
+apps/web/src/lib/cache.ts
+  s_2dba3229f04b7d::t_1a91040d574f15 12
+  s_2dba3229f04b7d::t_447aad4acf7d90 116
+apps/web/src/lib/gallerySessionClient.ts
+  s_2dba3229f04b7d::t_1296b1b1b79197 39-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e66a6a10de124895b5c966e1dd8fb7f7889087d2",
+  "prompts": {},
+  "sessions": {
+    "s_2dba3229f04b7d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0571c5e97ffecp4itFrYjfjLnF",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
