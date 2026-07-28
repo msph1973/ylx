@@ -1,0 +1,25 @@
+packages/sanity/lib/queries.ts
+  s_2dba3229f04b7d::t_1cf2aebfb54652 30-31
+apps/web/src/pages/api/admin/albums.ts
+  s_2dba3229f04b7d::t_2a3d5d29ca1f7f 19-20
+  s_2dba3229f04b7d::t_a31f631eaaebd3 8-9
+  s_2dba3229f04b7d::t_e7cf2bacb9929c 37-44,53-56
+apps/web/src/pages/api/admin/albums/[id]/unlock.ts
+  s_2dba3229f04b7d::t_0ab7b8273ac0c8 53-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e71c2e93c2d5e7352afab45fa88d7e8c7fd3a500",
+  "prompts": {},
+  "sessions": {
+    "s_2dba3229f04b7d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0571c5e97ffecp4itFrYjfjLnF",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
