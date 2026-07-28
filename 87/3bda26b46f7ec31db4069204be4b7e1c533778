@@ -1,0 +1,37 @@
+apps/web/src/lib/galleryAlbumResponse.ts
+  s_2dba3229f04b7d::t_98646331e6fc4f 54
+  s_2dba3229f04b7d::t_4d15a64f027b7b 18,30
+  s_2dba3229f04b7d::t_517856b43998ec 29
+apps/web/src/lib/selectionDraft.ts
+  s_2dba3229f04b7d::t_c8653ba7b8ad0d 90-94
+  s_2dba3229f04b7d::t_c6ea8a1a78866d 47-48,52-53
+apps/web/src/lib/gallerySessionClient.ts
+  s_2dba3229f04b7d::t_b00fc80afbe148 28-30,33-34,38-41,54
+  s_2dba3229f04b7d::t_4394b1cc82ce64 11
+apps/web/src/pages/api/gallery/[slug]/verify.ts
+  s_2dba3229f04b7d::t_418cf1d9c577b9 161
+  s_2dba3229f04b7d::t_c67d224839bf93 163
+apps/web/src/components/gallery/GalleryPage.tsx
+  s_2dba3229f04b7d::t_3744e0b0c82fea 186-198
+  s_2dba3229f04b7d::t_23d223297aeda6 161
+  s_2dba3229f04b7d::t_300f578c034a20 136-138,142-143
+  s_2dba3229f04b7d::t_d647044c0499e2 7
+  s_2dba3229f04b7d::t_ff09585db75cc2 46
+  s_2dba3229f04b7d::t_c40a25aee81f01 159,172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "873bda26b46f7ec31db4069204be4b7e1c533778",
+  "prompts": {},
+  "sessions": {
+    "s_2dba3229f04b7d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0571c5e97ffecp4itFrYjfjLnF",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
