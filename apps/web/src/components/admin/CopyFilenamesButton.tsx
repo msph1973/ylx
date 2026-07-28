@@ -4,6 +4,7 @@ import type { Selection } from '@ylx/shared';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import {
   formatSelections,
+  EXPORT_FORMATS,
   EXPORT_FORMAT_LABELS,
   type ExportFormat,
 } from '../../lib/selectionExport';
@@ -33,7 +34,7 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
         value={format}
         onChange={(e) => setFormat(e.target.value as ExportFormat)}
       >
-        {(Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[]).map((value) => (
+        {EXPORT_FORMATS.map((value) => (
           <option key={value} value={value}>
             {EXPORT_FORMAT_LABELS[value]}
           </option>

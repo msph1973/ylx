@@ -74,12 +74,7 @@ export function publishAlbumEvent(albumId: string, eventType: string, data?: Rec
 let restPromise: Promise<Ably.Rest> | null = null;
 
 function getRestClient(key: string): Promise<Ably.Rest> {
-  if (!restPromise) {
-    restPromise = import("ably").then(
-      (AblyModule) => new AblyModule.default.Rest({ key })
-    );
-  }
-  return restPromise;
+  return (restPromise ??= import("ably").then((m) => new m.default.Rest({ key })));
 }
 
 // Awaits the publish so a serverless function can't be frozen before the
