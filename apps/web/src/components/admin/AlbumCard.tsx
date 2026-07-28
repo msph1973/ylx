@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { getAlbumStatusMeta } from '@/lib/albumStatus';
 
@@ -11,6 +11,42 @@ export interface AlbumCardData {
   photoCount: number;
   pin?: string;
   customSlug?: string;
+  maxSelections?: number;
+  selectionCount?: number;
+  draftCount?: number | null;
+  draftUpdatedAt?: number | null;
+}
+
+// A draft older than this is likely an abandoned session — showing it as
+// "selecting now" would mislead the photographer.
+const DRAFT_FRESH_MS = 30 * 60 * 1000;
+
+interface SelectionProgress {
+  count: number;
+  max: number;
+  live: boolean;
+}
+
+export function getSelectionProgress(album: AlbumCardData, now: number = Date.now()): SelectionProgress | null {
+  if (!album.maxSelections || album.maxSelections <= 0) return null;
+
+  if (album.status === 'active') {
+    if (
+      typeof album.draftCount === 'number' &&
+      album.draftCount >= 0 &&
+      typeof album.draftUpdatedAt === 'number'
+    ) {
+      const live = now - album.draftUpdatedAt < DRAFT_FRESH_MS;
+      return { count: Math.min(album.draftCount, album.maxSelections), max: album.maxSelections, live };
+    }
+    return null;
+  }
+
+  // submitted / locked: real selection docs exist.
+  if (typeof album.selectionCount === 'number' && album.selectionCount > 0) {
+    return { count: Math.min(album.selectionCount, album.maxSelections), max: album.maxSelections, live: false };
+  }
+  return null;
 }
 
 interface AlbumCardProps {
@@ -37,6 +73,20 @@ export const AlbumCard = React.memo(function AlbumCard({
   });
 
   const status = getAlbumStatusMeta(album.status);
+  const [nowTick, setNowTick] = React.useState(0);
+  const now = Date.now() + nowTick - nowTick; // stable value, forces recalc on tick
+  const progress = getSelectionProgress(album, Date.now());
+
+  // Auto-clear the "selecting now" badge when the draft freshness expires
+  // so an open dashboard doesn't show stale badges indefinitely.
+  useEffect(() => {
+    if (!progress?.live || !album.draftUpdatedAt) return;
+    const expiresAt = album.draftUpdatedAt + DRAFT_FRESH_MS;
+    const remaining = Math.max(0, expiresAt - Date.now());
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setNowTick((t) => t + 1), remaining + 100);
+    return () => clearTimeout(timer);
+  }, [progress?.live, album.draftUpdatedAt]);
 
   const handleClick = () => {
     if (selectionMode) {
@@ -89,6 +139,27 @@ export const AlbumCard = React.memo(function AlbumCard({
           <span className="meta-value">{formattedDate}</span>
         </span>
       </div>
+
+      {progress && (
+        <div className="selection-progress">
+          <div
+            className="progress-track"
+            role="progressbar"
+            aria-valuenow={progress.count}
+            aria-valuemin={0}
+            aria-valuemax={progress.max}
+            aria-label={`${progress.count} of ${progress.max} photos selected`}>
+            <div
+              className="progress-fill"
+              style={{ width: `${Math.min(100, Math.round((progress.count / progress.max) * 100))}%` }}
+            />
+          </div>
+          <span className="progress-text">
+            {progress.count}/{progress.max} selected
+            {progress.live && <span className="live-badge">selecting now</span>}
+          </span>
+        </div>
+      )}
 
       <div className="album-card-footer">
         <span className="stat">
@@ -225,6 +296,46 @@ export const AlbumCard = React.memo(function AlbumCard({
           align-items: center;
           padding-top: var(--space-3);
           border-top: 1px solid var(--color-border);
+        }
+
+        .selection-progress {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+        }
+
+        .progress-track {
+          height: 6px;
+          border-radius: var(--radius-full);
+          background-color: var(--color-bg);
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          height: 100%;
+          border-radius: var(--radius-full);
+          background-color: var(--color-accent);
+          transition: width var(--transition-fast);
+        }
+
+        .progress-text {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-xs);
+          color: var(--color-text-muted);
+        }
+
+        .live-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 0 var(--space-2);
+          border-radius: var(--radius-full);
+          background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
+          color: var(--color-success);
+          font-weight: var(--font-medium);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
         .stat {

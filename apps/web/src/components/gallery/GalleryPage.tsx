@@ -4,7 +4,7 @@ import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
-import { fetchResumeSession, RESUME_TIMEOUT_MS } from '@/lib/gallerySessionClient';
+import { fetchResumeSession } from '@/lib/gallerySessionClient';
 import type { Photo } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
@@ -156,9 +156,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // the visitor on the blank pre-PIN screen indefinitely.
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
     (async () => {
-      const resumed = await fetchResumeSession(slug, RESUME_TIMEOUT_MS, controller.signal);
+      const resumed = await fetchResumeSession(slug);
       if (cancelled) return;
       if (resumed) {
         setAlbum(resumed);
@@ -169,7 +168,6 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     })();
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [slug, restoreDraft]);
 
@@ -183,18 +181,49 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     return () => window.clearTimeout(timer);
   }, [isAuthenticated, album, selectedPhotos, photoNotes]);
 
-  // Flush the pending autosave draft on pagehide so closing the tab within
-  // the 500ms debounce window doesn't lose the latest selection.
-  const draftRef = useRef({ selectedPhotos, photoNotes });
-  draftRef.current = { selectedPhotos, photoNotes };
+  // Report only the draft COUNT to the server (photo choices stay private
+  // until submit) so the admin dashboard can show live progress. Longer
+  // debounce than the local autosave — this one costs a network call — and
+  // best-effort: failures are silently ignored.
+  const lastSyncedCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated || !album || album.status !== 'active') return;
+    const count = selectedPhotos.size;
+    if (lastSyncedCountRef.current === count) return;
+    const timer = window.setTimeout(() => {
+      const body = JSON.stringify({ count });
+      void fetch(`/api/gallery/${slug}/draft`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }).then(() => {
+        lastSyncedCountRef.current = count;
+      }).catch(() => {});
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [isAuthenticated, album, selectedPhotos, slug]);
+
+  // Flush the final count when the tab is backgrounded/closed before the
+  // debounce fires — sendBeacon survives page teardown where fetch may not.
+  const selectedCountRef = useRef(0);
+  selectedCountRef.current = selectedPhotos.size;
   useEffect(() => {
     if (!isAuthenticated || !album || album.status !== 'active') return;
     const flush = () => {
-      saveDraft(album.id, Array.from(draftRef.current.selectedPhotos), Object.fromEntries(draftRef.current.photoNotes));
+      if (lastSyncedCountRef.current === selectedCountRef.current) return;
+      lastSyncedCountRef.current = selectedCountRef.current;
+      try {
+        navigator.sendBeacon(
+          `/api/gallery/${slug}/draft`,
+          new Blob([JSON.stringify({ count: selectedCountRef.current })], { type: 'application/json' })
+        );
+      } catch {
+        // sendBeacon unsupported/blocked — the debounced sync remains the fallback.
+      }
     };
     window.addEventListener('pagehide', flush);
     return () => window.removeEventListener('pagehide', flush);
-  }, [isAuthenticated, album]);
+  }, [isAuthenticated, album, slug]);
 
   const handlePinSubmit = useCallback(async (pin: string) => {
     setIsLoading(true);
