@@ -1,0 +1,22 @@
+apps/web/src/pages/api/gallery/[slug]/draft.ts
+  s_2dba3229f04b7d::t_d9798973f7ce93 90
+  s_2dba3229f04b7d::t_478e421dfee9e6 76,78-79,81-89
+apps/web/src/components/gallery/GalleryPage.tsx
+  s_2dba3229f04b7d::t_ea6d3bcb1956de 189-191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "8c0c56e8750294e6cb6ce5f82ef3564835a702a8",
+  "prompts": {},
+  "sessions": {
+    "s_2dba3229f04b7d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0571c5e97ffecp4itFrYjfjLnF",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
