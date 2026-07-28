@@ -5,8 +5,18 @@ const ALBUM = "album-1";
 const KEY = `ylx:draft:${ALBUM}`;
 const PHOTOS = ["p1", "p2", "p3"];
 
+const storage = new Map<string, string>();
+
 beforeEach(() => {
-  window.localStorage.clear();
+  storage.clear();
+  const getItem = vi.fn((k: string) => storage.get(k) ?? null);
+  const setItem = vi.fn((k: string, v: string) => { storage.set(k, v); });
+  const removeItem = vi.fn((k: string) => { storage.delete(k); });
+  const clear = vi.fn(() => { storage.clear(); });
+  Object.defineProperty(window, "localStorage", {
+    value: { getItem, setItem, removeItem, clear, key: () => null, length: 0 },
+    writable: true,
+  });
 });
 
 afterEach(() => {

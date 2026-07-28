@@ -37,11 +37,16 @@ export function getCacheHealth(): { degraded: boolean; failureCount: number; las
   return { degraded, failureCount: cacheFailureCount, lastFailureMs: timeSinceLastFailure };
 }
 
+interface PipelineItem {
+  result?: string | null;
+  error?: string;
+}
+
 async function upstashPipeline(
   commands: Array<Array<string>>,
   url: string,
   token: string
-): Promise<Array<{ result?: string | null }>> {
+): Promise<Array<PipelineItem>> {
   const res = await fetch(`${url}/pipeline`, {
     method: "POST",
     headers: {
@@ -55,7 +60,15 @@ async function upstashPipeline(
     throw new Error(`Upstash request failed (${res.status})`);
   }
 
-  return (await res.json()) as Array<{ result?: string | null }>;
+  const items = (await res.json()) as Array<PipelineItem>;
+
+  // Surface per-command errors so callers can treat them as cache degradation.
+  const firstError = items.find((item) => item.error)?.error;
+  if (firstError) {
+    throw new Error(`Upstash pipeline command failed: ${firstError}`);
+  }
+
+  return items;
 }
 
 async function storeInCache<T>(
