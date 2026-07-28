@@ -191,11 +191,13 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     const count = selectedPhotos.size;
     if (lastSyncedCountRef.current === count) return;
     const timer = window.setTimeout(() => {
-      lastSyncedCountRef.current = count;
+      const body = JSON.stringify({ count });
       void fetch(`/api/gallery/${slug}/draft`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count }),
+        body,
+      }).then(() => {
+        lastSyncedCountRef.current = count;
       }).catch(() => {});
     }, 3000);
     return () => window.clearTimeout(timer);
