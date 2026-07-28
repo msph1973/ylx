@@ -259,5 +259,6 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #69 | CI: job `e2e` Playwright (13 tes, dataset Sanity `test` + seed `playwright-admin`, token scoped per-step, permissions least-privilege, guard fork/Dependabot) | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
 | #70 | Realtime: `publish()` Ably di-await + Rest singleton + error log; invalidate cache sebelum publish (race stale-refetch); `Promise.all` multi-publish | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
 | #71 | Ekspor fleksibel: `selectionExport.ts` (comma/per-line/CSV `filename,notes` RFC 4180 + guard formula injection) + format select di `CopyFilenamesButton` | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
+| #73 | Galeri: autosave draft pilihan (localStorage, sanitasi + expiry 24 jam) + resume session tanpa PIN (`GET /api/gallery/[slug]/session`, timeout AbortController) | OPEN | `~/.junie/tasks/PR-73-74-sprint2.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.

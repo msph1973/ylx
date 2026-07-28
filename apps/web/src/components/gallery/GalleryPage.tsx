@@ -3,6 +3,8 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
+import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
+import { fetchResumeSession, RESUME_TIMEOUT_MS } from '@/lib/gallerySessionClient';
 import type { Photo } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
@@ -41,6 +43,7 @@ interface AlbumData {
   eventDate: string;
   maxSelections: number;
   status: string;
+  lastUnlockedAt?: string | null;
   photos: Photo[];
 }
 
@@ -61,6 +64,9 @@ function getErrorMessage(err: unknown, fallback: string): string {
 export function GalleryPage({ slug }: GalleryPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Blocks the PIN screen until the resume-session check finishes, so a
+  // returning visitor with a valid cookie doesn't see a PIN flash.
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [album, setAlbum] = useState<AlbumData | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -73,12 +79,20 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const noticeTimeoutRef = useRef<number | null>(null);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const confirmTimeoutRef = useRef<number | null>(null);
+  const albumIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    albumIdRef.current = album?.id ?? null;
+  }, [album]);
 
   const realtimeCallbacks = useMemo(() => ({
     onAlbumUnlocked: () => {
       setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
       setSelectedPhotos(new Set()); // server deleted existing selections on unlock
       setPhotoNotes(new Map()); // clear note drafts on unlock
+      // The old draft describes selections the server just deleted — restoring
+      // it later would mislead the client into thinking they were kept.
+      if (albumIdRef.current) clearDraft(albumIdRef.current);
       setError(null); // drop any stale submit-error toast so it can't overlap the unlock toast
       setShowUnlockToast(true);
       if (unlockToastTimeoutRef.current !== null) {
@@ -117,6 +131,71 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   useRealtime(isAuthenticated ? (album?.id ?? null) : null, realtimeCallbacks);
 
+  const restoreDraft = useCallback((albumData: AlbumData) => {
+    if (albumData.status !== 'active') return;
+    // Drafts saved before the album's most recent unlock describe selections
+    // the server already deleted — never restore them.
+    const unlockedAtMs = albumData.lastUnlockedAt ? Date.parse(albumData.lastUnlockedAt) : undefined;
+    const draft = loadDraft(
+      albumData.id,
+      albumData.photos.map((p) => p.id),
+      albumData.maxSelections,
+      Number.isFinite(unlockedAtMs) ? unlockedAtMs : undefined
+    );
+    if (!draft) return;
+    setSelectedPhotos(new Set(draft.photoIds));
+    setPhotoNotes(new Map(Object.entries(draft.notes)));
+    showNotice(
+      `Draft restored — ${draft.photoIds.length} photo${draft.photoIds.length === 1 ? '' : 's'} selected`
+    );
+  }, [showNotice]);
+
+  // Resume without re-entering the PIN when the signed 24h gallery cookie is
+  // still valid (verify.ts set it on the first successful PIN entry). The
+  // helper aborts after a bounded timeout so a stalled request can't leave
+  // the visitor on the blank pre-PIN screen indefinitely.
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    (async () => {
+      const resumed = await fetchResumeSession(slug, RESUME_TIMEOUT_MS, controller.signal);
+      if (cancelled) return;
+      if (resumed) {
+        setAlbum(resumed);
+        setIsAuthenticated(true);
+        restoreDraft(resumed);
+      }
+      setSessionChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [slug, restoreDraft]);
+
+  // Autosave the in-progress selection (debounced) so a closed tab or reload
+  // doesn't lose it. Saving an empty selection clears the stored draft.
+  useEffect(() => {
+    if (!isAuthenticated || !album || album.status !== 'active') return;
+    const timer = window.setTimeout(() => {
+      saveDraft(album.id, Array.from(selectedPhotos), Object.fromEntries(photoNotes));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [isAuthenticated, album, selectedPhotos, photoNotes]);
+
+  // Flush the pending autosave draft on pagehide so closing the tab within
+  // the 500ms debounce window doesn't lose the latest selection.
+  const draftRef = useRef({ selectedPhotos, photoNotes });
+  draftRef.current = { selectedPhotos, photoNotes };
+  useEffect(() => {
+    if (!isAuthenticated || !album || album.status !== 'active') return;
+    const flush = () => {
+      saveDraft(album.id, Array.from(draftRef.current.selectedPhotos), Object.fromEntries(draftRef.current.photoNotes));
+    };
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, [isAuthenticated, album]);
+
   const handlePinSubmit = useCallback(async (pin: string) => {
     setIsLoading(true);
     setError(null);
@@ -135,12 +214,13 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       const data = await response.json();
       setAlbum(data.album);
       setIsAuthenticated(true);
+      restoreDraft(data.album);
     } catch (err) {
       setError(getErrorMessage(err, 'Verification failed'));
     } finally {
       setIsLoading(false);
     }
-  }, [slug]);
+  }, [slug, restoreDraft]);
 
   const openLightbox = useCallback((index: number) => setLightboxIndex(index), []);
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
@@ -193,6 +273,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       // Server sets status to 'submitted' on submit (three-state model: active → submitted → locked).
       setAlbum((prev) => prev ? { ...prev, status: 'submitted' } : prev);
+      // The selection is now persisted server-side; the local draft is spent.
+      clearDraft(album.id);
     } catch (err) {
       setError(getErrorMessage(err, 'Submission failed'));
     }
@@ -229,6 +311,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, []);
 
   if (!isAuthenticated) {
+    // Hold back the PIN screen for the brief resume-session check — showing
+    // it and then yanking it away reads as a glitch for returning visitors.
+    if (!sessionChecked) {
+      return <div className="gallery-auth" aria-busy="true" />;
+    }
     return (
       <div className="gallery-auth">
         <motion.div

@@ -54,3 +54,10 @@ export function grantAlbumAccess(cookies: AstroCookies, albumId: string): void {
 export function hasAlbumAccess(cookies: AstroCookies, albumId: string): boolean {
   return readEntries(cookies).some((e) => e.albumId === albumId);
 }
+
+// Check whether the browser has ANY active gallery session — cheaper than
+// fetching the album from Sanity just to find out the cookie is expired or
+// unsigned (session.ts unauthenticated probe guard).
+export function hasActiveSession(cookies: AstroCookies): boolean {
+  return readEntries(cookies).length > 0;
+}

@@ -7,6 +7,8 @@
 //
 // Configure with UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (no SDK).
 
+import { upstashPipeline } from "./upstash";
+
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const WINDOW_SECONDS = 15 * 60;
 
@@ -70,27 +72,6 @@ function memoryRecord(key: string): void {
     return;
   }
   entry.count += 1;
-}
-
-async function upstashPipeline(
-  commands: Array<Array<string>>,
-  url: string,
-  token: string
-): Promise<Array<{ result?: number | string | null }>> {
-  const res = await fetch(`${url}/pipeline`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(commands),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Upstash request failed (${res.status})`);
-  }
-
-  return (await res.json()) as Array<{ result?: number | string | null }>;
 }
 
 async function upstashLimited(
