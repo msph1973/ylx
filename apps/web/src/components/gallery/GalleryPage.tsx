@@ -186,12 +186,14 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // debounce than the local autosave — this one costs a network call — and
   // best-effort: failures are silently ignored.
   const lastSyncedCountRef = useRef<number | null>(null);
+  const seqRef = useRef(0);
   useEffect(() => {
     if (!isAuthenticated || !album || album.status !== 'active') return;
     const count = selectedPhotos.size;
     if (lastSyncedCountRef.current === count) return;
     const timer = window.setTimeout(() => {
-      const body = JSON.stringify({ count });
+      const seq = seqRef.current++;
+      const body = JSON.stringify({ count, seq });
       void fetch(`/api/gallery/${slug}/draft`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -212,10 +214,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     const flush = () => {
       if (lastSyncedCountRef.current === selectedCountRef.current) return;
       lastSyncedCountRef.current = selectedCountRef.current;
+      const seq = seqRef.current++;
       try {
         navigator.sendBeacon(
           `/api/gallery/${slug}/draft`,
-          new Blob([JSON.stringify({ count: selectedCountRef.current })], { type: 'application/json' })
+          new Blob([JSON.stringify({ count: selectedCountRef.current, seq })], { type: 'application/json' })
         );
       } catch {
         // sendBeacon unsupported/blocked — the debounced sync remains the fallback.
