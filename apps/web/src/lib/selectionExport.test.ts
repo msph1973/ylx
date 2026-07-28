@@ -1,11 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Selection } from "@ylx/shared";
-import {
-  formatCommaSeparated,
-  formatPerLine,
-  formatCsv,
-  formatSelections,
-} from "./selectionExport";
+import { formatCsv, formatSelections } from "./selectionExport";
 
 function makeSelection(filename: string, notes?: string): Selection {
   return {
@@ -30,23 +25,26 @@ const selections = [
   makeSelection("IMG_0003.jpg", "b&w please"),
 ];
 
-describe("formatCommaSeparated", () => {
-  it("joins filenames with comma+space", () => {
-    expect(formatCommaSeparated(selections)).toBe(
+describe("formatSelections", () => {
+  it("comma: joins with comma+space", () => {
+    expect(formatSelections(selections, "comma")).toBe(
       "IMG_0001.jpg, IMG_0002.jpg, IMG_0003.jpg"
     );
   });
 
-  it("returns empty string for no selections", () => {
-    expect(formatCommaSeparated([])).toBe("");
+  it("comma: empty for no selections", () => {
+    expect(formatSelections([], "comma")).toBe("");
   });
-});
 
-describe("formatPerLine", () => {
-  it("joins filenames with newlines", () => {
-    expect(formatPerLine(selections)).toBe(
+  it("line: joins with newlines", () => {
+    expect(formatSelections(selections, "line")).toBe(
       "IMG_0001.jpg\nIMG_0002.jpg\nIMG_0003.jpg"
     );
+  });
+
+  it("csv: dispatches to formatCsv", () => {
+    const csv = formatSelections(selections, "csv");
+    expect(csv).toBe(formatCsv(selections));
   });
 });
 
@@ -109,13 +107,5 @@ describe("formatCsv", () => {
   it("neutralizes fields starting with line feed", () => {
     const csv = formatCsv([makeSelection("IMG_1.jpg", "\n=cmd|calc")]);
     expect(csv).toBe('filename,notes\nIMG_1.jpg,"\'\n=cmd|calc"');
-  });
-});
-
-describe("formatSelections", () => {
-  it("dispatches to the right formatter", () => {
-    expect(formatSelections(selections, "comma")).toBe(formatCommaSeparated(selections));
-    expect(formatSelections(selections, "line")).toBe(formatPerLine(selections));
-    expect(formatSelections(selections, "csv")).toBe(formatCsv(selections));
   });
 });
