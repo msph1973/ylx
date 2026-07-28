@@ -186,7 +186,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // debounce than the local autosave — this one costs a network call — and
   // best-effort: failures are silently ignored.
   const lastSyncedCountRef = useRef<number | null>(null);
-  const seqRef = useRef(0);
+  // Base seq from Date.now() so a gallery reload doesn't restart at 0
+  // while Redis still has the previous session's higher sequence.
+  const seqRef = useRef(Date.now());
   useEffect(() => {
     if (!isAuthenticated || !album || album.status !== 'active') return;
     const count = selectedPhotos.size;

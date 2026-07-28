@@ -36,3 +36,8 @@ export interface SelectionRepliedData {
   selectionId: string;
   albumId: string;
 }
+
+export interface DraftProgressData {
+  albumId: string;
+  count: number;
+}
