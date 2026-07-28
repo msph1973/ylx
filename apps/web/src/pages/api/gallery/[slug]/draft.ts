@@ -2,12 +2,13 @@ import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
 import { hasAlbumAccess } from "../../../../lib/gallerySession";
-import { getCached, cacheSetRaw, CACHE_KEYS } from "../../../../lib/cache";
+import { getCached, cacheSetRaw, cacheGetRaw, CACHE_KEYS } from "../../../../lib/cache";
 import { publishAdminEvent } from "../../../../lib/ably";
 import type { SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
 
 export interface GalleryDraftProgress {
   count: number;
+  seq: number;
   updatedAt: number;
 }
 
@@ -59,6 +60,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
   }
 
   const count = (body as Record<string, unknown> | null)?.count;
+  const seq = (body as Record<string, unknown> | null)?.seq;
   if (
     typeof count !== "number" ||
     !Number.isInteger(count) ||
@@ -71,12 +73,19 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     });
   }
 
-  const progress: GalleryDraftProgress = { count, updatedAt: Date.now() };
-  // Tiny unavoidable race: a PUT that passed the status check just before a
-  // concurrent submit can rewrite this key after submit deleted it. Harmless —
-  // the dashboard ignores draftCount unless the album is `active` (submit
-  // also invalidates the albumBySlug cache so the next PUT sees `submitted`
-  // and 409s), and unlock deletes the key again.
+  // Reject out-of-order writes: a debounced PUT arriving after a later
+  // sendBeacon flush must not overwrite the fresher count with a stale one.
+  if (typeof seq === "number") {
+    const [previous] = await cacheGetRaw<GalleryDraftProgress>([CACHE_KEYS.galleryDraft(album._id)]);
+    if (previous && previous.seq > seq) {
+      return new Response(JSON.stringify({ success: true, discarded: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  const progress: GalleryDraftProgress = { count, seq: typeof seq === "number" ? seq : 0, updatedAt: Date.now() };
   await cacheSetRaw(CACHE_KEYS.galleryDraft(album._id), progress, DRAFT_TTL_SECONDS);
   await publishAdminEvent("draft:progress", { albumId: album._id, count });
 
