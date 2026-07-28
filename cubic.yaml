@@ -1,17 +1,113 @@
-# cubic.yaml
-# Configures AI review behavior for cubic (https://docs.cubic.dev/configure/cubic-yaml).
-# Place in repository root to version-control review settings.
+# yaml-language-server: $schema=https://cubic.dev/schema/cubic-repository-config.schema.json
+# cubic.yaml — AI review config for YLx (https://docs.cubic.dev/configure/cubic-yaml)
+# See STATUS.md, REVIEW.md, and AGENTS.md for full project context.
 
 version: 1
 
 reviews:
+  enabled: true
+  sensitivity: medium
+  incremental_commits: true
+  resolve_threads_when_addressed: true
+
+  custom_instructions: |
+    YLx is a full-stack photo proofing gallery for wedding photographers.
+    Stack: Astro 6 + React 18 (islands), Sanity v4 CMS, Ably realtime, Vercel
+    Serverless, pnpm workspaces. No Prisma, no OAuth. Admin is single-user
+    email+bcrypt. Read STATUS.md, REVIEW.md, and AGENTS.md for conventions.
+
+    Key rules:
+    - Every API route under /api/admin/ MUST call requireAdmin(cookies) at the
+      top and 401 on failure (REVIEW.md §2.1).
+    - Every state-changing gallery action (submit, unlock, lock, delete) MUST
+      await publishAdminEvent() after the Sanity commit — never before.
+    - Invalidate cache before publishing realtime events so clients refetch
+      against fresh data.
+    - TypeScript strict mode — no `any`, no @ts-ignore without documented
+      reason. type-only imports must use `import type`.
+    - GROQ subqueries use `^.` syntax, not `^`. Field names with `_` prefix
+      (_id, _type, _createdAt) are Sanity system fields.
+    - useCopyToClipboard hook for all clipboard interactions. No direct
+      navigator.clipboard.writeText in components.
+    - useReducedMotion() from framer-motion for all motion components.
+    - Never hardcode credentials, API keys, or secrets. Never commit .env files.
+    - Ponytail-first: minimal code, YAGNI. Don't add abstractions with one
+      caller. stdlib over dependencies.
+
   ignore:
-    # Session/agent artifacts that are not application code and should never
-    # be part of a PR's intended diff (see AGENTS.md). They occasionally get
-    # swept into a commit by a broad `git add` rather than being added on
-    # purpose, so cubic shouldn't spend review budget on them.
+    max_changed_lines: 5000
     files:
       - "docs/**"
       - ".junie/**"
       - ".bob/**"
       - ".mimocode/**"
+      - ".letta/**"
+      - "pnpm-lock.yaml"
+      - "packages/sanity/.sanity/**"
+      - "**/*.snap"
+
+  custom_rules:
+    - name: requireAdmin guard on all admin API routes
+      description: |
+        Every file under apps/web/src/pages/api/admin/ MUST call
+        requireAdmin(cookies) at the top and return 401 on failure. The only
+        exception is /api/ably/token.ts which conditionally grants admin scope.
+        Flag any new admin route that skips this guard.
+      include:
+        - apps/web/src/pages/api/admin/**
+        - apps/web/src/pages/api/gallery/**/selections.ts
+      exclude:
+        - apps/web/src/pages/api/ably/token.ts
+
+    - name: await publishAdminEvent after state changes
+      description: |
+        All state-changing gallery operations MUST await publishAdminEvent()
+        after the Sanity patch/transaction commits — never before, never
+        fire-and-forget. Cache invalidation must happen before the publish so
+        realtime refetch hits fresh data. Multiple publishes at once use
+        Promise.all. The function never throws, so no try/catch needed.
+      include:
+        - apps/web/src/pages/api/admin/albums/**
+        - apps/web/src/pages/api/admin/photos/**
+        - apps/web/src/pages/api/gallery/**/submit.ts
+
+    - name: TypeScript strict — no any, no implicit
+      description: |
+        Project runs strict: true. Reject `any`, `@ts-ignore`, `as any`,
+        eslint-disable for no-explicit-any. type-only imports must use
+        `import type { }`. Unused parameters prefixed with `_`.
+      include:
+        - apps/web/src/**/*.ts
+        - apps/web/src/**/*.tsx
+
+    - name: Security — no hardcoded secrets
+      description: |
+        Flag hardcoded credentials, API keys, tokens, or passwords in source
+        files. All secrets must come from environment variables or Sanity
+        dashboard. Token names to watch: SANITY_API_TOKEN, ABLY_API_KEY,
+        SESSION_SECRET, UPSTASH_REDIS_REST_TOKEN.
+      include:
+        - apps/web/src/**
+        - packages/**
+
+    - name: GROQ query safety — no string interpolation
+      description: |
+        Sanity GROQ queries must use parameterized variables ($slug, $id)
+        instead of string concatenation or template interpolation. Flag
+        any query that builds filter strings with + or ${}.
+      include:
+        - apps/web/src/**/*.ts
+        - packages/sanity/lib/queries.ts
+
+    - name: UI — useCopyToClipboard and useReducedMotion
+      description: |
+        All clipboard interactions in components must go through
+        useCopyToClipboard hook (not navigator.clipboard directly). All
+        framer-motion components must respect useReducedMotion() for
+        accessibility — no hardcoded animations.
+      include:
+        - apps/web/src/components/**/*.tsx
+
+pr_descriptions:
+  generate: true
+  cubic_review_link: true
