@@ -44,10 +44,13 @@ export function saveDraft(
 // longer exist are dropped, the selection is clamped to maxSelections, and
 // notes for unselected/unknown photos are discarded. Returns null when there
 // is no usable draft (missing, corrupt, expired, or empty after cleaning).
+// When unlockedAtMs is provided, drafts saved before that timestamp are
+// rejected — the server deleted those selections on unlock.
 export function loadDraft(
   albumId: string,
   validPhotoIds: string[],
-  maxSelections: number
+  maxSelections: number,
+  unlockedAtMs?: number
 ): SelectionDraft | null {
   try {
     const raw = window.localStorage.getItem(draftKey(albumId));
@@ -80,6 +83,11 @@ export function loadDraft(
       draft.savedAt > Date.now() + FUTURE_SKEW_MS ||
       Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS
     ) {
+      clearDraft(albumId);
+      return null;
+    }
+
+    if (unlockedAtMs !== undefined && draft.savedAt < unlockedAtMs) {
       clearDraft(albumId);
       return null;
     }

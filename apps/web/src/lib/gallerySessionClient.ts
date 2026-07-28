@@ -8,6 +8,7 @@ export interface ResumedAlbum {
   eventDate: string;
   status: string;
   maxSelections: number;
+  lastUnlockedAt?: string | null;
   photos: Array<{
     id: string;
     filename: string;
@@ -24,12 +25,20 @@ export const RESUME_TIMEOUT_MS = 5000;
 // otherwise. Never throws and never hangs: the PIN screen is hidden while
 // this runs, so a stalled request must abort after RESUME_TIMEOUT_MS rather
 // than leaving the visitor staring at a blank page.
+// Accepts an optional external AbortSignal so the caller can cancel the
+// probe early (e.g. on unmount or slug change) without waiting for the
+// internal timeout.
 export async function fetchResumeSession(
   slug: string,
-  timeoutMs: number = RESUME_TIMEOUT_MS
+  timeoutMs: number = RESUME_TIMEOUT_MS,
+  externalSignal?: AbortSignal
 ): Promise<ResumedAlbum | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const onExternalAbort = () => controller.abort();
+  externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+
   try {
     const response = await fetch(`/api/gallery/${slug}/session`, {
       signal: controller.signal,
@@ -42,5 +51,6 @@ export async function fetchResumeSession(
     return null;
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
   }
 }

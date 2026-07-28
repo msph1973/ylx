@@ -158,9 +158,9 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     console.error("[Verify] Failed to update share stats:", err);
   }
 
-  const photosResponse = buildGalleryAlbumResponse(album);
+  const albumResponse = buildGalleryAlbumResponse(album);
 
-  return new Response(JSON.stringify(photosResponse), {
+  return new Response(JSON.stringify(albumResponse), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });

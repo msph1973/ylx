@@ -15,7 +15,7 @@ export interface SanityPhotoRaw {
   _id: string;
   filename: string;
   image: SanityImageRef;
-  lqip?: string;
+  lqip?: string | null;
 }
 
 export interface SanityAlbumRaw {
@@ -26,7 +26,8 @@ export interface SanityAlbumRaw {
   status: string;
   maxSelections: number;
   pin: string;
-  photos: SanityPhotoRaw[];
+  lastUnlockedAt?: string | null;
+  photos?: SanityPhotoRaw[] | null;
 }
 
 export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
@@ -50,6 +51,7 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
       eventDate: album.eventDate,
       status: album.status,
       maxSelections: album.maxSelections,
+      lastUnlockedAt: album.lastUnlockedAt ?? null,
       photos,
     },
   };

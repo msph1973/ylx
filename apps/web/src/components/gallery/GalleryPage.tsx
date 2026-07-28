@@ -4,7 +4,7 @@ import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
-import { fetchResumeSession } from '@/lib/gallerySessionClient';
+import { fetchResumeSession, RESUME_TIMEOUT_MS } from '@/lib/gallerySessionClient';
 import type { Photo } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
@@ -43,6 +43,7 @@ interface AlbumData {
   eventDate: string;
   maxSelections: number;
   status: string;
+  lastUnlockedAt?: string | null;
   photos: Photo[];
 }
 
@@ -132,10 +133,14 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   const restoreDraft = useCallback((albumData: AlbumData) => {
     if (albumData.status !== 'active') return;
+    // Drafts saved before the album's most recent unlock describe selections
+    // the server already deleted — never restore them.
+    const unlockedAtMs = albumData.lastUnlockedAt ? Date.parse(albumData.lastUnlockedAt) : undefined;
     const draft = loadDraft(
       albumData.id,
       albumData.photos.map((p) => p.id),
-      albumData.maxSelections
+      albumData.maxSelections,
+      Number.isFinite(unlockedAtMs) ? unlockedAtMs : undefined
     );
     if (!draft) return;
     setSelectedPhotos(new Set(draft.photoIds));
@@ -151,8 +156,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // the visitor on the blank pre-PIN screen indefinitely.
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     (async () => {
-      const resumed = await fetchResumeSession(slug);
+      const resumed = await fetchResumeSession(slug, RESUME_TIMEOUT_MS, controller.signal);
       if (cancelled) return;
       if (resumed) {
         setAlbum(resumed);
@@ -163,6 +169,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [slug, restoreDraft]);
 
@@ -175,6 +182,19 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     }, 500);
     return () => window.clearTimeout(timer);
   }, [isAuthenticated, album, selectedPhotos, photoNotes]);
+
+  // Flush the pending autosave draft on pagehide so closing the tab within
+  // the 500ms debounce window doesn't lose the latest selection.
+  const draftRef = useRef({ selectedPhotos, photoNotes });
+  draftRef.current = { selectedPhotos, photoNotes };
+  useEffect(() => {
+    if (!isAuthenticated || !album || album.status !== 'active') return;
+    const flush = () => {
+      saveDraft(album.id, Array.from(draftRef.current.selectedPhotos), Object.fromEntries(draftRef.current.photoNotes));
+    };
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, [isAuthenticated, album]);
 
   const handlePinSubmit = useCallback(async (pin: string) => {
     setIsLoading(true);
