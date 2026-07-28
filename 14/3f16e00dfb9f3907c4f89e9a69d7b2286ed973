@@ -1,0 +1,31 @@
+apps/web/src/lib/selectionDraft.test.ts
+  s_2dba3229f04b7d::t_f50a2ceb5c3117 8-9,11-19
+apps/web/src/pages/api/gallery/[slug]/session.test.ts
+  s_2dba3229f04b7d::t_01ef4204661500 5
+  s_2dba3229f04b7d::t_f2ef24fccbd2ae 23
+  s_2dba3229f04b7d::t_dd5086d385854e 49
+  s_2dba3229f04b7d::t_43edb1aaa655be 58-64
+apps/web/src/lib/cache.ts
+  s_2dba3229f04b7d::t_dc5932eddb1bf9 40-44,49,63-71
+apps/web/src/pages/api/gallery/[slug]/session.ts
+  s_2dba3229f04b7d::t_33974a6c714ccd 4
+  s_2dba3229f04b7d::t_ec09724778221a 23-31
+apps/web/src/lib/gallerySession.ts
+  s_2dba3229f04b7d::t_c381fdb589881b 57-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "143f16e00dfb9f3907c4f89e9a69d7b2286ed973",
+  "prompts": {},
+  "sessions": {
+    "s_2dba3229f04b7d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0571c5e97ffecp4itFrYjfjLnF",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
