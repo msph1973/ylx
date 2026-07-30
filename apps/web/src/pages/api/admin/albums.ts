@@ -5,8 +5,7 @@ import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
 import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../lib/slug";
 import { publishAdminEvent } from "../../../lib/ably";
-import { getCached, invalidateCache, cacheGetRaw, CACHE_KEYS } from "../../../lib/cache";
-import type { GalleryDraftProgress } from "../gallery/[slug]/draft";
+import { getCached, invalidateCache, CACHE_KEYS } from "../../../lib/cache";
 
 interface SanityAlbumRaw {
   _id: string;
@@ -16,8 +15,6 @@ interface SanityAlbumRaw {
   pin: string;
   status: string;
   photoCount: number;
-  maxSelections: number;
-  selectionCount: number;
 }
 
 export const GET: APIRoute = async ({ cookies }) => {
@@ -34,14 +31,7 @@ export const GET: APIRoute = async ({ cookies }) => {
       sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery)
     );
 
-    // Live draft progress is read fresh (outside the 30s SWR cache) so the
-    // dashboard reflects a client's in-progress picks without waiting for
-    // the album list cache to expire. One MGET round-trip for all albums.
-    const drafts = await cacheGetRaw<GalleryDraftProgress>(
-      albums.map((album) => CACHE_KEYS.galleryDraft(album._id))
-    );
-
-    const formatted = albums.map((album, i) => ({
+    const formatted = albums.map((album) => ({
       id: album._id,
       title: album.title,
       clientName: album.clientName,
@@ -50,10 +40,6 @@ export const GET: APIRoute = async ({ cookies }) => {
       status: album.status,
       isLocked: album.status !== "active",
       photoCount: album.photoCount,
-      maxSelections: album.maxSelections,
-      selectionCount: album.selectionCount,
-      draftCount: drafts[i]?.count ?? null,
-      draftUpdatedAt: drafts[i]?.updatedAt ?? null,
     }));
 
     // Response carries each album's PIN (sensitive) plus live draft progress,
