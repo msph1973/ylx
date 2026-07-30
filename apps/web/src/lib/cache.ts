@@ -176,7 +176,7 @@ export async function invalidateCache(keys: string | string[]): Promise<void> {
 
 // Key-builder helpers so call sites stay consistent.
 export const CACHE_KEYS = {
-  albumsList: (): string => "cache:admin:albums:list",
+  albumsList: (): string => "cache:admin:albums:list:v2",
   albumSelections: (albumId: string): string => `cache:admin:selections:${albumId}`,
   albumBySlug: (slug: string): string => `cache:gallery:album:${slug}`,
   adminSessionVersion: (adminId: string): string => `cache:admin:session-version:${adminId}`,
