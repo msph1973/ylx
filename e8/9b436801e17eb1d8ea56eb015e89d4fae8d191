@@ -1,0 +1,35 @@
+apps/web/src/pages/api/gallery/[slug]/draft.test.ts
+  s_2dba3229f04b7d::t_98469aac48ef69 105,107
+apps/web/src/pages/api/gallery/[slug]/draft.ts
+  s_2dba3229f04b7d::t_98469aac48ef69 75-79,88-91
+apps/web/src/lib/selectionDraft.ts
+  s_2dba3229f04b7d::t_98469aac48ef69 47-49,53-54,85-86
+apps/web/src/lib/gallerySessionClient.ts
+  s_2dba3229f04b7d::t_98469aac48ef69 11
+apps/web/src/components/gallery/GalleryPage.tsx
+  s_2dba3229f04b7d::t_98469aac48ef69 46,136-138,142-143
+apps/web/src/lib/galleryAlbumResponse.ts
+  s_2dba3229f04b7d::t_98469aac48ef69 29,54-56
+apps/web/src/pages/api/gallery/[slug]/submit.ts
+  s_2dba3229f04b7d::t_98469aac48ef69 205-208
+STATUS.md
+  s_2dba3229f04b7d::t_98469aac48ef69 263
+apps/web/src/lib/selectionDraft.test.ts
+  s_2dba3229f04b7d::t_98469aac48ef69 108-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e89b436801e17eb1d8ea56eb015e89d4fae8d191",
+  "prompts": {},
+  "sessions": {
+    "s_2dba3229f04b7d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0571c5e97ffecp4itFrYjfjLnF",
+        "model": "qwen3.7-plus"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
