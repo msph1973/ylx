@@ -151,7 +151,7 @@ export const AlbumCard = React.memo(function AlbumCard({
             aria-label={`${progress.count} of ${progress.max} photos selected`}>
             <div
               className="progress-fill"
-              style={{ width: `${Math.min(100, Math.round((progress.count / progress.max) * 100))}%` }}
+              style={{ transform: `scaleX(${progress.max > 0 ? Math.min(1, progress.count / progress.max) : 0})` }}
             />
           </div>
           <span className="progress-text">
@@ -313,9 +313,11 @@ export const AlbumCard = React.memo(function AlbumCard({
 
         .progress-fill {
           height: 100%;
+          width: 100%;
           border-radius: var(--radius-full);
           background-color: var(--color-accent);
-          transition: width var(--transition-fast);
+          transform-origin: left;
+          transition: transform var(--transition-fast);
         }
 
         .progress-text {

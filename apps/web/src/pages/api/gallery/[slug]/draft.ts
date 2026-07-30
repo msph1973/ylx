@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { hasAlbumAccess } from "../../../../lib/gallerySession";
+import { hasAlbumAccess, hasActiveSession } from "../../../../lib/gallerySession";
+import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
 import { getCached, cacheSetRaw, cacheGetRaw, CACHE_KEYS } from "../../../../lib/cache";
 import { publishAdminEvent } from "../../../../lib/ably";
 import type { SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
@@ -13,16 +14,30 @@ export interface GalleryDraftProgress {
 }
 
 const DRAFT_TTL_SECONDS = 24 * 60 * 60; // matches the gallery PIN session
+// 120 writes/15min per album+IP ≈ one every 7.5s sustained — far above the
+// 3s-debounce cadence of a real gallery client, but bounds a buggy or
+// compromised session from spamming Upstash writes + Ably publishes.
+const MAX_DRAFT_WRITES_PER_SESSION = 120;
 
 // Live draft progress for the admin dashboard: the client reports only HOW
 // MANY photos are currently picked (never which ones — those stay private
 // until submit). Informational feature, so every failure path is a cheap
 // 4xx/no-op rather than anything that could disturb the gallery.
-export const PUT: APIRoute = async ({ params, cookies, request }) => {
+export const PUT: APIRoute = async ({ params, cookies, request, clientAddress }) => {
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
       status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Same pre-lookup gate as session.ts: no valid signed gallery cookie, no
+  // Sanity read — unauthenticated callers can't force lookups by enumerating
+  // slugs.
+  if (!hasActiveSession(cookies)) {
+    return new Response(JSON.stringify({ error: "No active gallery session" }), {
+      status: 401,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -40,6 +55,22 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Authed but possibly buggy/compromised session — bound write + publish
+  // amplification per album+IP (REVIEW.md §2.4).
+  const ip = clientAddress ?? "unknown";
+  if (await isRateLimited(`draft:${album._id}:${ip}`, MAX_DRAFT_WRITES_PER_SESSION)) {
+    return new Response(
+      JSON.stringify({ error: "Too many attempts. Please try again later." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": RATE_LIMIT_RETRY_AFTER,
+        },
+      }
+    );
   }
 
   if (album.status !== "active") {
