@@ -50,6 +50,9 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       CACHE_KEYS.albumSelections(albumId),
+      // Unlock resets the client's selections, so any stale draft-progress
+      // count from the previous round must not linger on the dashboard.
+      CACHE_KEYS.galleryDraft(albumId),
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
