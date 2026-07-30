@@ -6,9 +6,10 @@ import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit
 import { getCached, CACHE_KEYS } from "../../../../lib/cache";
 import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
 
-// Generous: a resumed gallery fires one lookup per page load, so 30 per
-// 15-min window per IP+slug leaves headroom for reload-happy visitors while
-// bounding slug enumeration by clients holding an unrelated session cookie.
+// Generous for humans (one lookup per gallery page load → 30/15min per IP
+// covers ~30 loads), but a hard ceiling on slug enumeration: the key is
+// per-IP only, since a per-slug key would hand every probed slug a fresh
+// bucket. Worst case for a legit throttled visitor: re-enter the PIN.
 const MAX_SESSION_LOOKUPS_PER_IP = 30;
 
 // Resume a gallery session without re-entering the PIN: the signed httpOnly
@@ -46,7 +47,7 @@ export const GET: APIRoute = async ({ params, cookies, clientAddress }) => {
     });
   }
   const ip = clientAddress ?? "unknown";
-  if (await isRateLimited(`session:${ip}:${slug}`, MAX_SESSION_LOOKUPS_PER_IP)) {
+  if (await isRateLimited(`session:${ip}`, MAX_SESSION_LOOKUPS_PER_IP)) {
     return new Response(
       JSON.stringify({ error: "Too many attempts. Please try again later." }),
       {
