@@ -14,10 +14,11 @@ export interface GalleryDraftProgress {
 }
 
 const DRAFT_TTL_SECONDS = 24 * 60 * 60; // matches the gallery PIN session
-// 120 writes/15min per album+IP ≈ one every 7.5s sustained — far above the
-// 3s-debounce cadence of a real gallery client, but bounds a buggy or
-// compromised session from spamming Upstash writes + Ably publishes.
-const MAX_DRAFT_WRITES_PER_SESSION = 120;
+// 360 writes/15min per album+IP covers the client's worst-case cadence — a
+// 3s debounce sustained for the full window is 300 writes — plus pagehide
+// beacon headroom, while still bounding a buggy or compromised session from
+// spamming Upstash writes + Ably publishes.
+const MAX_DRAFT_WRITES_PER_SESSION = 360;
 
 // Live draft progress for the admin dashboard: the client reports only HOW
 // MANY photos are currently picked (never which ones — those stay private
@@ -58,7 +59,15 @@ export const PUT: APIRoute = async ({ params, cookies, request, clientAddress })
   }
 
   // Authed but possibly buggy/compromised session — bound write + publish
-  // amplification per album+IP (REVIEW.md §2.4).
+  // amplification per album+IP (REVIEW.md §2.4). Missing clientAddress must
+  // not fall into one shared "unknown" bucket in production: a single
+  // quota-exhausting client would block every visitor of that album.
+  if (!clientAddress && import.meta.env.PROD) {
+    return new Response(JSON.stringify({ error: "Unable to determine client address" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   const ip = clientAddress ?? "unknown";
   if (await isRateLimited(`draft:${album._id}:${ip}`, MAX_DRAFT_WRITES_PER_SESSION)) {
     return new Response(

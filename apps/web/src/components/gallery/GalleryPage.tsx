@@ -232,9 +232,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           `/api/gallery/${slug}/draft`,
           new Blob([JSON.stringify({ count: selectedCountRef.current, seq })], { type: 'application/json' })
         );
-        // sendBeacon returns false when the payload couldn't be queued — only
-        // then is the count actually on its way. Leaving the ref stale on a
-        // false return lets the debounced sync retry after bfcache restore.
+        // sendBeacon returns true only when the payload was queued — that is
+        // the one case where the count is actually on its way. Leaving the
+        // ref stale on a false return lets the debounced sync retry after
+        // bfcache restore.
         if (queued) lastSyncedCountRef.current = selectedCountRef.current;
       } catch {
         // sendBeacon unsupported/blocked — the debounced sync remains the fallback.

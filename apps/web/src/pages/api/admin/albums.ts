@@ -48,7 +48,6 @@ export const GET: APIRoute = async ({ cookies }) => {
       eventDate: album.eventDate,
       pin: album.pin,
       status: album.status,
-      isLocked: album.status !== "active",
       photoCount: album.photoCount,
       maxSelections: album.maxSelections,
       selectionCount: album.selectionCount,

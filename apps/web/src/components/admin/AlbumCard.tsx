@@ -314,7 +314,8 @@ export const AlbumCard = React.memo(function AlbumCard({
         .progress-fill {
           height: 100%;
           width: 100%;
-          border-radius: var(--radius-full);
+          /* No radius here: scaleX would distort it, and the track's
+             overflow:hidden + own radius already clips the fill's edges. */
           background-color: var(--color-accent);
           transform-origin: left;
           transition: transform var(--transition-fast);

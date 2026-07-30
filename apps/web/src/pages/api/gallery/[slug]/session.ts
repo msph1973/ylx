@@ -36,7 +36,15 @@ export const GET: APIRoute = async ({ params, cookies, clientAddress }) => {
   }
 
   // Clients holding a session cookie for album A can still probe slugs B, C…
-  // (each probe costs one cached Sanity read), so bound per IP+slug.
+  // (each probe costs one cached Sanity read), so bound per IP+slug. Same
+  // missing-address guard as verify.ts/draft.ts — no shared "unknown"
+  // production bucket.
+  if (!clientAddress && import.meta.env.PROD) {
+    return new Response(JSON.stringify({ error: "Unable to determine client address" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   const ip = clientAddress ?? "unknown";
   if (await isRateLimited(`session:${ip}:${slug}`, MAX_SESSION_LOOKUPS_PER_IP)) {
     return new Response(
