@@ -27,7 +27,9 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   customSlug,
   shareCount,
   lastAccessedAt,
-  "photoCount": count(photos)
+  maxSelections,
+  "photoCount": count(photos),
+  "selectionCount": count(*[_type == "selection" && album._ref == ^._id])
 }`;
 
 export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $albumId] {

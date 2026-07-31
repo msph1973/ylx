@@ -200,8 +200,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body,
-      }).then(() => {
-        lastSyncedCountRef.current = count;
+      }).then((response) => {
+        // Only mark synced when the server accepted the write — a 4xx (auth
+        // expiry, stale seq) must leave the ref stale so a later change
+        // retries instead of being swallowed by the equality guard.
+        if (response.ok) lastSyncedCountRef.current = count;
       }).catch(() => {});
     }, 3000);
     return () => window.clearTimeout(timer);
@@ -209,19 +212,31 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   // Flush the final count when the tab is backgrounded/closed before the
   // debounce fires — sendBeacon survives page teardown where fetch may not.
+  // Also flush the localStorage draft synchronously: a toggle followed by an
+  // immediate tab close lands inside the 500ms autosave window and would
+  // otherwise lose the last change.
   const selectedCountRef = useRef(0);
   selectedCountRef.current = selectedPhotos.size;
+  const selectedPhotosRef = useRef(selectedPhotos);
+  selectedPhotosRef.current = selectedPhotos;
+  const photoNotesRef = useRef(photoNotes);
+  photoNotesRef.current = photoNotes;
   useEffect(() => {
     if (!isAuthenticated || !album || album.status !== 'active') return;
     const flush = () => {
+      saveDraft(album.id, Array.from(selectedPhotosRef.current), Object.fromEntries(photoNotesRef.current));
       if (lastSyncedCountRef.current === selectedCountRef.current) return;
-      lastSyncedCountRef.current = selectedCountRef.current;
       const seq = seqRef.current++;
       try {
-        navigator.sendBeacon(
+        const queued = navigator.sendBeacon(
           `/api/gallery/${slug}/draft`,
           new Blob([JSON.stringify({ count: selectedCountRef.current, seq })], { type: 'application/json' })
         );
+        // sendBeacon returns true only when the payload was queued — that is
+        // the one case where the count is actually on its way. Leaving the
+        // ref stale on a false return lets the debounced sync retry after
+        // bfcache restore.
+        if (queued) lastSyncedCountRef.current = selectedCountRef.current;
       } catch {
         // sendBeacon unsupported/blocked — the debounced sync remains the fallback.
       }

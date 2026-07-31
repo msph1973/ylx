@@ -196,10 +196,12 @@ test.describe('Gallery', () => {
     await page.reload();
 
     // Straight into the grid — no PIN screen — with the draft restored.
+    // Toast first: it self-dismisses after 2.5s, so slower assertions below
+    // could eat that window and flake on CI.
     await expect(page.locator('.photo-grid')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.info-toast')).toContainText('Draft restored');
     await expect(page.locator('input[aria-label^="Digit"]')).toHaveCount(0);
     await expect(page.locator('.selection-count')).toContainText('1 / 50 selected');
     await expect(page.locator('.photo-item').first()).toHaveClass(/selected/);
-    await expect(page.locator('.info-toast')).toContainText('Draft restored');
   });
 });

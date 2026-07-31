@@ -1,17 +1,23 @@
 import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
 import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { hasActiveSession, hasAlbumAccess } from "../../../../lib/gallerySession";
+import { hasAlbumAccess, hasActiveSession } from "../../../../lib/gallerySession";
+import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
 import { getCached, CACHE_KEYS } from "../../../../lib/cache";
 import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
+
+// Generous for humans (one lookup per gallery page load → 30/15min per IP
+// covers ~30 loads), but a hard ceiling on slug enumeration: the key is
+// per-IP only, since a per-slug key would hand every probed slug a fresh
+// bucket. Worst case for a legit throttled visitor: re-enter the PIN.
+const MAX_SESSION_LOOKUPS_PER_IP = 30;
 
 // Resume a gallery session without re-entering the PIN: the signed httpOnly
 // `gallery_pin_session` cookie (set by verify.ts, 24h) already proves PIN
 // knowledge, but the client can't read it — this endpoint turns it into the
-// same album payload verify.ts returns. No PIN handling, so no rate limiting
-// beyond what the cookie signature enforces; no shareCount side effects
-// (this is a resume, not a new share visit).
-export const GET: APIRoute = async ({ params, cookies }) => {
+// same album payload verify.ts returns. No shareCount side effects (this is
+// a resume, not a new share visit).
+export const GET: APIRoute = async ({ params, cookies, clientAddress }) => {
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -20,8 +26,9 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     });
   }
 
-  // Cheap guard: reject unsigned/expired cookies before any Sanity or cache
-  // lookup so unauthenticated probes can't trigger downstream work.
+  // Cheap gate before any Sanity work: a client with no valid signed gallery
+  // cookie can't force album lookups by enumerating slugs. Same uniform 401
+  // shape as the post-lookup access check below.
   if (!hasActiveSession(cookies)) {
     return new Response(JSON.stringify({ error: "No active gallery session" }), {
       status: 401,
@@ -29,12 +36,47 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     });
   }
 
-  const album = await getCached<SanityAlbumRaw | null>(
-    CACHE_KEYS.albumBySlug(slug),
-    30,
-    120,
-    () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
-  );
+  // Clients holding a session cookie for album A can still probe slugs B, C…
+  // (each probe costs one cached Sanity read), so bound per IP+slug. Same
+  // missing-address guard as verify.ts/draft.ts — no shared "unknown"
+  // production bucket.
+  if (!clientAddress && import.meta.env.PROD) {
+    return new Response(JSON.stringify({ error: "Unable to determine client address" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const ip = clientAddress ?? "unknown";
+  if (await isRateLimited(`session:${ip}`, MAX_SESSION_LOOKUPS_PER_IP)) {
+    return new Response(
+      JSON.stringify({ error: "Too many attempts. Please try again later." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": RATE_LIMIT_RETRY_AFTER,
+        },
+      }
+    );
+  }
+
+  let album: SanityAlbumRaw | null;
+  try {
+    album = await getCached<SanityAlbumRaw | null>(
+      CACHE_KEYS.albumBySlug(slug),
+      30,
+      120,
+      () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
+    );
+  } catch (err) {
+    // Sanity/Upstash outage escapes getCached on a hard-miss — never leak
+    // internals, just log and return a generic 500 (REVIEW.md §2.2).
+    console.error("[Session] album lookup failed:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   // A 404-vs-401 distinction would let an unauthenticated visitor probe
   // which slugs exist; both cases return the same 401.

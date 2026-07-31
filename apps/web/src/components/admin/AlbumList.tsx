@@ -39,7 +39,13 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
       const data = await response.json() as { albums: AlbumCardData[] };
       setAlbums(data.albums);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      // Background (realtime-triggered) failures must not tear down the
+      // visible dashboard — log and leave the current list on screen.
+      if (!options?.background) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } else {
+        console.error('[AlbumList] background refresh failed:', err);
+      }
     } finally {
       if (!options?.background) setIsLoading(false);
     }

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const getCachedMock = vi.fn();
 const hasAlbumAccessMock = vi.fn();
-const hasActiveSessionMock = vi.fn(() => true);
+const hasActiveSessionMock = vi.fn();
+const isRateLimitedMock = vi.fn();
 
 vi.mock("@ylx/sanity/client", () => ({
   sanityClient: { fetch: vi.fn() },
@@ -20,7 +21,11 @@ vi.mock("../../../../lib/cache", () => ({
 }));
 vi.mock("../../../../lib/gallerySession", () => ({
   hasAlbumAccess: (...args: unknown[]) => hasAlbumAccessMock(...args),
-  hasActiveSession: () => hasActiveSessionMock(),
+  hasActiveSession: (...args: unknown[]) => hasActiveSessionMock(...args),
+}));
+vi.mock("../../../../lib/ratelimit", () => ({
+  isRateLimited: (...args: unknown[]) => isRateLimitedMock(...args),
+  RATE_LIMIT_RETRY_AFTER: "900",
 }));
 
 import { GET } from "./session";
@@ -33,6 +38,7 @@ const ALBUM = {
   status: "active",
   maxSelections: 40,
   pin: "1234",
+  lastUnlockedAt: "2026-07-28T00:00:00.000Z",
   photos: [{ _id: "p1", filename: "DSC_1.ARW", image: { _type: "image", asset: { _ref: "ref" } }, lqip: "lqip" }],
 };
 
@@ -47,6 +53,7 @@ beforeEach(() => {
   getCachedMock.mockReset();
   hasAlbumAccessMock.mockReset();
   hasActiveSessionMock.mockReset().mockReturnValue(true);
+  isRateLimitedMock.mockReset().mockResolvedValue(false);
 });
 
 describe("GET /api/gallery/[slug]/session", () => {
@@ -55,18 +62,26 @@ describe("GET /api/gallery/[slug]/session", () => {
     expect(res.status).toBe(400);
   });
 
-  it("401s before any fetch when the cookie has no signed entries at all", async () => {
-    hasActiveSessionMock.mockReturnValue(false);
-    const res = await call("any-slug");
-    expect(res.status).toBe(401);
-    expect(getCachedMock).not.toHaveBeenCalled();
-  });
-
   it("401s for an unknown slug (same response as no access — no slug probing)", async () => {
     getCachedMock.mockResolvedValue(null);
     const res = await call("ghost");
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "No active gallery session" });
+  });
+
+  it("401s without touching Sanity when no signed gallery cookie exists", async () => {
+    hasActiveSessionMock.mockReturnValue(false);
+    const res = await call("doe-wedding");
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "No active gallery session" });
+    expect(getCachedMock).not.toHaveBeenCalled();
+  });
+
+  it("500s with a generic payload when the album lookup throws", async () => {
+    getCachedMock.mockRejectedValue(new Error("sanity down"));
+    const res = await call("doe-wedding");
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Internal server error" });
   });
 
   it("401s when the cookie has no access to the album", async () => {
@@ -88,6 +103,7 @@ describe("GET /api/gallery/[slug]/session", () => {
       id: "album-1",
       status: "active",
       maxSelections: 40,
+      lastUnlockedAt: "2026-07-28T00:00:00.000Z",
     });
     expect(body.album.pin).toBeUndefined();
     expect(body.album.photos[0]).toMatchObject({ id: "p1", filename: "DSC_1.ARW" });
