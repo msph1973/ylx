@@ -16,7 +16,7 @@ function NoteText({ label, text, className }: { label: string; text: string; cla
     const el = textRef.current;
     if (!el) return;
     const measure = () => {
-      if (el.classList.contains('is-clamped')) {
+      if (!isExpanded) {
         setIsClamped(el.scrollHeight > el.clientHeight + 1);
       } else {
         // Expanded: compare against the collapsed 2-line budget so shrinking
