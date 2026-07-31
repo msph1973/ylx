@@ -414,7 +414,12 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
               </svg>
-              {copiedLink ? 'Copied!' : 'Copy Gallery Link'}
+              {copiedLink ? 'Copied!' : (
+                <>
+                  <span className="share-btn-label--long">Copy Gallery Link</span>
+                  <span className="share-btn-label--short">Copy Link</span>
+                </>
+              )}
             </button>
             <button className="share-btn" onClick={() => { void handleCopyPin(); }} disabled={!album.pin} aria-label="Copy PIN to clipboard">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -861,6 +866,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .share-btn:hover:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
           .share-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+          .share-btn-label--long { display: inline; }
+          .share-btn-label--short { display: none; }
+
           .lock-btn { color: var(--color-text); }
           .lock-btn:hover:not(:disabled) { border-color: var(--color-error); color: var(--color-error); }
           .unlock-btn { color: var(--color-text); }
@@ -1198,6 +1206,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             .share-actions .unlock-btn {
               grid-column: 1 / -1;
             }
+
+            .share-btn-label--long { display: none; }
+            .share-btn-label--short { display: inline; }
 
             .share-btn,
             .lock-btn,
