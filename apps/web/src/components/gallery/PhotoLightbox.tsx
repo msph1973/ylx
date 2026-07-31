@@ -130,6 +130,7 @@ export function PhotoLightbox({
     };
     viewport.addEventListener('resize', update);
     viewport.addEventListener('scroll', update);
+    update();
     return () => {
       viewport.removeEventListener('resize', update);
       viewport.removeEventListener('scroll', update);
