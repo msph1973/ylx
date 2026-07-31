@@ -119,6 +119,9 @@ export function PhotoLightbox({
   // much of the layout viewport the keyboard covers and lift the content by
   // that amount so the input stays visible while typing.
   const [keyboardInset, setKeyboardInset] = useState(0);
+  // Pinch-zoom also shrinks the visual viewport — only treat the shrink as a
+  // keyboard while the note input is actually focused.
+  const [isNoteFocused, setIsNoteFocused] = useState(false);
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
@@ -132,6 +135,7 @@ export function PhotoLightbox({
       viewport.removeEventListener('scroll', update);
     };
   }, []);
+  const appliedInset = isNoteFocused ? keyboardInset : 0;
 
   if (!photo) return null;
 
@@ -144,7 +148,7 @@ export function PhotoLightbox({
     // risk while the lightbox is already closing.
     <motion.div
       className="lightbox-backdrop"
-      style={keyboardInset > 0 ? { paddingBottom: keyboardInset + 8 } : undefined}
+      style={appliedInset > 0 ? { paddingBottom: appliedInset + 8 } : undefined}
       exit={{ opacity: 0 }}
       transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
       onClick={onClose}
@@ -155,7 +159,7 @@ export function PhotoLightbox({
       <motion.div
         ref={focusTrapRef}
         className="lightbox-content"
-        style={keyboardInset > 0 ? { maxHeight: `calc(100vh - ${keyboardInset + 16}px)` } : undefined}
+        style={appliedInset > 0 ? { maxHeight: window.innerHeight - appliedInset - 16 } : undefined}
         initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
@@ -199,6 +203,8 @@ export function PhotoLightbox({
               placeholder="Add a note…"
               value={note ?? ''}
               onChange={(e) => onNoteChange(e.target.value)}
+              onFocus={() => setIsNoteFocused(true)}
+              onBlur={() => setIsNoteFocused(false)}
               aria-label={`Note for photo ${currentIndex + 1}`}
               maxLength={MAX_TEXT_LENGTH}
             />

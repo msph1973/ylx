@@ -15,8 +15,21 @@ function NoteText({ label, text, className }: { label: string; text: string; cla
   useEffect(() => {
     const el = textRef.current;
     if (!el) return;
-    setIsClamped(el.scrollHeight > el.clientHeight + 1);
-  }, [text]);
+    const measure = () => {
+      if (el.classList.contains('is-clamped')) {
+        setIsClamped(el.scrollHeight > el.clientHeight + 1);
+      } else {
+        // Expanded: compare against the collapsed 2-line budget so shrinking
+        // the column (or rotating the phone) keeps the toggle available.
+        const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+        setIsClamped(el.scrollHeight > lineHeight * 2 + 1);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, isExpanded]);
 
   return (
     <div className={`note-line${className ? ` ${className}` : ''}`}>

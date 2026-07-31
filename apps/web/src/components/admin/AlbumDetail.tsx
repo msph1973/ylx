@@ -292,14 +292,20 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     setDragOverPhotoId(overId !== draggedPhotoId ? overId : null);
   }, [draggedPhotoId]);
 
-  const handleDragHandleUp = useCallback(() => {
-    if (draggedPhotoId && dragOverPhotoId) {
-      handlePhotoDrop(dragOverPhotoId);
-    } else {
-      setDraggedPhotoId(null);
+  const handleDragHandleUp = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    if (draggedPhotoId) {
+      // Hit-test the release coordinates directly — dragOverPhotoId can lag a
+      // render behind the finger on a fast drop.
+      const tile = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-photo-id]');
+      const targetId = tile?.dataset.photoId;
+      if (targetId && targetId !== draggedPhotoId) {
+        handlePhotoDrop(targetId);
+      } else {
+        setDraggedPhotoId(null);
+      }
     }
     setDragOverPhotoId(null);
-  }, [draggedPhotoId, dragOverPhotoId, handlePhotoDrop]);
+  }, [draggedPhotoId, handlePhotoDrop]);
 
   const handleDragHandleCancel = useCallback(() => {
     setDraggedPhotoId(null);
@@ -574,13 +580,15 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                   if (photoReorderMode && draggedPhotoId) {
                     event.preventDefault();
                     event.dataTransfer.dropEffect = 'move';
+                    setDragOverPhotoId(photo.id !== draggedPhotoId ? photo.id : null);
                   }
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
+                  setDragOverPhotoId(null);
                   handlePhotoDrop(photo.id);
                 }}
-                onDragEnd={() => setDraggedPhotoId(null)}
+                onDragEnd={() => { setDraggedPhotoId(null); setDragOverPhotoId(null); }}
               >
                 {photoSelectionMode && (
                   <button
