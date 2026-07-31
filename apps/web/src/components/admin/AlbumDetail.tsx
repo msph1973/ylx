@@ -842,28 +842,6 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             margin-bottom: var(--space-8);
           }
 
-          /* On phones the three buttons wrap into a ragged 3-row stack.
-             Pair the two copy actions on one row; the lock/unlock state
-             action gets its own full-width row below. */
-          @media (max-width: 480px) {
-            .share-actions {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: var(--space-2);
-            }
-
-            .share-actions .share-btn,
-            .share-actions .lock-btn,
-            .share-actions .unlock-btn {
-              justify-content: center;
-            }
-
-            .share-actions .lock-btn,
-            .share-actions .unlock-btn {
-              grid-column: 1 / -1;
-            }
-          }
-
           .share-btn, .lock-btn, .unlock-btn {
             display: inline-flex;
             align-items: center;
@@ -1212,7 +1190,13 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
             .share-actions {
               display: grid;
-              grid-template-columns: 1fr;
+              grid-template-columns: 1fr 1fr;
+              gap: var(--space-2);
+            }
+
+            .share-actions .lock-btn,
+            .share-actions .unlock-btn {
+              grid-column: 1 / -1;
             }
 
             .share-btn,
