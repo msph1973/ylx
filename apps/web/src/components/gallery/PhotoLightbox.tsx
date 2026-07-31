@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -113,6 +113,26 @@ export function PhotoLightbox({
     };
   }, []);
 
+  // The lightbox is position:fixed with the body scroll locked, so when the
+  // virtual keyboard opens on a phone nothing can scroll the note input back
+  // into view — the footer just disappears behind the keyboard. Track how
+  // much of the layout viewport the keyboard covers and lift the content by
+  // that amount so the input stays visible while typing.
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => {
+      setKeyboardInset(Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop));
+    };
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+    return () => {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+    };
+  }, []);
+
   if (!photo) return null;
 
   return (
@@ -124,6 +144,7 @@ export function PhotoLightbox({
     // risk while the lightbox is already closing.
     <motion.div
       className="lightbox-backdrop"
+      style={keyboardInset > 0 ? { paddingBottom: keyboardInset + 8 } : undefined}
       exit={{ opacity: 0 }}
       transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
       onClick={onClose}
@@ -134,6 +155,7 @@ export function PhotoLightbox({
       <motion.div
         ref={focusTrapRef}
         className="lightbox-content"
+        style={keyboardInset > 0 ? { maxHeight: `calc(100vh - ${keyboardInset + 16}px)` } : undefined}
         initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}

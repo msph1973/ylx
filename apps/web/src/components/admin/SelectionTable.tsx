@@ -161,6 +161,35 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
           line-height: 1.4;
         }
 
+        .note-text {
+          display: block;
+          overflow-wrap: anywhere;
+        }
+
+        .note-text.is-clamped {
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+          overflow: hidden;
+        }
+
+        .note-expand-btn {
+          display: inline-block;
+          margin-top: 2px;
+          padding: 0;
+          background: none;
+          border: none;
+          color: var(--color-text-muted);
+          font-size: var(--text-xs);
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          cursor: pointer;
+        }
+
+        .note-expand-btn:hover {
+          color: var(--color-accent);
+        }
+
         .note-label {
           font-weight: var(--font-medium);
           color: var(--color-text-muted);
