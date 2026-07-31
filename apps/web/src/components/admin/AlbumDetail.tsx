@@ -1196,6 +1196,11 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
               gap: var(--space-2);
             }
 
+            /* Three reorder controls per tile (⠿ ↑ ↓) — keep them on one row. */
+            .photo-actions {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
             .share-actions {
               display: grid;
               grid-template-columns: 1fr 1fr;
