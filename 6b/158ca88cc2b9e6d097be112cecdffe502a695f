@@ -1,0 +1,40 @@
+apps/web/src/hooks/useAdminRealtime.ts
+  h_45c23cf41d175e 5-6,12,15,18,30-36,43-53
+apps/web/src/hooks/useRealtime.ts
+  h_45c23cf41d175e 66-72
+apps/web/src/lib/albumDeletion.ts
+  h_45c23cf41d175e 4-21,27-35,63,65-66,68-69
+apps/web/src/lib/auth.test.ts
+  h_45c23cf41d175e 145-167
+apps/web/src/lib/auth.ts
+  h_45c23cf41d175e 26-43
+apps/web/src/lib/cache.test.ts
+  h_45c23cf41d175e 1-108
+apps/web/src/lib/cache.ts
+  h_45c23cf41d175e 34-69,78,80-86,144-153
+apps/web/src/lib/imageResize.test.ts
+  h_45c23cf41d175e 36-40,43,53-95,149,171-173
+apps/web/src/lib/imageResize.ts
+  h_45c23cf41d175e 12-13,74-81,87-89,93-97,106-109
+apps/web/src/lib/imageResizeClient.test.ts
+  h_45c23cf41d175e 149-206
+apps/web/src/lib/imageResizeClient.ts
+  h_45c23cf41d175e 20-52,63,69-71,79,94-104,113,135
+apps/web/src/lib/ratelimit.ts
+  h_45c23cf41d175e 77-87,115-119,125,135,140-142,148,158,163-166,174-175,182,187
+apps/web/src/lib/upstash.test.ts
+  h_45c23cf41d175e 1-61
+apps/web/src/lib/upstash.ts
+  h_45c23cf41d175e 6-12,14-15,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "6b158ca88cc2b9e6d097be112cecdffe502a695f",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
