@@ -48,7 +48,7 @@ export default defineType({
       name: "maxSelections",
       title: "Maximum Selections",
       type: "number",
-      validation: (Rule) => Rule.required().min(1),
+      validation: (Rule) => Rule.required().integer().min(1).max(500),
     }),
     defineField({
       name: "status",
@@ -65,6 +65,7 @@ export default defineType({
         ],
       },
       initialValue: "active",
+      validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "photos",
