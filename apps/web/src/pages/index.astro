@@ -50,9 +50,31 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   const input = document.getElementById('gallery-slug') as HTMLInputElement;
   const errorEl = document.getElementById('gallery-error') as HTMLParagraphElement;
 
+  // A pasted gallery link (a full URL, or a bare "site/gallery/<slug>" path
+  // without a protocol) should resolve to its slug segment instead of being
+  // slugified character-by-character — that would turn
+  // "https://site/gallery/foo" into garbage like "https-site-gallery-foo".
+  function extractSlugSource(value: string): string {
+    try {
+      // Succeeds only for a fully-qualified URL (has a protocol) — take the
+      // last non-empty path segment, e.g. "/gallery/foo" -> "foo".
+      const url = new URL(value);
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (segments.length > 0) return segments[segments.length - 1];
+    } catch {
+      // Not an absolute URL (e.g. no protocol, or plain album-name text) —
+      // fall through to the /gallery/<slug> pattern check below.
+    }
+    const match = value.match(/gallery\/([^/?#\s]+)/i);
+    if (match) return match[1];
+    // Plain album-name input — keep the existing behavior unchanged.
+    return value;
+  }
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const slug = input.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const source = extractSlugSource(input.value.trim());
+    const slug = source.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     if (!slug) {
       errorEl.textContent = 'Please enter a gallery name.';
       input.focus();
