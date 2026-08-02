@@ -1,0 +1,18 @@
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 82-85,263-268,270-273,290-298,308-315,327,330,343-348,350-356,365-366,368,474
+apps/web/src/layouts/GalleryLayout.astro
+  h_45c23cf41d175e 9-13,21
+apps/web/src/pages/index.astro
+  h_45c23cf41d175e 53-73,76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "de53f03a77516d1df135565b8ca110b4097f2832",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
