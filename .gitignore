@@ -1,9 +1,6 @@
 node_modules
 dist
 .turbo
-.env
-.env.local
-.env.*.local
 *.log
 .DS_Store
 .vercel
@@ -13,6 +10,7 @@ playwright-report/
 .playwright/
 .playwright-mcp/
 .env*
+!.env*.example
 
 # Build artifacts
 .output/
