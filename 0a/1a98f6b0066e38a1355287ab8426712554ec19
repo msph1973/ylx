@@ -1,0 +1,34 @@
+apps/web/src/pages/api/ably/token.ts
+  h_45c23cf41d175e 43-53
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 87-109,112-121,123-124,126-137,142,144,157-163,165-166,168,172,189,193-195
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 128-130,133-136,156-167,169-170,172-217,295-301,303-304,306,310-311,329-332,336-347
+apps/web/src/pages/api/admin/albums/[id]/reorder.ts
+  h_45c23cf41d175e 11-26,57-65
+apps/web/src/pages/api/admin/albums/[id]/unlock.ts
+  h_45c23cf41d175e 25-32,34-46,50-69,77-78,85
+apps/web/src/pages/api/admin/albums/bulk-delete.ts
+  h_45c23cf41d175e 12-27,44-51
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  h_45c23cf41d175e 18-33,44-59
+apps/web/src/pages/api/admin/upload/finalize.ts
+  h_45c23cf41d175e 1,38-54,115-121,191-197,199-204,207-231,235-238,245,248
+apps/web/src/pages/api/auth/create-admin.ts
+  h_45c23cf41d175e 16,18-33,49-57
+apps/web/src/pages/api/auth/login.ts
+  h_45c23cf41d175e 15,17-29,31-34
+apps/web/src/pages/api/gallery/[slug]/submit.ts
+  h_45c23cf41d175e 5,28-37,96-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "0a1a98f6b0066e38a1355287ab8426712554ec19",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
