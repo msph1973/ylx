@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-07-27 | PR MERGED: #19–#52, #54–#65, #67, #69–#71 (#68 closed, superseded #69) — lihat tabel pointer di bawah. Sprint 1 2026-07-27: Playwright e2e kini jalan di CI, Ably publish di-await, ekspor Lightroom fleksibel. Full narratives: `~/.junie/tasks/`.
+> Last updated: 2026-08-02 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. PR #79 (mobile reorder + keyboard-safe notes + notes clamp) merged & diverifikasi langsung di produksi 2026-08-02 (album baru + upload foto + full lifecycle test). Full narratives: `~/.junie/tasks/`.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -259,7 +259,12 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #69 | CI: job `e2e` Playwright (13 tes, dataset Sanity `test` + seed `playwright-admin`, token scoped per-step, permissions least-privilege, guard fork/Dependabot) | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
 | #70 | Realtime: `publish()` Ably di-await + Rest singleton + error log; invalidate cache sebelum publish (race stale-refetch); `Promise.all` multi-publish | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
 | #71 | Ekspor fleksibel: `selectionExport.ts` (comma/per-line/CSV `filename,notes` RFC 4180 + guard formula injection) + format select di `CopyFilenamesButton` | MERGED | `~/.junie/tasks/PR-68-71-sprint1.md` |
-| #73 | Galeri: autosave draft pilihan (localStorage, sanitasi + expiry 24 jam) + resume session tanpa PIN (`GET /api/gallery/[slug]/session`, timeout AbortController) | OPEN | `~/.junie/tasks/PR-73-74-sprint2.md` |
-| #74 | Dashboard: progres pilihan live (`PUT/POST /api/gallery/[slug]/draft` count-only → Redis 24h + event `draft:progress`; progress bar + badge di `AlbumCard`; revisi `lastUnlockedAt`; refetch coalesced) | OPEN (stacked di #73) | `~/.junie/tasks/PR-73-74-sprint2.md` |
+| #73 | Galeri: autosave draft pilihan (localStorage, sanitasi + expiry 24 jam) + resume session tanpa PIN (`GET /api/gallery/[slug]/session`, timeout AbortController) | MERGED | `~/.junie/tasks/PR-73-74-sprint2.md` |
+| #74 | Dashboard: progres pilihan live (`PUT/POST /api/gallery/[slug]/draft` count-only → Redis 24h + event `draft:progress`; progress bar + badge di `AlbumCard`; revisi `lastUnlockedAt`; refetch coalesced) | CLOSED (tidak di-merge, digantikan #77) | `~/.junie/tasks/PR-73-74-sprint2.md` |
+| #75 | Ponytail shrink: inline format helpers, dict dispatch, `??=` singleton | MERGED | `~/.junie/tasks/PR-75-ponytail-shrink-sprint1.md` |
+| #76 | Chore: `cubic.yaml` custom instructions/rules | MERGED | — (doc/config-only) |
+| #77 | Admin: live client selection progress on dashboard (Redis draft sync) | MERGED | `~/.junie/tasks/PR-77-audit-reorder-notes.md` |
+| #78 | Fix: restore cherry-pick losses — draft progress in albums list | CLOSED (tidak di-merge) | — |
+| #79 | Mobile: touch reorder (⠿ handle + tombol naik/turun, no reload per move), notes keyboard-safe (visualViewport inset), admin notes clamp 2-baris + Show more/less | MERGED — diverifikasi langsung di produksi (album baru + upload 3 foto + full lifecycle test) | `~/.junie/tasks/PR-79-mobile-reorder-notes-polish.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
