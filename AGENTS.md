@@ -75,6 +75,7 @@ The built-in `memory` MCP server holds a knowledge graph — use it **only** for
 - Work happens on a dedicated feature/fix branch (never directly on `master`).
 - Once a fix or implementation on that branch is complete and verified (`tsc`, lint, tests, build all pass), **commit, push, and open a PR immediately — do not wait for explicit user instruction** to do so. This is a standing user preference, not a one-off request.
 - Still never rewrite/force-push history or touch `master` directly without being asked.
+- **Exception — docs-only changes:** edits limited to pure documentation/memory bookkeeping (`STATUS.md`, `README.md`, `~/.junie/memory/notes.md`, `~/.junie/tasks/*.md`, and similar — no code under `apps/`/`scripts/`) may be **committed and pushed directly to `master`**, no branch/PR needed. Approved 2026-08-02 as a standing preference to avoid review overhead on notes-only edits. Any change that touches application/test code still follows the branch+PR rule above.
 
 ## Cross-Agent Task Division: Junie vs Letta Subagents
 
