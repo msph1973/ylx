@@ -9,14 +9,14 @@ Usage:
   python upload.py --folder /path/to/photos --album-id <album_id> --batch-size 50
 
 Requirements:
-  pip install sanity io watchdog
+  pip install sanity watchdog
 """
 
 import argparse
 import hashlib
-import json
 import os
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -29,11 +29,18 @@ except ImportError:
     sys.exit(1)
 
 try:
+    from requests.exceptions import RequestException
+except ImportError:
+    # requests may not be installed directly; fall back to generic
+    # OS-level network errors (connection reset, timeout, etc.)
+    RequestException = OSError
+
+try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
 except ImportError:
     Observer = None
-    FileSystemEventHandler = None
+    FileSystemEventHandler = object
     print("Warning: watchdog not installed. Watch mode disabled. Run: pip install watchdog")
 
 # Configuration
@@ -42,6 +49,9 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 DEFAULT_BATCH_SIZE = 100
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
+# Only network/HTTP transport errors are retried; other exceptions (e.g.
+# programming bugs) are allowed to propagate instead of being hidden.
+NETWORK_EXCEPTIONS = (RequestException, OSError)
 
 
 class SanityUploader:
@@ -54,6 +64,7 @@ class SanityUploader:
             use_cdn=False
         )
         self.uploaded_files = set()
+        self.lock = threading.Lock()
         self.stats = {
             'uploaded': 0,
             'skipped': 0,
@@ -88,24 +99,27 @@ class SanityUploader:
 
     def upload_single(self, file_path: Path, album_id: str) -> Optional[dict]:
         """Upload a single photo to Sanity with retry."""
-        file_hash = self.get_file_hash(file_path)
-
-        if file_hash in self.uploaded_files:
-            self.stats['skipped'] += 1
-            return None
-
         valid, msg = self.validate_file(file_path)
         if not valid:
-            self.stats['failed'] += 1
-            self.stats['errors'].append(f"{file_path.name}: {msg}")
+            with self.lock:
+                self.stats['failed'] += 1
+                self.stats['errors'].append(f"{file_path.name}: {msg}")
             print(f"  ✗ {file_path.name}: {msg}")
             return None
+
+        file_hash = self.get_file_hash(file_path)
+
+        with self.lock:
+            if file_hash in self.uploaded_files:
+                self.stats['skipped'] += 1
+                return None
+            self.uploaded_files.add(file_hash)
 
         for attempt in range(MAX_RETRIES):
             try:
                 # Upload image asset
                 with open(file_path, 'rb') as f:
-                    asset = client.upload('image', f, {
+                    asset = self.client.upload('image', f, {
                         'filename': file_path.name
                     })
 
@@ -117,7 +131,7 @@ class SanityUploader:
                         '_type': 'image',
                         'asset': {
                             '_type': 'reference',
-                            '_ref': asset._ref
+                            '_ref': asset['_id']
                         }
                     },
                     'album': {
@@ -127,18 +141,20 @@ class SanityUploader:
                 }
 
                 result = self.client.create(photo_doc)
-                self.uploaded_files.add(file_hash)
-                self.stats['uploaded'] += 1
+                with self.lock:
+                    self.stats['uploaded'] += 1
                 print(f"  ✓ {file_path.name}")
                 return result
 
-            except Exception as e:
+            except NETWORK_EXCEPTIONS as e:
                 if attempt < MAX_RETRIES - 1:
                     print(f"  ⚠ {file_path.name}: Retry {attempt + 1}/{MAX_RETRIES} ({e})")
                     time.sleep(RETRY_DELAY * (attempt + 1))
                 else:
-                    self.stats['failed'] += 1
-                    self.stats['errors'].append(f"{file_path.name}: {str(e)}")
+                    with self.lock:
+                        self.uploaded_files.discard(file_hash)
+                        self.stats['failed'] += 1
+                        self.stats['errors'].append(f"{file_path.name}: {str(e)}")
                     print(f"  ✗ {file_path.name}: Failed after {MAX_RETRIES} attempts ({e})")
                     return None
 
@@ -255,20 +271,19 @@ Examples:
                         help='Watch folder for new photos')
     parser.add_argument('--project-id', help='Sanity project ID (or use SANITY_PROJECT_ID env)')
     parser.add_argument('--dataset', default='production', help='Sanity dataset (default: production)')
-    parser.add_argument('--token', help='Sanity API token (or use SANITY_API_TOKEN env)')
 
     args = parser.parse_args()
 
     # Get credentials from args or environment
     project_id = args.project_id or os.environ.get('SANITY_PROJECT_ID')
-    token = args.token or os.environ.get('SANITY_API_TOKEN')
+    token = os.environ.get('SANITY_API_TOKEN')
 
     if not project_id:
         print("Error: Sanity project ID required. Use --project-id or set SANITY_PROJECT_ID env")
         sys.exit(1)
 
     if not token:
-        print("Error: Sanity API token required. Use --token or set SANITY_API_TOKEN env")
+        print("Error: Sanity API token required. Set SANITY_API_TOKEN environment variable")
         sys.exit(1)
 
     # Validate folder
