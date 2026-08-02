@@ -1,0 +1,14 @@
+AGENTS.md
+  h_45c23cf41d175e 78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "0f59edff1470159f603d09e9f7072efdf4bd9e59",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
