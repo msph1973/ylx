@@ -63,7 +63,13 @@ export function useRealtime(
       }
     };
 
-    void setup();
+    void setup().catch((err) => {
+      // A rejected getAblyClient() (offline, failed dynamic import('ably'),
+      // or an albumId conflict thrown in ably.ts) must not become an
+      // unhandled promise rejection — log it and carry on without realtime;
+      // the gallery/admin UI still works, it just won't get live updates.
+      console.warn(`[Realtime] failed to set up realtime for album "${albumId}"; continuing without it:`, err);
+    });
 
     return () => {
       cancelled = true;

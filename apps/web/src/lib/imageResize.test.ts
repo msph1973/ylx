@@ -33,9 +33,14 @@ describe("resizeImageForUpload", () => {
     expect(createImageBitmapMock).not.toHaveBeenCalled();
   });
 
-  it("leaves an already-small image (<= max dimension both edges) untouched", async () => {
+  it("falls back to the original file (metadata not stripped) when no canvas API is available at all", async () => {
+    // Neither OffscreenCanvas nor a working `document`-canvas 2D context is
+    // stubbed here, and jsdom itself has no real canvas support without the
+    // optional `canvas` npm package — so encodeToBlob has nothing to draw
+    // with. This is the one remaining case where metadata can't be stripped.
     const closeMock = vi.fn();
     createImageBitmapMock.mockResolvedValue({ width: 800, height: 600, close: closeMock });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const file = makeFile("image/jpeg", 1000);
 
     const result = await resizeImageForUpload(file);
@@ -43,6 +48,49 @@ describe("resizeImageForUpload", () => {
     expect(result.file).toBe(file);
     expect(result.resized).toBe(false);
     expect(closeMock).toHaveBeenCalled();
+  });
+
+  it("re-encodes an already-small image too, so EXIF is stripped even when dimensions don't change", async () => {
+    const closeMock = vi.fn();
+    createImageBitmapMock.mockResolvedValue({ width: 800, height: 600, close: closeMock });
+
+    const drawImageSpy = vi.fn();
+    const strippedBlob = new Blob(["x".repeat(900)], { type: "image/jpeg" });
+    const convertToBlobMock = vi.fn().mockResolvedValue(strippedBlob);
+
+    class MockOffscreenCanvas {
+      width: number;
+      height: number;
+      constructor(width: number, height: number) {
+        this.width = width;
+        this.height = height;
+      }
+      getContext() {
+        return { drawImage: drawImageSpy };
+      }
+      convertToBlob(options: unknown) {
+        return convertToBlobMock(options);
+      }
+    }
+    vi.stubGlobal("OffscreenCanvas", MockOffscreenCanvas);
+
+    const file = makeFile("image/jpeg", 1000);
+
+    const result = await resizeImageForUpload(file);
+
+    // Still re-encoded (to strip metadata), even though the pixel dimensions
+    // passed to the canvas match the original exactly — no downscale needed.
+    expect(result.resized).toBe(true);
+    expect(result.file).not.toBe(file);
+    expect(result.file.name).toBe(file.name);
+    expect(closeMock).toHaveBeenCalled();
+    expect(drawImageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 800, height: 600 }),
+      0,
+      0,
+      800,
+      600,
+    );
   });
 
   it("downscales a large image and re-encodes it via OffscreenCanvas", async () => {
@@ -98,7 +146,7 @@ describe("resizeImageForUpload", () => {
     expect(convertToBlobMock).toHaveBeenCalledWith({ type: "image/jpeg", quality: UPLOAD_RESIZE_QUALITY });
   });
 
-  it("keeps the original file when the re-encoded blob isn't actually smaller", async () => {
+  it("still uses the re-encoded file even when it isn't smaller than the original, since stripping metadata takes priority over saving bytes", async () => {
     createImageBitmapMock.mockResolvedValue({ width: 6000, height: 4000, close: vi.fn() });
 
     const notSmallerBlob = new Blob(["x".repeat(200000)], { type: "image/jpeg" });
@@ -120,8 +168,9 @@ describe("resizeImageForUpload", () => {
 
     const result = await resizeImageForUpload(file);
 
-    expect(result.file).toBe(file);
-    expect(result.resized).toBe(false);
+    expect(result.file).not.toBe(file);
+    expect(result.file.size).toBe(notSmallerBlob.size);
+    expect(result.resized).toBe(true);
   });
 
   it("resolves gracefully (never throws) when createImageBitmap rejects", async () => {

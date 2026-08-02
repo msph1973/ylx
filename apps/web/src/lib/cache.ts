@@ -16,28 +16,6 @@ interface CacheEnvelope<T> {
   value: T;
 }
 
-// Simple in-memory health signal for the cache layer. This module has no metrics/
-// alerting integration (the app has none anywhere yet), so this is a minimal,
-// zero-dependency way for a future health-check endpoint or manual debugging to
-// detect "is the cache currently degraded" without changing getCached()'s return
-// shape (which 3 existing callers already depend on). `failureCount` is a lifetime
-// total; `degraded` only reflects failures within the last HEALTH_RECOVERY_WINDOW_MS
-// so a past transient outage doesn't report the cache as degraded forever.
-let cacheFailureCount = 0;
-let lastFailureTimestamp = 0;
-const HEALTH_RECOVERY_WINDOW_MS = 60_000;
-
-export function getCacheHealth(): { degraded: boolean; failureCount: number; lastFailureMs: number } {
-  // No failure has ever been recorded: Date.now() - 0 would be a huge, misleading
-  // "time since last failure" — report -1 to mean "never failed" instead.
-  if (lastFailureTimestamp === 0) {
-    return { degraded: false, failureCount: cacheFailureCount, lastFailureMs: -1 };
-  }
-  const timeSinceLastFailure = Date.now() - lastFailureTimestamp;
-  const degraded = timeSinceLastFailure < HEALTH_RECOVERY_WINDOW_MS;
-  return { degraded, failureCount: cacheFailureCount, lastFailureMs: timeSinceLastFailure };
-}
-
 async function storeInCache<T>(
   key: string,
   value: T,
@@ -53,10 +31,42 @@ async function storeInCache<T>(
   );
 }
 
-// Background refreshes in flight, keyed by cache key. Without this, every
-// concurrent request that observes the same stale entry would kick off its
-// own upstream fetch; this collapses them into one.
-const inFlightRefreshes = new Map<string, Promise<void>>();
+// Fetches in flight, keyed by cache key. Covers BOTH a background
+// stale-while-revalidate refresh AND a hard cache-miss (cold start, or right
+// after invalidateCache()) — without this, every concurrent request that
+// observes the same stale-or-missing entry would kick off its own upstream
+// fetch; this collapses them all into one shared promise that every caller
+// awaits/observes instead.
+//
+// Value type is `unknown` because this single module-level map is shared
+// across every `getCached<T>()` call regardless of T; callers cast back to
+// their own `Promise<T>`, which is safe since the cache `key` already keeps
+// distinct logical values from colliding with each other.
+const inFlightFetches = new Map<string, Promise<unknown>>();
+
+// Kicks off (or reuses) a single in-flight fetch for `key` so concurrent
+// callers racing the same stale-or-missing entry share one upstream call
+// instead of each starting their own. `onFetched` runs only for whichever
+// caller actually created the in-flight entry (never for one that merely
+// piggybacks on it), so a fresh value is only ever stored once per fetch.
+function dedupedFetch<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  onFetched: (fresh: T) => void
+): Promise<T> {
+  const existing = inFlightFetches.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const inFlight = fetcher()
+    .then((fresh) => {
+      onFetched(fresh);
+      return fresh;
+    })
+    .finally(() => inFlightFetches.delete(key));
+
+  inFlightFetches.set(key, inFlight);
+  return inFlight;
+}
 
 function refreshInBackground<T>(
   key: string,
@@ -65,25 +75,15 @@ function refreshInBackground<T>(
   url: string,
   token: string
 ): void {
-  if (inFlightRefreshes.has(key)) return;
+  if (inFlightFetches.has(key)) return;
 
-  // Only a storeInCache() failure means Upstash itself is degraded; a fetcher()
-  // rejection is the origin data source failing, which is unrelated to cache
-  // health and shouldn't flip getCacheHealth() to degraded.
-  const refresh = fetcher()
-    .then((fresh) =>
-      storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
-        cacheFailureCount++;
-        lastFailureTimestamp = Date.now();
-        console.warn(`[Cache] background refresh cache-store failed for "${key}":`, err);
-      })
-    )
-    .catch((err) => {
-      console.warn(`[Cache] background refresh fetch failed for "${key}":`, err);
-    })
-    .finally(() => inFlightRefreshes.delete(key));
-
-  inFlightRefreshes.set(key, refresh);
+  const refresh = dedupedFetch(key, fetcher, (fresh) => {
+    storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
+      console.warn(`[Cache] background refresh cache-store failed for "${key}":`, err);
+    });
+  }).catch((err) => {
+    console.warn(`[Cache] background refresh fetch failed for "${key}":`, err);
+  });
 
   // On Vercel Serverless the runtime can freeze right after the response is
   // sent, killing this refresh mid-flight. waitUntil() keeps the function
@@ -137,21 +137,21 @@ export async function getCached<T>(
       }
     }
   } catch (err) {
-    cacheFailureCount++;
-    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] Upstash GET unavailable for "${key}"; falling back to direct fetch:`, err);
     return await fetcher();
   }
 
-  // Hard miss: fetch, store, return. If fetcher throws here there is no cached
-  // value to fall back to, so we let it propagate — the caller gets the error.
-  const fresh = await fetcher();
-  void storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
-    cacheFailureCount++;
-    lastFailureTimestamp = Date.now();
-    console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
+  // Hard miss: fetch, store, return. Deduped via the same in-flight map as
+  // background refreshes, so N concurrent requests racing a cold key (e.g.
+  // right after invalidateCache()) share one upstream fetch instead of each
+  // calling the fetcher themselves. If the fetcher throws here there is no
+  // cached value to fall back to, so it still propagates — every caller
+  // sharing this in-flight fetch gets the same error.
+  return dedupedFetch(key, fetcher, (fresh) => {
+    void storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
+      console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
+    });
   });
-  return fresh;
 }
 
 export async function invalidateCache(keys: string | string[]): Promise<void> {
@@ -168,8 +168,6 @@ export async function invalidateCache(keys: string | string[]): Promise<void> {
     // per key, which matters for bulk operations (e.g. deleting N albums).
     await upstashPipeline([["DEL", ...keyList]], url, token);
   } catch (err) {
-    cacheFailureCount++;
-    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] invalidation failed for [${keyList.join(", ")}]:`, err);
   }
 }
@@ -200,8 +198,6 @@ export async function cacheSetRaw<T>(key: string, value: T, ttlSeconds: number):
       token
     );
   } catch (err) {
-    cacheFailureCount++;
-    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] raw SET failed for "${key}":`, err);
   }
 }
@@ -227,8 +223,6 @@ export async function cacheGetRaw<T>(keys: string[]): Promise<Array<T | null>> {
       }
     });
   } catch (err) {
-    cacheFailureCount++;
-    lastFailureTimestamp = Date.now();
     console.warn(`[Cache] raw MGET failed for [${keys.join(", ")}]:`, err);
     return keys.map(() => null);
   }

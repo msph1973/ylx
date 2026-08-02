@@ -142,4 +142,27 @@ describe("getSession — session revocation (M-1)", () => {
     const session = await requireAdmin(makeCookies(cookieValue));
     expect(session).toBeNull();
   });
+
+  it("fails closed (returns null, never throws) when the session-version lookup itself rejects", async () => {
+    // Regression test: getCached() can propagate a thrown fetcher error on a
+    // cache hard-miss. getSession/requireAdmin are documented as "return null
+    // on any problem" — a transient Sanity blip here must surface as a
+    // redirect-to-login, not a 500, for callers like pages/admin/*.astro that
+    // `await` this in frontmatter with no try/catch of their own.
+    const { signSession, getSession, requireAdmin } = await import("./auth");
+    getAdminSessionVersionMock.mockRejectedValue(new Error("Sanity request timed out"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const cookieValue = signSession({
+      id: "admin-fetch-error-7",
+      email: "a@x.test",
+      name: "A",
+      role: "admin",
+      expiresAt: Date.now() + 60_000,
+      sessionVersion: 2,
+    });
+
+    await expect(getSession(makeCookies(cookieValue))).resolves.toBeNull();
+    await expect(requireAdmin(makeCookies(cookieValue))).resolves.toBeNull();
+  });
 });
