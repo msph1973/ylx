@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -113,6 +113,31 @@ export function PhotoLightbox({
     };
   }, []);
 
+  // The lightbox is position:fixed with the body scroll locked, so when the
+  // virtual keyboard opens on a phone nothing can scroll the note input back
+  // into view — the footer just disappears behind the keyboard. Track how
+  // much of the layout viewport the keyboard covers and lift the content by
+  // that amount so the input stays visible while typing.
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  // Pinch-zoom also shrinks the visual viewport — only treat the shrink as a
+  // keyboard while the note input is actually focused.
+  const [isNoteFocused, setIsNoteFocused] = useState(false);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => {
+      setKeyboardInset(Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop));
+    };
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+    update();
+    return () => {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+    };
+  }, []);
+  const appliedInset = isNoteFocused ? keyboardInset : 0;
+
   if (!photo) return null;
 
   return (
@@ -124,6 +149,7 @@ export function PhotoLightbox({
     // risk while the lightbox is already closing.
     <motion.div
       className="lightbox-backdrop"
+      style={appliedInset > 0 ? { paddingBottom: appliedInset + 8 } : undefined}
       exit={{ opacity: 0 }}
       transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
       onClick={onClose}
@@ -134,6 +160,7 @@ export function PhotoLightbox({
       <motion.div
         ref={focusTrapRef}
         className="lightbox-content"
+        style={appliedInset > 0 ? { maxHeight: window.innerHeight - appliedInset - 16 } : undefined}
         initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
@@ -177,6 +204,8 @@ export function PhotoLightbox({
               placeholder="Add a note…"
               value={note ?? ''}
               onChange={(e) => onNoteChange(e.target.value)}
+              onFocus={() => setIsNoteFocused(true)}
+              onBlur={() => setIsNoteFocused(false)}
               aria-label={`Note for photo ${currentIndex + 1}`}
               maxLength={MAX_TEXT_LENGTH}
             />

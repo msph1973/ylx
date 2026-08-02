@@ -96,6 +96,29 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
           padding: var(--space-2) var(--space-4);
         }
 
+        /* Four columns don't fit a phone — the notes column ends up ~80px
+           and clips even short notes. Give notes its own full-width line. */
+        @media (max-width: 480px) {
+          .table-row {
+            grid-template-areas:
+              "thumb filename date"
+              "notes notes notes";
+            grid-template-columns: 44px minmax(0, 1fr) auto;
+            row-gap: var(--space-1);
+          }
+
+          .table-row .col-thumb { grid-area: thumb; }
+          .table-row .col-filename { grid-area: filename; }
+          .table-row .col-date { grid-area: date; }
+          .table-row .col-notes { grid-area: notes; }
+
+          .table-header {
+            grid-template-columns: 44px minmax(0, 1fr) auto;
+          }
+
+          .table-header .col-notes { display: none; }
+        }
+
         .table-header {
           background-color: var(--color-surface);
           border-bottom: 1px solid var(--color-border);
@@ -159,6 +182,35 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
         .note-line {
           margin-bottom: var(--space-1);
           line-height: 1.4;
+        }
+
+        .note-text {
+          display: block;
+          overflow-wrap: anywhere;
+        }
+
+        .note-text.is-clamped {
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+          overflow: hidden;
+        }
+
+        .note-expand-btn {
+          display: inline-block;
+          margin-top: 2px;
+          padding: 0;
+          background: none;
+          border: none;
+          color: var(--color-text-muted);
+          font-size: var(--text-xs);
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          cursor: pointer;
+        }
+
+        .note-expand-btn:hover {
+          color: var(--color-accent);
         }
 
         .note-label {

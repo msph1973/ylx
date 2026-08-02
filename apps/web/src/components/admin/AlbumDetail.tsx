@@ -56,6 +56,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isDeletingSelectedPhotos, setIsDeletingSelectedPhotos] = useState(false);
   const [bulkPhotoDeleteError, setBulkPhotoDeleteError] = useState<string | null>(null);
   const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
+  const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [reorderError, setReorderError] = useState<string | null>(null);
 
@@ -233,7 +234,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
         throw new Error(data.error ?? 'Failed to save photo order');
       }
 
-      await fetchAlbum();
+      // No refetch here: the optimistic update above already shows the new
+      // order, and fetchAlbum() flips isLoading which replaces the whole
+      // album view with a full-page spinner on every single move.
       onUpdated?.();
     } catch (err) {
       setAlbum((prev) => (prev ? { ...prev, photos: previousPhotos } : prev));
@@ -242,7 +245,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
       setDraggedPhotoId(null);
       setIsSavingOrder(false);
     }
-  }, [album, albumId, fetchAlbum, onUpdated, photos]);
+  }, [album, albumId, onUpdated, photos]);
 
   const movePhotoByOffset = useCallback((photoId: string, offset: -1 | 1) => {
     const currentIndex = photos.findIndex((photo) => photo.id === photoId);
@@ -270,6 +273,44 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
     void applyPhotoOrder(moveItem(photos, fromIndex, toIndex));
   }, [applyPhotoOrder, draggedPhotoId, photos]);
+
+  // Touch-friendly drag via the per-tile handle: HTML5 drag events never fire
+  // on touchscreens, so the handle uses Pointer Events + elementFromPoint to
+  // hit-test which tile is under the finger. Works for mouse too.
+  const handleDragHandleDown = useCallback((photoId: string) => (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!photoReorderMode || photos.length < 2 || isSavingOrder) return;
+    // Prevents native HTML5 drag/scroll from hijacking the gesture.
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraggedPhotoId(photoId);
+  }, [photoReorderMode, photos.length, isSavingOrder]);
+
+  const handleDragHandleMove = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!draggedPhotoId) return;
+    const tile = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-photo-id]');
+    const overId = tile?.dataset.photoId ?? null;
+    setDragOverPhotoId(overId !== draggedPhotoId ? overId : null);
+  }, [draggedPhotoId]);
+
+  const handleDragHandleUp = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    if (draggedPhotoId) {
+      // Hit-test the release coordinates directly — dragOverPhotoId can lag a
+      // render behind the finger on a fast drop.
+      const tile = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-photo-id]');
+      const targetId = tile?.dataset.photoId;
+      if (targetId && targetId !== draggedPhotoId) {
+        handlePhotoDrop(targetId);
+      } else {
+        setDraggedPhotoId(null);
+      }
+    }
+    setDragOverPhotoId(null);
+  }, [draggedPhotoId, handlePhotoDrop]);
+
+  const handleDragHandleCancel = useCallback(() => {
+    setDraggedPhotoId(null);
+    setDragOverPhotoId(null);
+  }, []);
 
   const handleDeleteSelectedPhotos = useCallback(async () => {
     if (!album || selectedPhotoCount === 0) {
@@ -379,7 +420,12 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
               </svg>
-              {copiedLink ? 'Copied!' : 'Copy Gallery Link'}
+              {copiedLink ? 'Copied!' : (
+                <>
+                  <span className="share-btn-label--long">Copy Gallery Link</span>
+                  <span className="share-btn-label--short">Copy Link</span>
+                </>
+              )}
             </button>
             <button className="share-btn" onClick={() => { void handleCopyPin(); }} disabled={!album.pin} aria-label="Copy PIN to clipboard">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -486,7 +532,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
         {photoReorderMode && (
           <p className="reorder-touch-hint">
-            Drag isn’t supported on touchscreens — use the ↑/↓ buttons on each photo to reorder.
+            Drag a photo by its ⠿ handle, or use the ↑/↓ buttons to reorder.
           </p>
         )}
 
@@ -519,7 +565,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             {photos.map((photo, index) => (
               <div
                 key={photo.id}
-                className={`photo-tile${selectedPhotoIds.has(photo.id) ? ' is-selected' : ''}`}
+                data-photo-id={photo.id}
+                className={`photo-tile${selectedPhotoIds.has(photo.id) ? ' is-selected' : ''}${draggedPhotoId === photo.id ? ' is-dragging' : ''}${dragOverPhotoId === photo.id ? ' is-drag-over' : ''}`}
                 draggable={photoReorderMode && photos.length > 1 && !isSavingOrder}
                 onDragStart={(event) => {
                   if (!photoReorderMode || photos.length < 2 || isSavingOrder) {
@@ -533,13 +580,15 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                   if (photoReorderMode && draggedPhotoId) {
                     event.preventDefault();
                     event.dataTransfer.dropEffect = 'move';
+                    setDragOverPhotoId(photo.id !== draggedPhotoId ? photo.id : null);
                   }
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
+                  setDragOverPhotoId(null);
                   handlePhotoDrop(photo.id);
                 }}
-                onDragEnd={() => setDraggedPhotoId(null)}
+                onDragEnd={() => { setDraggedPhotoId(null); setDragOverPhotoId(null); }}
               >
                 {photoSelectionMode && (
                   <button
@@ -577,6 +626,18 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 )}
                 {photoReorderMode && (
                   <div className="photo-actions" aria-label={`Reorder controls for ${photo.filename}`}>
+                    <button
+                      type="button"
+                      className="photo-move-btn photo-drag-handle"
+                      onPointerDown={handleDragHandleDown(photo.id)}
+                      onPointerMove={handleDragHandleMove}
+                      onPointerUp={handleDragHandleUp}
+                      onPointerCancel={handleDragHandleCancel}
+                      disabled={isSavingOrder}
+                      aria-label={`Drag ${photo.filename} to reorder`}
+                    >
+                      ⠿
+                    </button>
                     <button
                       type="button"
                       className="photo-move-btn"
@@ -813,6 +874,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .share-btn:hover:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
           .share-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+          .share-btn-label--long { display: inline; }
+          .share-btn-label--short { display: none; }
+
           .lock-btn { color: var(--color-text); }
           .lock-btn:hover:not(:disabled) { border-color: var(--color-error); color: var(--color-error); }
           .unlock-btn { color: var(--color-text); }
@@ -1044,6 +1108,22 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             cursor: pointer;
           }
 
+          /* touch-action: none keeps the browser from turning the drag
+             gesture into a page scroll — the whole point of the handle. */
+          .photo-drag-handle {
+            touch-action: none;
+            cursor: grab;
+          }
+
+          .photo-tile.is-dragging {
+            opacity: 0.5;
+          }
+
+          .photo-tile.is-drag-over {
+            border-color: var(--color-accent);
+            background-color: var(--color-surface-elevated);
+          }
+
           .photo-move-btn:hover:not(:disabled) {
             border-color: var(--color-accent);
             color: var(--color-accent);
@@ -1124,10 +1204,24 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
               gap: var(--space-2);
             }
 
+            /* Three reorder controls per tile (⠿ ↑ ↓) — keep them on one row. */
+            .photo-actions {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
             .share-actions {
               display: grid;
-              grid-template-columns: 1fr;
+              grid-template-columns: 1fr 1fr;
+              gap: var(--space-2);
             }
+
+            .share-actions .lock-btn,
+            .share-actions .unlock-btn {
+              grid-column: 1 / -1;
+            }
+
+            .share-btn-label--long { display: none; }
+            .share-btn-label--short { display: inline; }
 
             .share-btn,
             .lock-btn,

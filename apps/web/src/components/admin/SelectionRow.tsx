@@ -1,8 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 import { MAX_TEXT_LENGTH } from '@ylx/sanity/lib/constants';
+
+// Notes can be up to MAX_TEXT_LENGTH (500) chars — unclamped they blow the
+// row height apart. Clamp to 2 lines and only offer the expand toggle when
+// the text actually overflows the clamp.
+function NoteText({ label, text, className }: { label: string; text: string; className?: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    const measure = () => {
+      if (!isExpanded) {
+        setIsClamped(el.scrollHeight > el.clientHeight + 1);
+      } else {
+        // Expanded: compare against the collapsed 2-line budget so shrinking
+        // the column (or rotating the phone) keeps the toggle available.
+        const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+        setIsClamped(el.scrollHeight > lineHeight * 2 + 1);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, isExpanded]);
+
+  return (
+    <div className={`note-line${className ? ` ${className}` : ''}`}>
+      <span ref={textRef} className={`note-text${isExpanded ? '' : ' is-clamped'}`}>
+        <span className="note-label">{label}:</span> {text}
+      </span>
+      {(isClamped || isExpanded) && (
+        <button
+          type="button"
+          className="note-expand-btn"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface SelectionRowProps {
   selection: Selection;
@@ -65,14 +111,10 @@ export function SelectionRow({ selection, variants, onSaveReply }: SelectionRowP
       <span className="col-filename filename" role="cell">{selection.photo.filename}</span>
       <span className="col-notes notes-cell" role="cell">
         {selection.notes && (
-          <div className="note-line">
-            <span className="note-label">Client:</span> {selection.notes}
-          </div>
+          <NoteText label="Client" text={selection.notes} />
         )}
         {selection.photographerReply && (
-          <div className="note-line reply-line">
-            <span className="note-label">You:</span> {selection.photographerReply}
-          </div>
+          <NoteText label="You" text={selection.photographerReply} className="reply-line" />
         )}
         {!selection.photographerReply && !isReplying && (
           <button className="reply-btn" onClick={handleStartReply}>
