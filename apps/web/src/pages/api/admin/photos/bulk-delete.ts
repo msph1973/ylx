@@ -4,11 +4,6 @@ import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 
-interface BulkDeleteBody {
-  albumId?: string;
-  photoIds?: string[];
-}
-
 interface PhotoRecord {
   _id: string;
   album?: { _ref: string };
@@ -18,6 +13,22 @@ interface AlbumSlugRaw {
   _id: string;
   slug?: { current: string };
   customSlug?: string;
+}
+
+/** Parses a request body as JSON and ensures it's a plain object (not an
+ *  array, null, or a primitive) — callers get a clean 400 instead of the
+ *  raw 500 a malformed/non-JSON body would otherwise cause. */
+async function parseJsonBody(request: Request): Promise<Record<string, unknown> | null> {
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed as Record<string, unknown>;
 }
 
 export const POST: APIRoute = async ({ cookies, request }) => {
@@ -30,9 +41,22 @@ export const POST: APIRoute = async ({ cookies, request }) => {
   }
 
   try {
-    const body = await request.json() as BulkDeleteBody;
-    const albumId = body.albumId?.trim();
-    const uniquePhotoIds = [...new Set((body.photoIds ?? []).filter(Boolean))];
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return new Response(
+        JSON.stringify({ error: "Request body must be a valid JSON object" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const albumId = typeof body.albumId === "string" ? body.albumId.trim() : undefined;
+    const uniquePhotoIds = [
+      ...new Set(
+        Array.isArray(body.photoIds)
+          ? body.photoIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+          : []
+      ),
+    ];
 
     if (!albumId || uniquePhotoIds.length === 0) {
       return new Response(JSON.stringify({ error: "Album ID and photo IDs are required" }), {

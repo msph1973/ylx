@@ -84,26 +84,64 @@ interface CreateAlbumBody {
   customSlug?: string;
 }
 
-/** Returns an error message for the first invalid field, or `null` if the
- *  body is valid — keeps this out of the POST handler's own branch count. */
-function validateCreateAlbumBody(body: CreateAlbumBody): string | null {
-  const { title, clientName, eventDate, pin, maxSelections } = body;
+const MAX_TEXT_FIELD_LENGTH = 200;
+const MAX_SELECTIONS_UPPER_BOUND = 500;
+
+/** Parses a request body as JSON and ensures it's a plain object (not an
+ *  array, null, or a primitive) — callers get a clean 400 instead of the
+ *  raw 500 a malformed/non-JSON body would otherwise cause. */
+async function parseJsonBody(request: Request): Promise<Record<string, unknown> | null> {
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed as Record<string, unknown>;
+}
+
+/** Validates a raw parsed body and narrows it into a `CreateAlbumBody` on
+ *  success, or returns an error message for the first invalid field. */
+function validateCreateAlbumBody(body: Record<string, unknown>): { error: string } | { value: CreateAlbumBody } {
+  const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
 
   if (!title || !clientName || !eventDate || !pin || !maxSelections) {
-    return "All fields are required: title, clientName, eventDate, pin, maxSelections";
+    return { error: "All fields are required: title, clientName, eventDate, pin, maxSelections" };
   }
-  if (!/^\d{4}$/.test(pin)) {
-    return "PIN must be exactly 4 digits";
+  if (typeof title !== "string" || title.length > MAX_TEXT_FIELD_LENGTH) {
+    return { error: `title must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
   }
-  if (typeof maxSelections !== "number" || maxSelections < 1) {
-    return "maxSelections must be a positive number";
+  if (typeof clientName !== "string" || clientName.length > MAX_TEXT_FIELD_LENGTH) {
+    return { error: `clientName must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
+  }
+  if (typeof eventDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+    return { error: "eventDate must be a valid date in YYYY-MM-DD format" };
+  }
+  if (typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
+    return { error: "PIN must be exactly 4 digits" };
+  }
+  if (
+    typeof maxSelections !== "number" ||
+    !Number.isInteger(maxSelections) ||
+    maxSelections < 1 ||
+    maxSelections > MAX_SELECTIONS_UPPER_BOUND
+  ) {
+    return { error: `maxSelections must be an integer between 1 and ${MAX_SELECTIONS_UPPER_BOUND}` };
+  }
+  if (customSlug !== undefined) {
+    if (typeof customSlug !== "string") {
+      return { error: "customSlug must be a string" };
+    }
   }
   // Compare in local timezone.
   const today = new Date().toLocaleDateString("en-CA");
   if (eventDate < today) {
-    return "Event date cannot be in the past";
+    return { error: "Event date cannot be in the past" };
   }
-  return null;
+  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug } };
 }
 
 export const POST: APIRoute = async ({ cookies, request }) => {
@@ -116,16 +154,22 @@ export const POST: APIRoute = async ({ cookies, request }) => {
   }
 
   try {
-    const body = await request.json() as CreateAlbumBody;
-    const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
-
-    const validationError = validateCreateAlbumBody(body);
-    if (validationError) {
+    const parsedBody = await parseJsonBody(request);
+    if (!parsedBody) {
       return new Response(
-        JSON.stringify({ error: validationError }),
+        JSON.stringify({ error: "Request body must be a valid JSON object" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    const validation = validateCreateAlbumBody(parsedBody);
+    if ("error" in validation) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const { title, clientName, eventDate, pin, maxSelections, customSlug } = validation.value;
 
     // Pre-generated so the slug/customSlug reservation locks (created before
     // the album document itself) can record which album owns each one.
@@ -142,12 +186,13 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       }
     }
 
-    const slug = await generateUniqueSlug(title, albumId);
-
-    let createdSlugLock = slug;
+    let createdSlugLock: string | undefined;
     let createdCustomSlugLock: string | undefined = resolvedCustomSlug;
 
     try {
+      const slug = await generateUniqueSlug(title, albumId);
+      createdSlugLock = slug;
+
       const doc = await sanityWriteClient.create({
         _id: albumId,
         _type: "album",

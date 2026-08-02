@@ -13,8 +13,24 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
+  let rawBody: unknown;
   try {
-    const { email, password, name, role } = await request.json();
+    rawBody = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Request body must be valid JSON" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (typeof rawBody !== "object" || rawBody === null || Array.isArray(rawBody)) {
+    return new Response(
+      JSON.stringify({ error: "Request body must be a valid JSON object" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
+    const { email, password, name, role } = rawBody as Record<string, unknown>;
 
     if (!email || !password || !name) {
       return new Response(
@@ -30,7 +46,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    const admin = await createAdmin({ email, password, name, role });
+    // Role/email are intentionally passed through as-is (no allowlist or
+    // normalization here) — that protection lives in `createAdmin()` itself
+    // (packages/sanity/lib/admin.ts), not duplicated at this route layer.
+    const admin = await createAdmin({
+      email: email as string,
+      password,
+      name: name as string,
+      role: role as string | undefined,
+    });
 
     if (!admin) {
       return new Response(

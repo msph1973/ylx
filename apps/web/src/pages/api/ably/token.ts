@@ -40,6 +40,17 @@ export const GET: APIRoute = async ({ cookies, url }) => {
     capability["admin:updates"] = ["subscribe"];
   }
 
+  // Ably itself rejects a token-request exchange with an empty capability,
+  // which would otherwise surface to the caller as an opaque failure at
+  // exchange time (and invite an endless retry loop). Fail fast here with a
+  // clear 403 instead of returning a 200 with a useless token.
+  if (Object.keys(capability).length === 0) {
+    return new Response(JSON.stringify({ error: "No active album or admin session" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const rest = new Ably.Rest({ key });
   const tokenRequest = await rest.auth.createTokenRequest({
     ttl: 60 * 60 * 1000, // 1 hour

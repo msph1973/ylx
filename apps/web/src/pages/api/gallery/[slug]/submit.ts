@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
-import { hasAlbumAccess } from "../../../../lib/gallerySession";
+import { hasAlbumAccess, hasActiveSession } from "../../../../lib/gallerySession";
 import {
   albumBySlugQuery,
   selectionsByAlbumQuery,
@@ -21,6 +21,16 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
       status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Same pre-lookup gate as session.ts/draft.ts: no valid signed gallery
+  // cookie, no Sanity read — unauthenticated callers can't force lookups by
+  // enumerating slugs.
+  if (!hasActiveSession(cookies)) {
+    return new Response(JSON.stringify({ error: "No active gallery session" }), {
+      status: 401,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -83,9 +93,14 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
 
   const album = await sanityClient.fetch<SubmitAlbum | null>(albumBySlugQuery, { slug });
 
-  if (!album) {
-    return new Response(JSON.stringify({ error: "Album not found" }), {
-      status: 404,
+  // L-1: Verify the submitter proved PIN knowledge for this album BEFORE
+  // revealing anything about the album's existence or status. Same uniform
+  // 401 as session.ts/draft.ts so an unauthenticated caller can't tell
+  // "album doesn't exist" from "album locked" from "album active" purely
+  // from response codes.
+  if (!album || !hasAlbumAccess(cookies, album._id)) {
+    return new Response(JSON.stringify({ error: "No active gallery session" }), {
+      status: 401,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -95,16 +110,6 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   if (album.status !== "active") {
     return new Response(JSON.stringify({ error: "Album is locked" }), {
       status: 409,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // L-1: Verify the submitter proved PIN knowledge for this album. Without
-  // this, anyone who discovers a slug and valid photo IDs could submit
-  // selections without ever verifying the PIN.
-  if (!hasAlbumAccess(cookies, album._id)) {
-    return new Response(JSON.stringify({ error: "PIN verification required" }), {
-      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }

@@ -9,6 +9,22 @@ interface BulkDeleteBody {
   ids?: unknown;
 }
 
+/** Parses a request body as JSON and ensures it's a plain object (not an
+ *  array, null, or a primitive) — callers get a clean 400 instead of the
+ *  raw 500 a malformed/non-JSON body would otherwise cause. */
+async function parseJsonBody(request: Request): Promise<BulkDeleteBody | null> {
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed as BulkDeleteBody;
+}
+
 interface AlbumSlugRaw {
   _id: string;
   slug?: { current: string };
@@ -25,7 +41,14 @@ export const POST: APIRoute = async ({ cookies, request }) => {
   }
 
   try {
-    const body = (await request.json()) as BulkDeleteBody;
+    const body = await parseJsonBody(request);
+    if (!body) {
+      return new Response(
+        JSON.stringify({ error: "Request body must be a valid JSON object" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const rawIds = Array.isArray(body.ids) ? body.ids : [];
     const ids = [...new Set(rawIds.filter((id): id is string => typeof id === "string" && id.length > 0))];
 

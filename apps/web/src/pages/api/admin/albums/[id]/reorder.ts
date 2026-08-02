@@ -8,6 +8,22 @@ interface ReorderBody {
   photoIds?: string[];
 }
 
+/** Parses a request body as JSON and ensures it's a plain object (not an
+ *  array, null, or a primitive) — callers get a clean 400 instead of the
+ *  raw 500 a malformed/non-JSON body would otherwise cause. */
+async function parseJsonBody(request: Request): Promise<Record<string, unknown> | null> {
+  let parsed: unknown;
+  try {
+    parsed = await request.json();
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed as Record<string, unknown>;
+}
+
 interface AlbumPhotoReference {
   _key?: string;
   _ref: string;
@@ -38,8 +54,15 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
       });
     }
 
-    const body = await request.json() as ReorderBody;
-    const photoIds = body.photoIds ?? [];
+    const parsedBody = await parseJsonBody(request);
+    if (!parsedBody) {
+      return new Response(JSON.stringify({ error: "Request body must be a valid JSON object" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const photoIds = Array.isArray(parsedBody.photoIds) ? parsedBody.photoIds : [];
     if (photoIds.length === 0) {
       return new Response(JSON.stringify({ error: "Photo IDs are required" }), {
         status: 400,

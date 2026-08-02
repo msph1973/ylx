@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
@@ -32,6 +33,23 @@ function isConflict(err: unknown): boolean {
     (err as { statusCode?: number })?.statusCode ??
     (err as { response?: { statusCode?: number } })?.response?.statusCode;
   return status === 409;
+}
+
+const MAX_FILENAME_LENGTH = 255;
+
+// `filename` ends up displayed in the admin grid and in the Lightroom
+// filename export, so it must not carry path separators (which could read as
+// a directory traversal in either surface) or raw control/terminal escape
+// characters.
+function hasUnsafeFilenameChars(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    const code = value.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f || char === "/" || char === "\\") {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function commitWithConflictRetry<T>(
@@ -90,6 +108,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!assetId.startsWith("image-")) {
     return new Response(
       JSON.stringify({ error: "Invalid asset id" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (filename.length > MAX_FILENAME_LENGTH || hasUnsafeFilenameChars(filename)) {
+    return new Response(
+      JSON.stringify({ error: "Filename is too long or contains invalid characters" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -163,47 +188,64 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // Create the photo document referencing the already-uploaded asset.
-    const photoDoc = await sanityWriteClient.create({
-      _type: "photo",
-      filename,
-      image: {
-        _type: "image",
-        asset: {
-          _type: "reference",
-          _ref: assetId,
-        },
-      },
-      album: {
-        _type: "reference",
-        _ref: albumId,
-      },
-    });
+    // Pre-generated so the photo document's creation and its append into the
+    // album's `photos` array can be committed together in one transaction
+    // below — if a conflict forces a retry, nothing partially committed, so
+    // the same id is safely reused instead of risking an orphaned photo
+    // document (never referenced by any album) that a client retry would
+    // then duplicate.
+    const photoId = randomUUID();
 
-    // Attach the photo to the album's ordered `photos` array — the single source
-    // of truth the gallery, submit validation, and admin grid all read from.
-    // Wrapped in a conflict retry so parallel uploads appending to the same album
-    // don't lose a photo to a 409 mutation conflict.
+    // Create the photo document and attach it to the album's ordered `photos`
+    // array — the single source of truth the gallery, submit validation, and
+    // admin grid all read from — as one atomic transaction. Wrapped in a
+    // conflict retry so parallel uploads appending to the same album don't
+    // lose a photo to a 409 mutation conflict; since the whole transaction is
+    // atomic, a conflict means nothing committed, so retrying is safe.
     await commitWithConflictRetry(() =>
       sanityWriteClient
-        .patch(albumId)
-        .setIfMissing({ photos: [] })
-        .append("photos", [
-          { _type: "reference", _ref: photoDoc._id, _key: photoDoc._id },
-        ])
+        .transaction()
+        .create({
+          _id: photoId,
+          _type: "photo",
+          filename,
+          image: {
+            _type: "image",
+            asset: {
+              _type: "reference",
+              _ref: assetId,
+            },
+          },
+          album: {
+            _type: "reference",
+            _ref: albumId,
+          },
+        })
+        .patch(
+          sanityWriteClient
+            .patch(albumId)
+            .setIfMissing({ photos: [] })
+            .append("photos", [
+              { _type: "reference", _ref: photoId, _key: photoId },
+            ])
+        )
         .commit()
     );
 
-    await publishAdminEvent("photo:uploaded", { photoId: photoDoc._id, filename });
+    // Invalidate before publishing so the realtime event is a reliable
+    // "refetch now" signal against already-fresh cache — otherwise a
+    // dashboard that refetches in response to the event can still read
+    // stale cached data (matches lock.ts/submit.ts/photos/[id].ts ordering).
     const albumData = album as { slug?: { current: string }; customSlug?: string };
     await invalidateCache([
       CACHE_KEYS.albumsList(),
       ...(albumData.slug?.current ? [CACHE_KEYS.albumBySlug(albumData.slug.current)] : []),
       ...(albumData.customSlug ? [CACHE_KEYS.albumBySlug(albumData.customSlug)] : []),
     ]);
+    await publishAdminEvent("photo:uploaded", { photoId, filename });
 
     return new Response(
-      JSON.stringify({ success: true, photoId: photoDoc._id }),
+      JSON.stringify({ success: true, photoId }),
       { status: 201, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {
