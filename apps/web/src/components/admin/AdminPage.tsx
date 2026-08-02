@@ -11,7 +11,6 @@ interface AdminPageProps {
 export default function AdminPage({ adminName }: AdminPageProps) {
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleSelectAlbum = (album: AlbumCardData) => {
     setSelectedAlbumId(album.id);
@@ -26,17 +25,15 @@ export default function AdminPage({ adminName }: AdminPageProps) {
     window.location.href = '/admin/login';
   };
 
-  const handleAlbumCreated = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
+  // AlbumList already refetches itself in the background on Ably realtime
+  // "admin:updates" events (see useAdminRealtime in AlbumList.tsx), which the
+  // create/update/delete API routes publish on every mutation — so no manual
+  // refresh trigger is needed here. Forcing a remount via a key bump used to
+  // discard the admin's in-progress search/filter/page state on every create.
+  const handleAlbumCreated = useCallback(() => {}, []);
 
   const handleAlbumDeleted = useCallback(() => {
     setSelectedAlbumId(null);
-    setRefreshKey((k) => k + 1);
-  }, []);
-
-  const handleAlbumUpdated = useCallback(() => {
-    setRefreshKey((k) => k + 1);
   }, []);
 
   return (
@@ -69,10 +66,9 @@ export default function AdminPage({ adminName }: AdminPageProps) {
           albumId={selectedAlbumId}
           onBack={handleBack}
           onDeleted={handleAlbumDeleted}
-          onUpdated={handleAlbumUpdated}
         />
       ) : (
-        <AlbumList key={refreshKey} onSelectAlbum={handleSelectAlbum} />
+        <AlbumList onSelectAlbum={handleSelectAlbum} />
       )}
 
       <AlbumFormModal

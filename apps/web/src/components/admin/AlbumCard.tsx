@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { formatDate } from '@ylx/shared';
 import { getAlbumStatusMeta } from '@/lib/albumStatus';
 
 export interface AlbumCardData {
@@ -66,15 +67,10 @@ export const AlbumCard = React.memo(function AlbumCard({
   onToggleSelect,
 }: AlbumCardProps) {
   const shouldReduceMotion = useReducedMotion();
-  const formattedDate = new Date(album.eventDate).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const formattedDate = formatDate(album.eventDate);
 
   const status = getAlbumStatusMeta(album.status);
-  const [nowTick, setNowTick] = React.useState(0);
-  const now = Date.now() + nowTick - nowTick; // stable value, forces recalc on tick
+  const [, setNowTick] = React.useState(0);
   const progress = getSelectionProgress(album, Date.now());
 
   // Auto-clear the "selecting now" badge when the draft freshness expires

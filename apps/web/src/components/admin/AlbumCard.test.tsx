@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AlbumCard, getSelectionProgress, type AlbumCardData } from './AlbumCard';
 
 function makeAlbum(overrides: Partial<AlbumCardData> = {}): AlbumCardData {
@@ -90,5 +90,28 @@ describe('AlbumCard progress rendering', () => {
   it('renders no progress section when there is nothing to show', () => {
     render(<AlbumCard album={makeAlbum()} onClick={vi.fn()} />);
     expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+  });
+});
+
+describe('AlbumCard event date formatting (timezone-safe)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('renders the date-only eventDate correctly for a user west of UTC (no off-by-one day)', () => {
+    // A date-only "YYYY-MM-DD" string parsed via `new Date(string)` is UTC
+    // midnight; formatting that in a negative-UTC-offset timezone used to
+    // render the PREVIOUS day. Stubbing TZ reproduces that environment.
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+
+    render(
+      <AlbumCard
+        album={makeAlbum({ eventDate: '2026-05-01' })}
+        onClick={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('May 1, 2026')).toBeInTheDocument();
+    expect(screen.queryByText('April 30, 2026')).not.toBeInTheDocument();
   });
 });

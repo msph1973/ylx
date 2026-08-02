@@ -267,12 +267,12 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           </button>
         </div>
 
-        <div className="status-filter" role="tablist" aria-label="Filter albums by status">
+        <div className="status-filter" role="group" aria-label="Filter albums by status">
           {filterOptions.map((opt) => (
             <button
               key={opt.key}
-              role="tab"
-              aria-selected={statusFilter === opt.key}
+              type="button"
+              aria-pressed={statusFilter === opt.key}
               className={`filter-chip${statusFilter === opt.key ? ' active' : ''}`}
               onClick={() => setStatusFilter(opt.key)}
             >

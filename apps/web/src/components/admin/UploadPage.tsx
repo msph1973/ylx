@@ -26,10 +26,6 @@ interface UploadFile {
   albumId?: string;
 }
 
-interface UploadPageProps {
-  adminName?: string;
-}
-
 // Credentials the browser uses to upload the binary straight to Sanity, bypassing
 // Vercel's ~4.5MB serverless body limit. Fetched at runtime from an admin-only
 // endpoint — never bundled into client JS.
@@ -157,7 +153,7 @@ async function runWithConcurrency<T>(
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
 }
 
-export default function UploadPage({ adminName }: UploadPageProps) {
+export default function UploadPage() {
   const shouldReduceMotion = useReducedMotion();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>('');
@@ -171,6 +167,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   }, [files]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [albumsError, setAlbumsError] = useState<string | null>(null);
   // Human-readable summary of files dropped from the last add (bad format/size or
   // duplicate filenames). Null when nothing was skipped. Surfaced as a dismissible
   // banner so rejections aren't silent.
@@ -210,12 +207,21 @@ export default function UploadPage({ adminName }: UploadPageProps) {
   }, []);
 
   const fetchAlbums = useCallback(async () => {
+    setAlbumsError(null);
     try {
       const response = await fetch('/api/admin/albums');
+      if (!response.ok) {
+        throw new Error(
+          response.status === 401
+            ? 'Your session expired — please sign in again'
+            : 'Failed to load albums'
+        );
+      }
       const data = await response.json();
       setAlbums(data.albums || []);
     } catch (err) {
-      console.error('Failed to fetch albums');
+      setAlbums([]);
+      setAlbumsError(err instanceof Error ? err.message : 'Failed to load albums');
     }
   }, []);
 
@@ -301,6 +307,10 @@ export default function UploadPage({ adminName }: UploadPageProps) {
     if (e.target.files) {
       addFiles(e.target.files);
     }
+    // Reset so re-selecting the exact same file(s) after removing them from the
+    // queue still fires a change event — browsers don't fire `change` when the
+    // input's value is reselected unchanged.
+    e.target.value = '';
   }, [addFiles]);
 
   const removeFile = useCallback((id: string) => {
@@ -495,23 +505,32 @@ export default function UploadPage({ adminName }: UploadPageProps) {
       {/* Album Selection */}
       <div className="album-select-section">
         <label htmlFor="album-select">Select Album</label>
-        <select
-          id="album-select"
-          value={selectedAlbum}
-          disabled={isUploading}
-          onChange={(e) => {
-            setSelectedAlbum(e.target.value);
-            if (albums.length === 0) fetchAlbums();
-          }}
-          onFocus={() => { if (albums.length === 0) fetchAlbums(); }}
-        >
-          <option value="">-- Select an album --</option>
-          {albums.map(album => (
-            <option key={album.id} value={album.id}>
-              {album.title} ({album.clientName})
-            </option>
-          ))}
-        </select>
+        {albumsError ? (
+          <div className="albums-error" role="alert">
+            <span>{albumsError}</span>
+            <button type="button" className="btn-text" onClick={() => { void fetchAlbums(); }}>
+              Retry
+            </button>
+          </div>
+        ) : (
+          <select
+            id="album-select"
+            value={selectedAlbum}
+            disabled={isUploading}
+            onChange={(e) => {
+              setSelectedAlbum(e.target.value);
+              if (albums.length === 0) fetchAlbums();
+            }}
+            onFocus={() => { if (albums.length === 0) fetchAlbums(); }}
+          >
+            <option value="">-- Select an album --</option>
+            {albums.map(album => (
+              <option key={album.id} value={album.id}>
+                {album.title} ({album.clientName})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Drop Zone */}
@@ -577,7 +596,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                   Clear completed ({doneCount})
                 </button>
               )}
-              <button className="btn-text" onClick={() => setFiles([])}>
+              <button className="btn-text" onClick={() => setFiles([])} disabled={isUploading}>
                 Clear all
               </button>
             </div>
@@ -625,7 +644,7 @@ export default function UploadPage({ adminName }: UploadPageProps) {
                   </div>
                   <div className="file-status">
                     {(uploadFile.status === 'pending' || uploadFile.status === 'resizing') && (
-                      <button className="btn-icon" onClick={() => removeFile(uploadFile.id)} aria-label="Remove file">
+                      <button className="btn-icon" onClick={() => removeFile(uploadFile.id)} aria-label="Remove file" disabled={isUploading}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                         </svg>
@@ -831,6 +850,29 @@ export default function UploadPage({ adminName }: UploadPageProps) {
           }
         }
 
+        .btn-text:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .albums-error {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-3);
+          padding: var(--space-3);
+          background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+          border: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          color: var(--color-error);
+        }
+
+        .albums-error .btn-text {
+          color: var(--color-error);
+          font-weight: var(--font-medium);
+        }
+
         .file-list {
           max-height: 400px;
           overflow-y: auto;
@@ -893,6 +935,11 @@ export default function UploadPage({ adminName }: UploadPageProps) {
 
         .btn-icon:hover {
           color: var(--color-error);
+        }
+
+        .btn-icon:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .progress-bar {
