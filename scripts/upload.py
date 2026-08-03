@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from requests.exceptions import RequestException
+from requests.exceptions import HTTPError, RequestException
 
 try:
     from watchdog.observers import Observer
@@ -40,13 +40,21 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 DEFAULT_BATCH_SIZE = 100
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
-# Only genuine transport failures are retried — connection refused/reset,
-# DNS, or a timeout. Deliberately NOT the broad `RequestException` (which
-# also covers `HTTPError` raised by raise_for_status()), because retrying on
-# a 4xx client error (401, 400, 403) is futile and masks a real bug; and NOT
-# a bare `OSError` so a missing/unreadable local file fails loudly instead of
-# being retried as a flaky connection.
-NETWORK_EXCEPTIONS = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
+# Only genuine transport failures and transient server errors are retried —
+# connection refused/reset, DNS, a timeout, or an HTTP 5xx (upstream Sanity
+# hiccup). Deliberately NOT a 4xx client error (401, 400, 403), which retrying
+# can't fix and only masks a real bug, and NOT a bare `OSError` so a
+# missing/unreadable local file fails loudly instead of being retried as a
+# flaky connection.
+def is_retryable_transport(exc: Exception) -> bool:
+    if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+        return True
+    if isinstance(exc, HTTPError):
+        # 5xx = transient upstream failure worth a retry; 4xx = permanent.
+        status = exc.response.status_code if exc.response is not None else None
+        return status is not None and 500 <= status < 600
+    return False
+
 REQUEST_TIMEOUT_SECONDS = 30
 
 
@@ -66,7 +74,7 @@ _MIME_OVERRIDES = {
     '.cr2': 'image/x-canon-cr2',
     '.nef': 'image/x-nikon-nef',
     '.arw': 'image/x-sony-arw',
-    '.raw': 'application/octet-stream',
+    '.raw': 'image/x-raw',
 }
 
 
@@ -314,12 +322,18 @@ class SanityUploader:
                     print(f"  ✓ {file_path.name}")
                     return result
 
-                except NETWORK_EXCEPTIONS as e:
-                    if attempt < MAX_RETRIES - 1:
-                        print(f"  ⚠ {file_path.name}: Retry {attempt + 1}/{MAX_RETRIES} ({e})")
-                        time.sleep(RETRY_DELAY * (attempt + 1))
+                except Exception as e:
+                    if is_retryable_transport(e):
+                        if attempt < MAX_RETRIES - 1:
+                            print(f"  ⚠ {file_path.name}: Retry {attempt + 1}/{MAX_RETRIES} ({e})")
+                            time.sleep(RETRY_DELAY * (attempt + 1))
+                        else:
+                            self._mark_failed(file_path, file_hash, e, "network")
+                            return None
                     else:
-                        self._mark_failed(file_path, file_hash, e, "network")
+                        # Permanent failure (4xx, programming error, etc.) —
+                        # don't retry, fail for this file.
+                        self._mark_failed(file_path, file_hash, e, "permanent")
                         return None
         finally:
             # If control exits without having moved the hash to uploaded_files
