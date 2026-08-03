@@ -1,10 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type Ably from "ably";
 import { getAblyClient } from "@/lib/ably";
 
 const ADMIN_CHANNEL_NAME = "admin:updates";
 
 export function useAdminRealtime(onUpdate: () => void): void {
+  // Read the latest callback from a ref instead of putting `onUpdate` in the
+  // dependency array: callers often pass an inline (non-memoized) function,
+  // which would otherwise tear down and re-attach the channel + re-release it
+  // on every render of the parent component. The effect now runs only once.
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
+
   useEffect(() => {
     let cancelled = false;
     let channel: Ably.RealtimeChannel | null = null;
@@ -18,7 +25,7 @@ export function useAdminRealtime(onUpdate: () => void): void {
       channel = ably.channels.get(ADMIN_CHANNEL_NAME);
 
       handler = () => {
-        onUpdate();
+        onUpdateRef.current();
       };
 
       // Subscribe to every admin event (created, uploaded, deleted, locked,
@@ -55,5 +62,5 @@ export function useAdminRealtime(onUpdate: () => void): void {
         }
       }
     };
-  }, [onUpdate]);
+  }, []);
 }

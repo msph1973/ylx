@@ -49,23 +49,34 @@ const inFlightFetches = new Map<string, Promise<unknown>>();
 // instead of each starting their own. `onFetched` runs only for whichever
 // caller actually created the in-flight entry (never for one that merely
 // piggybacks on it), so a fresh value is only ever stored once per fetch.
+//
+// `awaitStore` controls whether the returned promise waits for the
+// `onFetched` (cache-store) write to finish:
+//   - Background stale-while-revalidate refreshes pass `true` so the Vercel
+//     `waitUntil()` wrapper genuinely waits for the store before the function
+//     is frozen — integration with `refreshInBackground` below depends on it.
+//   - A hard cache-miss (cold start / just-invalidated) passes `false` so a
+//     slow or unavailable Upstash write never adds its timeout to the
+//     user-visible latency of a fresh-fetch path; the store still fires, just
+//     detached from the value the caller receives.
 function dedupedFetch<T>(
   key: string,
   fetcher: () => Promise<T>,
-  onFetched: (fresh: T) => void | Promise<void>
+  onFetched: (fresh: T) => void | Promise<void>,
+  awaitStore: boolean
 ): Promise<T> {
   const existing = inFlightFetches.get(key);
   if (existing) return existing as Promise<T>;
 
-  // Awaits `onFetched` (the cache-store write) before resolving, so callers
-  // that need the store to have actually happened — `refreshInBackground`'s
-  // `waitUntil(refresh)` below, in particular — genuinely wait for it
-  // instead of the promise resolving as soon as `fetcher()` settles while
-  // the store is still a detached, unprotected side effect.
+  const store = (fresh: T) =>
+    Promise.resolve(onFetched(fresh)).catch((err) => {
+      console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
+    });
+
   const inFlight = fetcher()
     .then(async (fresh) => {
-      await onFetched(fresh);
-      return fresh;
+      const write = store(fresh);
+      return awaitStore ? await write.then(() => fresh) : fresh;
     })
     .finally(() => inFlightFetches.delete(key));
 
@@ -85,7 +96,8 @@ function refreshInBackground<T>(
   const refresh = dedupedFetch(key, fetcher, (fresh) =>
     storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
       console.warn(`[Cache] background refresh cache-store failed for "${key}":`, err);
-    })
+    }),
+    true
   ).catch((err) => {
     console.warn(`[Cache] background refresh fetch failed for "${key}":`, err);
   });
@@ -146,16 +158,18 @@ export async function getCached<T>(
     return await fetcher();
   }
 
-  // Hard miss: fetch, store, return. Deduped via the same in-flight map as
-  // background refreshes, so N concurrent requests racing a cold key (e.g.
-  // right after invalidateCache()) share one upstream fetch instead of each
-  // calling the fetcher themselves. If the fetcher throws here there is no
-  // cached value to fall back to, so it still propagates — every caller
-  // sharing this in-flight fetch gets the same error.
+  // Hard miss: fetch, store, return (store detached — see dedupedFetch's
+  // `awaitStore=false`). Deduped via the same in-flight map as background
+  // refreshes, so N concurrent requests racing a cold key (e.g. right after
+  // invalidateCache()) share one upstream fetch instead of each calling the
+  // fetcher themselves. If the fetcher throws here there is no cached value
+  // to fall back to, so it still propagates — every caller sharing this
+  // in-flight fetch gets the same error.
   return dedupedFetch(key, fetcher, (fresh) =>
     storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
       console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
-    })
+    }),
+    false
   );
 }
 
