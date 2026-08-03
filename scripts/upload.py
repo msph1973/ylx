@@ -14,6 +14,7 @@ Requirements:
 
 import argparse
 import hashlib
+import mimetypes
 import os
 import sys
 import threading
@@ -40,9 +41,36 @@ DEFAULT_BATCH_SIZE = 100
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 # Only network/HTTP transport errors are retried; other exceptions (e.g.
-# programming bugs) are allowed to propagate instead of being hidden.
-NETWORK_EXCEPTIONS = (RequestException, OSError)
+# programming bugs, missing local files) are allowed to propagate instead of
+# being hidden. Deliberately narrower than a bare `OSError` so a missing or
+# unreadable local file fails loudly rather than being retried as if it were a
+# flaky connection.
+NETWORK_EXCEPTIONS = RequestException
 REQUEST_TIMEOUT_SECONDS = 30
+
+
+# Per-format override because the stdlib `mimetypes` table does not reliably
+# cover RAW camera formats. Any `< 0.4.5`-style unknown type falls back to
+# octet-stream, which Sanity's image endpoint rejects, so the known formats
+# must be explicit.
+_MIME_OVERRIDES = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.tiff': 'image/tiff',
+    '.tif': 'image/tiff',
+}
+
+
+def guess_image_mime(file_path: Path) -> str:
+    """Return the image/* MIME type for `file_path`, with an explicit fallback
+    for the RAW/Camera formats Sanity accepts but `mimetypes` may not know."""
+    ext = file_path.suffix.lower()
+    if ext in _MIME_OVERRIDES:
+        return _MIME_OVERRIDES[ext]
+    guessed, _ = mimetypes.guess_type(file_path.name, strict=False)
+    return guessed if guessed else 'application/octet-stream'
 
 
 class SanityClient:
@@ -61,19 +89,54 @@ class SanityClient:
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {token}"
 
-    def upload_image_asset(self, data: bytes, filename: str) -> dict:
-        """Uploads raw image bytes and returns the created asset document
-        (contains at least `_id`)."""
+    def upload_image_asset(self, data, filename: str, content_type: Optional[str] = None) -> dict:
+        """Uploads an image (bytes or a binary file-like object, so large files
+        are streamed instead of buffered whole) and returns the created asset
+        document (contains at least `_id`).
+        Content-Type is derived from the file so Sanity's image endpoint does
+        not reject a valid JPEG/PNG with `application/octet-stream`."""
         url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/assets/images/{self.dataset}"
+        headers = {}
+        if content_type:
+            headers["Content-Type"] = content_type
         response = self.session.post(
             url,
             params={"filename": filename},
             data=data,
-            headers={"Content-Type": "application/octet-stream"},
+            headers=headers,
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         return response.json()["document"]
+
+    def append_photo_to_album(self, album_id: str, photo_id: str) -> dict:
+        """Append a created photo document's `_id` reference to the album's
+        ordered `photos` array. Without this the gallery/admin never sees the
+        photo even though the document exists."""
+        url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/data/mutate/{self.dataset}"
+        response = self.session.post(
+            url,
+            json={
+                "mutations": [
+                    {
+                        "patch": {
+                            "id": album_id,
+                            "setIfMissing": {"photos": []},
+                            "insert": {
+                                "at": "after",
+                                "after": "photos[-1]",
+                                "items": [
+                                    {"_type": "reference", "_ref": photo_id}
+                                ],
+                            },
+                        }
+                    }
+                ]
+            },
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def create_document_if_not_exists(self, document: dict) -> dict:
         """Creates `document` (which must include a deterministic `_id`) via
@@ -98,6 +161,7 @@ class SanityUploader:
             token=token,
         )
         self.uploaded_files = set()
+        self.claimed_files = set()  # hashes currently being uploaded by a worker
         self.lock = threading.Lock()
         self.stats = {
             'uploaded': 0,
@@ -106,13 +170,18 @@ class SanityUploader:
             'errors': []
         }
 
-    def get_file_hash(self, file_path: Path) -> str:
-        """Generate MD5 hash for deduplication."""
-        hasher = hashlib.md5()
-        with open(file_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
-                hasher.update(chunk)
-        return hasher.hexdigest()
+    def get_file_hash(self, file_path: Path) -> Optional[str]:
+        """Generate MD5 hash for deduplication, or None if the file goes
+        missing/unreadable in the validate→hash window (caller treats None as
+        a hard failure instead of a retryable network error)."""
+        try:
+            hasher = hashlib.md5()
+            with open(file_path, 'rb') as f:
+                for chunk in iter(lambda: f.read(8192), b''):
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+        except OSError:
+            return None
 
     def validate_file(self, file_path: Path) -> tuple[bool, str]:
         """Validate file before upload."""
@@ -132,7 +201,12 @@ class SanityUploader:
         return True, "OK"
 
     def upload_single(self, file_path: Path, album_id: str) -> Optional[dict]:
-        """Upload a single photo to Sanity with retry."""
+        """Upload a single photo to Sanity with retry.
+
+        A file's hash is claimed only *while* it is being uploaded; it moves to
+        `uploaded_files` (dedup) only after the asset, document, and album-append
+        all succeed. Any failure frees the claim so a later retry can take it
+        again instead of being skipped forever."""
         valid, msg = self.validate_file(file_path)
         if not valid:
             with self.lock:
@@ -142,56 +216,98 @@ class SanityUploader:
             return None
 
         file_hash = self.get_file_hash(file_path)
+        if file_hash is None:
+            with self.lock:
+                self.stats['failed'] += 1
+                self.stats['errors'].append(f"{file_path.name}: file unreadable after validation")
+            print(f"  ✗ {file_path.name}: file unreadable")
+            return None
 
+        # Claim the hash so concurrent same-content files don't both upload;
+        # the claim is only released back into a retryable state on failure.
         with self.lock:
             if file_hash in self.uploaded_files:
                 self.stats['skipped'] += 1
                 return None
-            self.uploaded_files.add(file_hash)
-
-        for attempt in range(MAX_RETRIES):
-            try:
-                # Upload image asset
-                with open(file_path, 'rb') as f:
-                    asset = self.client.upload_image_asset(f.read(), file_path.name)
-
-                # Create photo document. `_id` is deterministic (album +
-                # content hash) so a retried/duplicate call is a safe no-op
-                # via create_document_if_not_exists() instead of a duplicate.
-                photo_doc = {
-                    '_id': f"photo.{album_id}.{file_hash}",
-                    '_type': 'photo',
-                    'filename': file_path.name,
-                    'image': {
-                        '_type': 'image',
-                        'asset': {
-                            '_type': 'reference',
-                            '_ref': asset['_id']
-                        }
-                    },
-                    'album': {
-                        '_type': 'reference',
-                        '_ref': album_id
-                    }
-                }
-
-                result = self.client.create_document_if_not_exists(photo_doc)
-                with self.lock:
-                    self.stats['uploaded'] += 1
-                print(f"  ✓ {file_path.name}")
-                return result
-
-            except NETWORK_EXCEPTIONS as e:
-                if attempt < MAX_RETRIES - 1:
-                    print(f"  ⚠ {file_path.name}: Retry {attempt + 1}/{MAX_RETRIES} ({e})")
-                    time.sleep(RETRY_DELAY * (attempt + 1))
-                else:
-                    with self.lock:
-                        self.uploaded_files.discard(file_hash)
-                        self.stats['failed'] += 1
-                        self.stats['errors'].append(f"{file_path.name}: {str(e)}")
-                    print(f"  ✗ {file_path.name}: Failed after {MAX_RETRIES} attempts ({e})")
+            if file_hash in self.claimed_files:
+                # Another worker is uploading the same content. Wait briefly
+                # for it to finish so we don't double-upload or report a
+                # permanent skip on a claim that may still fail.
+                remaining = 60
+                while file_hash in self.claimed_files and remaining > 0:
+                    self.lock.release()
+                    time.sleep(0.2)
+                    remaining -= 1
+                    self.lock.acquire()
+                if file_hash in self.uploaded_files:
+                    self.stats['skipped'] += 1
                     return None
+                # Claim expired without completing — fall through and own it.
+            self.claimed_files.add(file_hash)
+
+        try:
+            for attempt in range(MAX_RETRIES):
+                try:
+                    # Upload image asset — stream the file object so large
+                    # files don't buffer fully in memory.
+                    mime = guess_image_mime(file_path)
+                    with open(file_path, 'rb') as f:
+                        asset = self.client.upload_image_asset(f, file_path.name, mime)
+
+                    # Create photo document. `_id` is deterministic (album +
+                    # content hash) so a retried/duplicate call is a safe
+                    # no-op via create_document_if_not_exists().
+                    photo_doc = {
+                        '_id': f"photo.{album_id}.{file_hash}",
+                        '_type': 'photo',
+                        'filename': file_path.name,
+                        'image': {
+                            '_type': 'image',
+                            'asset': {
+                                '_type': 'reference',
+                                '_ref': asset['_id']
+                            }
+                        },
+                        'album': {
+                            '_type': 'reference',
+                            '_ref': album_id
+                        }
+                    }
+
+                    result = self.client.create_document_if_not_exists(photo_doc)
+                    # Wire the new photo into the album's ordered photos[]
+                    # array so it actually appears in the gallery/admin.
+                    self.client.append_photo_to_album(album_id, photo_doc['_id'])
+
+                    # Only now mark as uploaded (dedup only on full success).
+                    with self.lock:
+                        self.claimed_files.discard(file_hash)
+                        self.uploaded_files.add(file_hash)
+                        self.stats['uploaded'] += 1
+                    print(f"  ✓ {file_path.name}")
+                    return result
+
+                except NETWORK_EXCEPTIONS as e:
+                    if attempt < MAX_RETRIES - 1:
+                        print(f"  ⚠ {file_path.name}: Retry {attempt + 1}/{MAX_RETRIES} ({e})")
+                        time.sleep(RETRY_DELAY * (attempt + 1))
+                    else:
+                        self._mark_failed(file_path, file_hash, e, "network")
+                        return None
+        finally:
+            # If control exits without having moved the hash to uploaded_files
+            # (any failure path), free the claim so a retry can re-own it.
+            with self.lock:
+                if file_hash in self.claimed_files and file_hash not in self.uploaded_files:
+                    self.claimed_files.discard(file_hash)
+
+    def _mark_failed(self, file_path: Path, file_hash: Optional[str], err, kind: str):
+        with self.lock:
+            if file_hash:
+                self.claimed_files.discard(file_hash)
+            self.stats['failed'] += 1
+            self.stats['errors'].append(f"{file_path.name}: {err}")
+        print(f"  ✗ {file_path.name}: Failed ({kind}) ({err})")
 
     def upload_batch(self, files: list[Path], album_id: str, batch_size: int = DEFAULT_BATCH_SIZE):
         """Upload photos in batches."""
