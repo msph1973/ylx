@@ -9,7 +9,7 @@ Usage:
   python upload.py --folder /path/to/photos --album-id <album_id> --batch-size 50
 
 Requirements:
-  pip install sanity watchdog
+  pip install requests watchdog
 """
 
 import argparse
@@ -22,18 +22,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional
 
-try:
-    from sanity import SanityClient
-except ImportError:
-    print("Error: sanity package not installed. Run: pip install sanity")
-    sys.exit(1)
-
-try:
-    from requests.exceptions import RequestException
-except ImportError:
-    # requests may not be installed directly; fall back to generic
-    # OS-level network errors (connection reset, timeout, etc.)
-    RequestException = OSError
+import requests
+from requests.exceptions import RequestException
 
 try:
     from watchdog.observers import Observer
@@ -52,16 +42,60 @@ RETRY_DELAY = 2  # seconds
 # Only network/HTTP transport errors are retried; other exceptions (e.g.
 # programming bugs) are allowed to propagate instead of being hidden.
 NETWORK_EXCEPTIONS = (RequestException, OSError)
+REQUEST_TIMEOUT_SECONDS = 30
+
+
+class SanityClient:
+    """Minimal Sanity HTTP API client covering just what this script needs:
+    uploading an image asset and creating a document. No published Python
+    package on PyPI actually provides the `SanityClient(projectId=...)` /
+    `.upload()`/`.create()` surface this script used to assume — this talks
+    directly to Sanity's documented HTTP API instead of depending on a
+    package that doesn't exist (see https://www.sanity.io/docs/http-api).
+    """
+
+    def __init__(self, project_id: str, dataset: str, api_version: str, token: str):
+        self.project_id = project_id
+        self.dataset = dataset
+        self.api_version = api_version
+        self.session = requests.Session()
+        self.session.headers["Authorization"] = f"Bearer {token}"
+
+    def upload_image_asset(self, data: bytes, filename: str) -> dict:
+        """Uploads raw image bytes and returns the created asset document
+        (contains at least `_id`)."""
+        url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/assets/images/{self.dataset}"
+        response = self.session.post(
+            url,
+            params={"filename": filename},
+            data=data,
+            headers={"Content-Type": "application/octet-stream"},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()["document"]
+
+    def create_document_if_not_exists(self, document: dict) -> dict:
+        """Creates `document` (which must include a deterministic `_id`) via
+        `createIfNotExists`, so retrying after a crash-but-actually-succeeded
+        write is a safe no-op instead of a duplicate or a 409."""
+        url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/data/mutate/{self.dataset}"
+        response = self.session.post(
+            url,
+            json={"mutations": [{"createIfNotExists": document}]},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.json()
 
 
 class SanityUploader:
     def __init__(self, project_id: str, dataset: str, token: str):
         self.client = SanityClient(
-            projectId=project_id,
+            project_id=project_id,
             dataset=dataset,
-            apiVersion='2024-01-01',
+            api_version="2024-01-01",
             token=token,
-            use_cdn=False
         )
         self.uploaded_files = set()
         self.lock = threading.Lock()
@@ -119,12 +153,13 @@ class SanityUploader:
             try:
                 # Upload image asset
                 with open(file_path, 'rb') as f:
-                    asset = self.client.upload('image', f, {
-                        'filename': file_path.name
-                    })
+                    asset = self.client.upload_image_asset(f.read(), file_path.name)
 
-                # Create photo document
+                # Create photo document. `_id` is deterministic (album +
+                # content hash) so a retried/duplicate call is a safe no-op
+                # via create_document_if_not_exists() instead of a duplicate.
                 photo_doc = {
+                    '_id': f"photo.{album_id}.{file_hash}",
                     '_type': 'photo',
                     'filename': file_path.name,
                     'image': {
@@ -140,7 +175,7 @@ class SanityUploader:
                     }
                 }
 
-                result = self.client.create(photo_doc)
+                result = self.client.create_document_if_not_exists(photo_doc)
                 with self.lock:
                     self.stats['uploaded'] += 1
                 print(f"  ✓ {file_path.name}")
@@ -315,10 +350,9 @@ Examples:
                 time.sleep(1)
         except KeyboardInterrupt:
             observer.stop()
+            observer.join()
             print("\n\n🛑 Stopped watching")
             uploader.print_summary()
-
-        observer.join()
     else:
         # One-time upload
         files = scan_folder(folder)
