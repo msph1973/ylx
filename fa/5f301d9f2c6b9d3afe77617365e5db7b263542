@@ -1,0 +1,20 @@
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 106-122,137-138
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 175-191,209-210
+apps/web/src/pages/api/admin/upload/finalize.ts
+  h_45c23cf41d175e 116-125
+apps/web/src/pages/api/auth/create-admin.ts
+  h_45c23cf41d175e 49-66,68,70-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "fa5f301d9f2c6b9d3afe77617365e5db7b263542",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
