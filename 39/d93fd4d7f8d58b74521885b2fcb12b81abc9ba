@@ -1,0 +1,22 @@
+apps/web/src/hooks/useAdminRealtime.ts
+  h_45c23cf41d175e 27-30
+apps/web/src/hooks/useRealtime.ts
+  h_45c23cf41d175e 61-63,65
+apps/web/src/lib/albumDeletion.ts
+  h_45c23cf41d175e 26-45,79-88
+apps/web/src/lib/cache.ts
+  h_45c23cf41d175e 55,60-64,66-67,85,88-89,155-156,158-159
+apps/web/src/lib/imageResizeClient.ts
+  h_45c23cf41d175e 97-101,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "39d93fd4d7f8d58b74521885b2fcb12b81abc9ba",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
