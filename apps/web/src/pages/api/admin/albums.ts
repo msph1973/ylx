@@ -103,6 +103,23 @@ async function parseJsonBody(request: Request): Promise<Record<string, unknown> 
   return parsed as Record<string, unknown>;
 }
 
+/** Rejects a YYYY-MM-DD string whose components don't round-trip through
+ *  `Date` unchanged (e.g. "2026-02-31" silently normalizes to March 3) —
+ *  the regex above only checks the string SHAPE, not calendar validity. */
+function isValidCalendarDate(value: string): boolean {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 /** Validates a raw parsed body and narrows it into a `CreateAlbumBody` on
  *  success, or returns an error message for the first invalid field. */
 function validateCreateAlbumBody(body: Record<string, unknown>): { error: string } | { value: CreateAlbumBody } {
@@ -117,8 +134,8 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
   if (typeof clientName !== "string" || clientName.length > MAX_TEXT_FIELD_LENGTH) {
     return { error: `clientName must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
   }
-  if (typeof eventDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
-    return { error: "eventDate must be a valid date in YYYY-MM-DD format" };
+  if (typeof eventDate !== "string" || !isValidCalendarDate(eventDate)) {
+    return { error: "eventDate must be a valid calendar date in YYYY-MM-DD format" };
   }
   if (typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
     return { error: "PIN must be exactly 4 digits" };

@@ -46,14 +46,29 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // Role/email are intentionally passed through as-is (no allowlist or
-    // normalization here) — that protection lives in `createAdmin()` itself
-    // (packages/sanity/lib/admin.ts), not duplicated at this route layer.
+    if (typeof email !== "string" || typeof name !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Email and name must be strings" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (role !== undefined && typeof role !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Role must be a string" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Types are validated above; email/role are still passed through as-is
+    // content-wise (no allowlist or normalization here) — that protection
+    // lives in `createAdmin()` itself (packages/sanity/lib/admin.ts), not
+    // duplicated at this route layer.
     const admin = await createAdmin({
-      email: email as string,
+      email,
       password,
-      name: name as string,
-      role: role as string | undefined,
+      name,
+      role,
     });
 
     if (!admin) {

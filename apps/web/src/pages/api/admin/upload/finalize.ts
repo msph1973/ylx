@@ -113,6 +113,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   if (filename.length > MAX_FILENAME_LENGTH || hasUnsafeFilenameChars(filename)) {
+    // The client already uploaded the binary to Sanity's asset API before
+    // calling this endpoint (see header comment) — rejecting without cleanup
+    // would leave that asset orphaned in the dataset forever, since no
+    // `photo` document will ever reference it. Mirrors the cleanup already
+    // done below for an invalid/non-existent asset.
+    try {
+      await sanityWriteClient.delete(assetId);
+    } catch (delErr) {
+      console.error("[Upload/finalize] Failed to delete orphaned asset:", delErr);
+    }
     return new Response(
       JSON.stringify({ error: "Filename is too long or contains invalid characters" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
