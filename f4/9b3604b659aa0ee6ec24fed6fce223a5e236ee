@@ -1,0 +1,18 @@
+apps/web/src/hooks/useAdminRealtime.ts
+  h_45c23cf41d175e 1,8-14,28,65
+apps/web/src/hooks/useRealtime.ts
+  h_45c23cf41d175e 64-69,71
+apps/web/src/lib/cache.ts
+  h_45c23cf41d175e 52-61,65-66,71-75,78-79,99-100,161-167,171-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f49b3604b659aa0ee6ec24fed6fce223a5e236ee",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
