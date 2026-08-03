@@ -1,0 +1,26 @@
+apps/web/src/lib/albumValidation.ts
+  h_45c23cf41d175e 1-24
+apps/web/src/lib/requestBody.ts
+  h_45c23cf41d175e 1-24
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 9-10,118-119
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 13-14,195-196
+apps/web/src/pages/api/admin/albums/[id]/reorder.ts
+  h_45c23cf41d175e 6
+apps/web/src/pages/api/admin/albums/bulk-delete.ts
+  h_45c23cf41d175e 7,29
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  h_45c23cf41d175e 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "1f3e1965c03b607a9730007307ffc743033b5132",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
