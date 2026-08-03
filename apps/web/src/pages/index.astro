@@ -56,11 +56,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   // "https://site/gallery/foo" into garbage like "https-site-gallery-foo".
   function extractSlugSource(value: string): string {
     try {
-      // Succeeds only for a fully-qualified URL (has a protocol) — take the
-      // last non-empty path segment, e.g. "/gallery/foo" -> "foo".
       const url = new URL(value);
-      const segments = url.pathname.split('/').filter(Boolean);
-      if (segments.length > 0) return segments[segments.length - 1];
+      // Only trust this parse for real http(s) URLs — `new URL()` also parses
+      // opaque custom-scheme values like "smith:wedding" successfully (scheme
+      // "smith" + opaque path "wedding"), which would otherwise silently
+      // truncate plain text containing a colon down to whatever follows it.
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        const segments = url.pathname.split('/').filter(Boolean);
+        if (segments.length > 0) return segments[segments.length - 1];
+      }
     } catch {
       // Not an absolute URL (e.g. no protocol, or plain album-name text) —
       // fall through to the /gallery/<slug> pattern check below.
