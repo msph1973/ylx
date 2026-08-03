@@ -1,0 +1,14 @@
+scripts/upload.py
+  h_45c23cf41d175e 43-49,64-69,173-179,242,246-260,263-265,272-281,309,313,326-328,331,334,339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5ed3c27770bd6c3366e627e67c528453dd9dfea9",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
