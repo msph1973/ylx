@@ -10,6 +10,8 @@ import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../..
 import { publishAdminEvent } from "../../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
+import { parseJsonBody } from "../../../../../lib/requestBody";
+import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, isValidCalendarDate } from "../../../../../lib/albumValidation";
 
 interface SanityImageRef {
   _type: string;
@@ -153,42 +155,6 @@ interface UpdateAlbumBody {
   customSlug?: string;
 }
 
-const MAX_TEXT_FIELD_LENGTH = 200;
-const MAX_SELECTIONS_UPPER_BOUND = 500;
-
-/** Parses a request body as JSON and ensures it's a plain object (not an
- *  array, null, or a primitive) — callers get a clean 400 instead of the
- *  raw 500 a malformed/non-JSON body would otherwise cause. */
-async function parseJsonBody(request: Request): Promise<Record<string, unknown> | null> {
-  let parsed: unknown;
-  try {
-    parsed = await request.json();
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return null;
-  }
-  return parsed as Record<string, unknown>;
-}
-
-/** Rejects a YYYY-MM-DD string whose components don't round-trip through
- *  `Date` unchanged (e.g. "2026-02-31" silently normalizes to March 3) —
- *  the regex above only checks the string SHAPE, not calendar validity. */
-function isValidCalendarDate(value: string): boolean {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
-
 /** Validates a raw parsed body and narrows it into an `UpdateAlbumBody` on
  *  success, or returns an error message for the first invalid field. Every
  *  field is optional — only fields present in the body are checked. */
@@ -226,8 +192,8 @@ function validateUpdateAlbumBody(body: Record<string, unknown>): { error: string
     }
   }
   if (customSlug !== undefined) {
-    if (typeof customSlug !== "string") {
-      return { error: "customSlug must be a string" };
+    if (typeof customSlug !== "string" || customSlug.length > MAX_TEXT_FIELD_LENGTH) {
+      return { error: `customSlug must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
     }
   }
 

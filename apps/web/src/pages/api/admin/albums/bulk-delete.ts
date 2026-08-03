@@ -4,25 +4,10 @@ import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
+import { parseJsonBody } from "../../../../lib/requestBody";
 
 interface BulkDeleteBody {
   ids?: unknown;
-}
-
-/** Parses a request body as JSON and ensures it's a plain object (not an
- *  array, null, or a primitive) — callers get a clean 400 instead of the
- *  raw 500 a malformed/non-JSON body would otherwise cause. */
-async function parseJsonBody(request: Request): Promise<BulkDeleteBody | null> {
-  let parsed: unknown;
-  try {
-    parsed = await request.json();
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return null;
-  }
-  return parsed as BulkDeleteBody;
 }
 
 interface AlbumSlugRaw {
@@ -41,7 +26,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
   }
 
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody<BulkDeleteBody>(request);
     if (!body) {
       return new Response(
         JSON.stringify({ error: "Request body must be a valid JSON object" }),
