@@ -1,2 +1,4 @@
-requests>=2.31.0
+# requests 2.32.2+ fixes two 2024 redirect CVEs (insecure_redirect / cookie
+# leakage via HTTP+https URIs). >=2.31.0 alone still permits those.
+requests>=2.32.2
 watchdog>=4.0.0

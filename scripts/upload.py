@@ -133,7 +133,7 @@ class SanityClient:
                                 "at": "after",
                                 "after": "photos[-1]",
                                 "items": [
-                                    {"_type": "reference", "_ref": photo_id}
+                                    {"_type": "reference", "_ref": photo_id, "_key": photo_id}
                                 ],
                             },
                         }
