@@ -24,7 +24,10 @@ export function useAdminRealtime(onUpdate: () => void): void {
       // Subscribe to every admin event (created, uploaded, deleted, locked,
       // unlocked, submitted, selection changes) so the dashboard always refetches
       // on any state change without needing to enumerate each event name.
-      channel.subscribe(handler);
+      // Awaited so a rejected attach (e.g. permission/network failure) flows
+      // into this function's own returned promise instead of becoming an
+      // unhandled rejection that the outer `.catch()` below never sees.
+      await channel.subscribe(handler);
     };
 
     void setup().catch((err) => {

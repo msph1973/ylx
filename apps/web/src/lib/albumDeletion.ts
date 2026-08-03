@@ -23,16 +23,26 @@ async function commitDeletesInChunks(ids: string[]): Promise<void> {
  * Atomically delete one or more albums together with every document that
  * depends on them: selections, submissions, and photos.
  *
- * Photos and submissions hold strong references to their album, so the album
- * cannot be removed while they still exist. Deleting all of them before the
- * album keeps referential integrity intact — after commit no remaining
- * document points at a deleted one. Mutations are chunked across multiple
- * sequential transactions (see DELETE_MUTATIONS_PER_TRANSACTION) rather than
- * one giant one, each chunk still committing atomically; every child id is
- * ordered ahead of every album id in the flat list below so that ordering
- * guarantee holds across chunk boundaries too — by the time a chunk
- * containing an album delete runs, every earlier chunk (and therefore every
- * one of that album's children) has already committed.
+ * The reference graph isn't a simple tree: `submission.selections[]` ->
+ * selection, `selection.album`/`photo.album` -> album, AND `album.photos[]`
+ * -> photo. That last pair means album and photo hold STRONG references to
+ * EACH OTHER — Sanity refuses to delete either one while the other (still
+ * referencing it) exists, unless both are removed in the very same
+ * transaction. Since a large album's photos can span many chunked
+ * transactions (see DELETE_MUTATIONS_PER_TRANSACTION), photo and album
+ * deletes can easily land in different chunks, so relying on delete-order
+ * alone can never fully avoid that cycle.
+ *
+ * Instead, break the cycle first: patch every album to unset its `photos`
+ * field (one cheap mutation per album, committed before any deletes). That
+ * removes the album -> photo edge, so once submissions and selections are
+ * also gone, photos have zero remaining referrers and can be deleted safely
+ * regardless of chunk boundaries, and the album itself can then be deleted
+ * once its photos are gone too. Order after that unset: submissions (nothing
+ * references a submission, so it's always safe first) -> selections (were
+ * only blocked by submissions) -> photos (were blocked by selections and,
+ * until the unset above, by the album) -> slugLocks + albums (blocked by
+ * photos/selections/submissions, now all gone).
  *
  * Also releases each album's `slugLock`/`customSlug` reservation docs (see
  * `lib/slug.ts`) so their slug strings become reusable again.
@@ -66,5 +76,14 @@ export async function cascadeDeleteAlbums(albumIds: string[]): Promise<void> {
     if (album.customSlug) slugLockIds.push(slugLockId(album.customSlug));
   }
 
-  await commitDeletesInChunks([...selectionIds, ...submissionIds, ...photoIds, ...slugLockIds, ...ids]);
+  // Break the album <-> photo reference cycle before any deletes: once no
+  // album references a photo, deleting photos (in whichever chunk they fall
+  // into) is never blocked by an album that hasn't been deleted yet.
+  const unsetPhotosTx = sanityWriteClient.transaction();
+  for (const id of ids) {
+    unsetPhotosTx.patch(id, (p) => p.unset(["photos"]));
+  }
+  await unsetPhotosTx.commit();
+
+  await commitDeletesInChunks([...submissionIds, ...selectionIds, ...photoIds, ...slugLockIds, ...ids]);
 }

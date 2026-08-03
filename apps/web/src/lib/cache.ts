@@ -52,14 +52,19 @@ const inFlightFetches = new Map<string, Promise<unknown>>();
 function dedupedFetch<T>(
   key: string,
   fetcher: () => Promise<T>,
-  onFetched: (fresh: T) => void
+  onFetched: (fresh: T) => void | Promise<void>
 ): Promise<T> {
   const existing = inFlightFetches.get(key);
   if (existing) return existing as Promise<T>;
 
+  // Awaits `onFetched` (the cache-store write) before resolving, so callers
+  // that need the store to have actually happened — `refreshInBackground`'s
+  // `waitUntil(refresh)` below, in particular — genuinely wait for it
+  // instead of the promise resolving as soon as `fetcher()` settles while
+  // the store is still a detached, unprotected side effect.
   const inFlight = fetcher()
-    .then((fresh) => {
-      onFetched(fresh);
+    .then(async (fresh) => {
+      await onFetched(fresh);
       return fresh;
     })
     .finally(() => inFlightFetches.delete(key));
@@ -77,11 +82,11 @@ function refreshInBackground<T>(
 ): void {
   if (inFlightFetches.has(key)) return;
 
-  const refresh = dedupedFetch(key, fetcher, (fresh) => {
+  const refresh = dedupedFetch(key, fetcher, (fresh) =>
     storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
       console.warn(`[Cache] background refresh cache-store failed for "${key}":`, err);
-    });
-  }).catch((err) => {
+    })
+  ).catch((err) => {
     console.warn(`[Cache] background refresh fetch failed for "${key}":`, err);
   });
 
@@ -147,11 +152,11 @@ export async function getCached<T>(
   // calling the fetcher themselves. If the fetcher throws here there is no
   // cached value to fall back to, so it still propagates — every caller
   // sharing this in-flight fetch gets the same error.
-  return dedupedFetch(key, fetcher, (fresh) => {
-    void storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
+  return dedupedFetch(key, fetcher, (fresh) =>
+    storeInCache(key, fresh, staleTtlSeconds, url, token).catch((err) => {
       console.warn(`[Cache] failed to store value for "${key}"; continuing without cache:`, err);
-    });
-  });
+    })
+  );
 }
 
 export async function invalidateCache(keys: string | string[]): Promise<void> {

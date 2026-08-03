@@ -58,8 +58,11 @@ export function useRealtime(
           callbacksRef.current.onAlbumUnlocked?.(msg.data as AlbumUnlockedData);
       }
 
+      // Awaited so a rejected attach (e.g. permission/network failure) flows
+      // into this function's own returned promise instead of becoming an
+      // unhandled rejection that the outer `.catch()` below never sees.
       for (const [eventType, handler] of Object.entries(handlers)) {
-        channel.subscribe(eventType, handler as (message: Ably.Message) => void);
+        await channel.subscribe(eventType, handler as (message: Ably.Message) => void);
       }
     };
 

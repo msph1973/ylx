@@ -94,11 +94,14 @@ function getWorker(): Worker {
 // Free the worker immediately on page teardown rather than waiting out the
 // idle grace period for nothing — `pagehide` fires reliably on navigation,
 // tab close, and (unlike `beforeunload`) bfcache-eligible backgrounding.
+// Uses failAllPending() (not a raw terminate) so any resize still in flight
+// is settled with its fallback right away instead of being left to time out
+// up to RESIZE_TIMEOUT_MS later — which matters most for the bfcache case,
+// where the page can be restored and resumed while those callers are still
+// waiting.
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {
-    cancelIdleTermination();
-    worker?.terminate();
-    worker = null;
+    failAllPending();
   });
 }
 
