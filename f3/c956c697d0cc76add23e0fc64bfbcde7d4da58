@@ -1,0 +1,20 @@
+.github/workflows/junie-review.yml
+  h_45c23cf41d175e 10
+.github/workflows/opencode.yml
+  h_45c23cf41d175e 10
+apps/web/scripts/check-hydration-leak.mjs
+  h_45c23cf41d175e 25-40,54
+apps/web/src/env.d.ts
+  h_45c23cf41d175e 6-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f3c956c697d0cc76add23e0fc64bfbcde7d4da58",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
