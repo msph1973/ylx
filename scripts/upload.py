@@ -127,7 +127,14 @@ class SanityClient:
     def append_photo_to_album(self, album_id: str, photo_id: str) -> dict:
         """Append a created photo document's `_id` reference to the album's
         ordered `photos` array. Without this the gallery/admin never sees the
-        photo even though the document exists."""
+        photo even though the document exists.
+
+        Idempotent: if the ref is already present (a prior attempt's append
+        committed but its response was lost, so a retry runs this again), it
+        is left alone. That prevents duplicate `album.photos` entries with the
+        same `_key` under transient network failures."""
+        if self.album_has_photo(album_id, photo_id):
+            return {}
         url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/data/mutate/{self.dataset}"
         response = self.session.post(
             url,
@@ -152,6 +159,25 @@ class SanityClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def album_has_photo(self, album_id: str, photo_id: str) -> bool:
+        """True if the album's `photos` array already contains a reference to
+        `photo_id`. Used by append_photo_to_album for idempotency."""
+        url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/data/query/{self.dataset}"
+        query = "*[_type == 'album' && _id == $albumId][0] { photos[] { _ref } }"
+        response = self.session.get(
+            url,
+            params={"query": query, "$albumId": album_id},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        album = response.json().get("result")
+        if not album or not isinstance(album.get("photos"), list):
+            return False
+        return any(
+            isinstance(p, dict) and p.get("_ref") == photo_id
+            for p in album["photos"]
+        )
 
     def create_document_if_not_exists(self, document: dict) -> dict:
         """Creates `document` (which must include a deterministic `_id`) via
