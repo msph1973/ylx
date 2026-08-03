@@ -348,7 +348,7 @@ class SanityUploader:
                     print(f"  ✓ {file_path.name}")
                     return result
 
-                except Exception as e:
+                except RequestException as e:
                     if is_retryable_transport(e):
                         if attempt < MAX_RETRIES - 1:
                             print(f"  ⚠ {file_path.name}: Retry {attempt + 1}/{MAX_RETRIES} ({e})")
@@ -357,18 +357,21 @@ class SanityUploader:
                             self._mark_failed(file_path, file_hash, e, "network")
                             return None
                     else:
-                        # Permanent failure (4xx, programming error, etc.) —
-                        # don't retry, fail for this file.
+                        # Permanent failure (4xx, etc.) — don't retry, fail for
+                        # this file.
                         self._mark_failed(file_path, file_hash, e, "permanent")
                         return None
         finally:
-            # If control exits without having moved the hash to uploaded_files
-            # (any failure path), free the claim so a retry can re-own it, and
-            # wake any worker waiting on this claim.
+            # If control exits without having moved the hash to uploaded_files,
+            # free the claim so a retry can re-own it and wake any waiting
+            # worker. The success path and `_mark_failed` already notify when
+            # THEY change the claim, so notify here only when THIS branch is
+            # the one freeing it — otherwise a completed upload would wake
+            # every waiter twice (once here, once in the success/failed path).
             with self.cond:
                 if file_hash in self.claimed_files and file_hash not in self.uploaded_files:
                     self.claimed_files.discard(file_hash)
-                self.cond.notify_all()
+                    self.cond.notify_all()
 
     def _mark_failed(self, file_path: Path, file_hash: Optional[str], err, kind: str):
         with self.cond:
