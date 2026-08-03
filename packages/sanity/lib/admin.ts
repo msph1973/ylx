@@ -31,7 +31,14 @@ interface SanityAdminDoc {
 }
 
 export async function getAdminByEmail(email: string): Promise<AdminUser | null> {
-  const query = `*[_type == "admin" && email == $email][0]{
+  // `createAdmin()` below stores every admin's `email` normalized (trimmed +
+  // lowercased). Normalizing the lookup value here too (and matching
+  // case-insensitively via `lower()`, in case any legacy doc predates
+  // normalization) means a login with e.g. "Admin@x.com" still finds the
+  // admin created as "admin@x.com" instead of silently failing an
+  // exact-match query.
+  const normalizedEmail = email.trim().toLowerCase();
+  const query = `*[_type == "admin" && lower(email) == $email][0]{
     _id,
     email,
     name,
@@ -40,7 +47,7 @@ export async function getAdminByEmail(email: string): Promise<AdminUser | null> 
     sessionVersion
   }`;
 
-  const result = await sanityClient.fetch<AdminUser | null>(query, { email });
+  const result = await sanityClient.fetch<AdminUser | null>(query, { email: normalizedEmail });
   return result ?? null;
 }
 
@@ -126,6 +133,18 @@ export async function createAdmin(data: {
   // documents — normalize before it's used anywhere below (the deterministic
   // _id and the stored `email` field both derive from this same value).
   const email = data.email.trim().toLowerCase();
+
+  // The atomic `.create()` conflict check below only catches a SECOND admin
+  // for this email that would land on the SAME deterministic _id — it can't
+  // see an admin doc from before this ID scheme existed, which would have a
+  // random _id instead. This pre-check closes that migration-era gap; it
+  // reintroduces a check-then-create race window, but only for that legacy
+  // case; two concurrent requests for a genuinely new email still can't both
+  // succeed, since they'd still collide on the same deterministic _id below.
+  const existingLegacyAdmin = await getAdminByEmail(email);
+  if (existingLegacyAdmin) {
+    return null;
+  }
 
   const hashedPassword = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
 

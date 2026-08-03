@@ -1,6 +1,13 @@
 import type { AstroCookies } from "astro";
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { sign, verify } from "./signedCookie";
+
+// Same server secret signedCookie.ts uses to HMAC-sign the cookie payload —
+// duplicated here rather than imported (signedCookie.ts doesn't export it)
+// for the same reason its own header comment gives for not sharing HMAC
+// logic with auth.ts: keeping this self-contained avoids re-triggering an
+// already-dismissed CodeQL false positive on a moved sink.
+const PIN_HASH_SECRET = process.env.SESSION_SECRET ?? "";
 
 // Records which albums a browser has proven PIN knowledge for, so the Ably
 // token endpoint can scope realtime capability per album instead of granting
@@ -29,8 +36,14 @@ const COOKIE_NAME = "gallery_pin_session";
 const MAX_ENTRIES = 8;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // matches admin session length
 
+// A 4-digit PIN has only 10,000 possible values, so an unkeyed hash (plain
+// SHA-256) would be trivially brute-forceable offline if this signed cookie
+// ever leaked despite being httpOnly (logs, XSS reading document.cookie
+// anyway, etc.). Keying it with the same server secret used to sign the
+// cookie itself means an attacker who only has the cookie value still can't
+// recover the PIN without the secret too.
 function hashPin(pin: string): string {
-  return createHash("sha256").update(pin).digest("hex");
+  return createHmac("sha256", PIN_HASH_SECRET).update(pin).digest("hex");
 }
 
 function readEntries(cookies: AstroCookies): GalleryPinEntry[] {

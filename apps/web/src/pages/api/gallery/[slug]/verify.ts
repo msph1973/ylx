@@ -124,13 +124,6 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     });
   }
 
-  // Record that this browser proved knowledge of this album's PIN (and
-  // which PIN, via its hash — see gallerySession.ts's hasValidPinSession),
-  // so /api/ably/token can scope its realtime capability to just this album
-  // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe, and so a
-  // later PIN change invalidates this session on resume (session.ts).
-  grantAlbumAccess(cookies, pinRecord._id, pin);
-
   const album = await getCached<SanityAlbumRaw | null>(
     CACHE_KEYS.albumBySlug(slug),
     30, // 30s fresh TTL
@@ -141,11 +134,21 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   if (!album) {
     // Extremely unlikely — the PIN lookup above just found this exact slug
     // moments ago — but guard anyway (e.g. the album was deleted in between).
+    // Checked BEFORE grantAlbumAccess below (not after, as this used to be
+    // ordered) so a delete landing in this exact window can't leave a
+    // granted session cookie for an album that turns out not to exist.
     return new Response(JSON.stringify({ error: "Album not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Record that this browser proved knowledge of this album's PIN (and
+  // which PIN, via its hash — see gallerySession.ts's hasValidPinSession),
+  // so /api/ably/token can scope its realtime capability to just this album
+  // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe, and so a
+  // later PIN change invalidates this session on resume (session.ts).
+  grantAlbumAccess(cookies, pinRecord._id, pin);
 
   // Share stats are informational only (shown to the admin) — a failure here
   // must never block a client from viewing an album they just proved PIN

@@ -27,12 +27,15 @@ export const albumPinBySlugQuery = `*[_type == "album" && (slug.current == $slug
   pin
 }`;
 
+// Intentionally does NOT project `pin` — this result is cached in Upstash
+// by its only caller (admin/albums.ts) with a stale TTL, and the PIN is
+// security-sensitive (same reasoning as albumBySlugQuery above). Use
+// allAlbumPinsQuery below for pins instead, and never cache its result.
 export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   _id,
   title,
   clientName,
   eventDate,
-  pin,
   status,
   customSlug,
   shareCount,
@@ -41,6 +44,11 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   "photoCount": count(photos),
   "selectionCount": count(*[_type == "selection" && album._ref == ^._id])
 }`;
+
+// Every album's pin, for the admin list view only. Callers must fetch this
+// fresh from Sanity every time and must never cache it — same rule as
+// albumPinBySlugQuery above, just for every album at once instead of one.
+export const allAlbumPinsQuery = `*[_type == "album"]{ _id, pin }`;
 
 export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $albumId] {
   _id,

@@ -2,9 +2,10 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
-import { hasAlbumAccess } from "../../../../lib/gallerySession";
+import { hasValidPinSession } from "../../../../lib/gallerySession";
 import {
   albumBySlugQuery,
+  albumPinBySlugQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
@@ -102,7 +103,16 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   // L-1: Verify the submitter proved PIN knowledge for this album. Without
   // this, anyone who discovers a slug and valid photo IDs could submit
   // selections without ever verifying the PIN.
-  if (!hasAlbumAccess(cookies, album._id)) {
+  //
+  // Uses hasValidPinSession (bound to the album's CURRENT pin, fetched fresh
+  // here — never from the cached `album` lookup above, which intentionally
+  // no longer projects `pin`) instead of the looser hasAlbumAccess, so that
+  // an admin rotating a compromised PIN immediately invalidates old sessions
+  // for submission too, not just for the passive resume check in
+  // session.ts. Treats a failed pin lookup (e.g. album deleted in the tiny
+  // window since the fetch above) the same as "not verified" — fail closed.
+  const pinRecord = await sanityClient.fetch<{ pin: string } | null>(albumPinBySlugQuery, { slug });
+  if (!pinRecord || !hasValidPinSession(cookies, album._id, pinRecord.pin)) {
     return new Response(JSON.stringify({ error: "PIN verification required" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },

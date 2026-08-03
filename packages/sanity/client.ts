@@ -22,6 +22,16 @@ if (!readToken && process.env.NODE_ENV === "production") {
   console.warn(
     "[Sanity] SANITY_API_READ_TOKEN/SANITY_API_TOKEN is not set — reads will fail if the dataset is private."
   );
+} else if (!process.env.SANITY_API_READ_TOKEN && process.env.NODE_ENV === "production") {
+  // The fallback above keeps things working, but it means `sanityClient`
+  // still silently carries full write-token privilege on every read-only
+  // route — the read/write split this file exists to provide isn't actually
+  // in effect until an operator creates a dedicated read-only token in the
+  // Sanity dashboard and sets SANITY_API_READ_TOKEN. Surface that loudly
+  // rather than let it look "already fixed" just because reads still work.
+  console.warn(
+    "[Sanity] SANITY_API_READ_TOKEN is not set — sanityClient is falling back to the full-privilege SANITY_API_TOKEN, so read/write separation isn't actually in effect yet. Create a read-only API token in the Sanity dashboard and set SANITY_API_READ_TOKEN to close this gap."
+  );
 }
 
 // Server-side read client. Uses a token so reads keep working when the dataset
