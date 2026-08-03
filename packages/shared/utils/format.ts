@@ -10,6 +10,14 @@ export function formatDate(date: Date | string): string {
     // any timezone west of UTC.
     const [year, month, day] = date.split("-").map(Number);
     d = new Date(year, month - 1, day);
+    // `new Date(y, m, d)` silently rolls over out-of-range days (e.g.
+    // "2026-02-31" -> March 3, 2026) instead of producing an invalid date —
+    // reject anything that didn't round-trip back to the exact components
+    // requested, so an impossible date renders as "—" instead of a
+    // wrong-but-valid-looking one.
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
+      return "—";
+    }
   } else {
     d = new Date(date);
   }

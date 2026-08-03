@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlbumCard, type AlbumCardData } from './AlbumCard';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -9,10 +9,14 @@ interface AlbumListProps {
   onSelectAlbum: (album: AlbumCardData) => void;
 }
 
+export interface AlbumListHandle {
+  refetch: () => void;
+}
+
 type StatusFilter = 'all' | AlbumStatusVariant;
 const PAGE_SIZE = 12;
 
-export function AlbumList({ onSelectAlbum }: AlbumListProps) {
+export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function AlbumList({ onSelectAlbum }, ref) {
   const shouldReduceMotion = useReducedMotion();
   const [albums, setAlbums] = useState<AlbumCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -185,6 +189,10 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
       setIsDeleting(false);
     }
   }, [selectedIds, exitSelectionMode, fetchAlbums]);
+
+  useImperativeHandle(ref, () => ({
+    refetch: () => { void fetchAlbums({ background: true }); },
+  }), [fetchAlbums]);
 
   const selectedCount = selectedIds.size;
 
@@ -708,4 +716,4 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
       `}</style>
     </div>
   );
-}
+});
