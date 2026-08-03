@@ -1,0 +1,24 @@
+apps/web/src/components/admin/AdminPage.tsx
+  h_45c23cf41d175e 1-2,12,32-42,80
+apps/web/src/components/admin/AlbumList.tsx
+  h_45c23cf41d175e 1,12-15,19,193-196,719
+packages/shared/package.json
+  h_45c23cf41d175e 8-9,12-13
+packages/shared/utils/format.test.ts
+  h_45c23cf41d175e 1-23
+packages/shared/utils/format.ts
+  h_45c23cf41d175e 13-20
+pnpm-lock.yaml
+  h_45c23cf41d175e 139-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "90c0037739511c4c24e6787929d90c8db67bc6c3",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
