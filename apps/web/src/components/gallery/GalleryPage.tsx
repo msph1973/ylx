@@ -84,6 +84,19 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // condition below).
   const [isSubmitting, setIsSubmitting] = useState(false);
   const albumIdRef = useRef<string | null>(null);
+  // Synchronous double-submit guard: `isSubmitting` state is async (a second
+  // tap in the same tick as the first still reads `isSubmitting === false`),
+  // so a ref is flipped before any await to make the guard race-free even
+  // under the most rapid multi-taps. Mirrors the submit button's disabled
+  // condition; this is the belt-and-suspenders layer.
+  const isSubmittingRef = useRef(false);
+  // Set inside the setSelectedPhotos updater when an over-limit tap is
+  // rejected; the effect below fires the "reached the limit" toast on the
+  // commit. A ref is used (not state) so setting it inside the updater is an
+  // idempotent flag write that keeps the updater otherwise pure (no state
+  // mutation, no render), and it lets us detect the rejection from within the
+  // updater's race-free `prev` rather than from a possibly-stale closure.
+  const noticedLimitRef = useRef(false);
 
   useEffect(() => {
     albumIdRef.current = album?.id ?? null;
@@ -291,25 +304,32 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     // window.setTimeout to clear it) and must never run inside the updater
     // passed to setSelectedPhotos — React can invoke that function more than
     // once (StrictMode / concurrent features), which would duplicate the
-    // toast and leak a stray timer, and updaters must stay pure. Decide the
-    // condition up front from the current (last-rendered) state instead.
-    const isAlreadySelected = selectedPhotos.has(photoId);
-    const atSelectionLimit = !isAlreadySelected && !!album && selectedPhotos.size >= album.maxSelections;
-
+    // toast and leak a stray timer, and updaters must stay pure. So the
+    // rejection decision is made *inside* the updater (which sees the latest,
+    // race-free `prev`) and merely recorded on an idempotent ref; the actual
+    // toast fires from the effect below after the commit. Without this, a
+    // fast second tap (before React re-renders after the first) reads an
+    // out-of-date size from the `selectedPhotos` closure and the over-limit
+    // rejection is silently dropped instead of notifying the user.
     setSelectedPhotos((prev) => {
       const next = new Set(prev);
       if (next.has(photoId)) {
         next.delete(photoId);
       } else if (album && next.size < album.maxSelections) {
         next.add(photoId);
+      } else if (album) {
+        // At capacity and this photo isn't already selected — the tap is
+        // being rejected. Flag it on a ref (idempotent, not React state) so
+        // the commit effect below surfaces the limit message.
+        noticedLimitRef.current = true;
       }
       return next;
     });
+  }, [album]);
 
-    if (atSelectionLimit && album) {
-      // Silently ignoring a tap here reads as a bug ("why didn't my selection
-      // register?"), especially on mobile where there's no hover affordance
-      // to hint the grid is at capacity.
+  useEffect(() => {
+    if (noticedLimitRef.current && album) {
+      noticedLimitRef.current = false;
       showNotice(`You've reached the limit of ${album.maxSelections} photos. Deselect one to choose another.`);
     }
   }, [album, selectedPhotos, showNotice]);
@@ -324,8 +344,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, []);
 
   const doSubmit = useCallback(async () => {
-    if (!album || selectedPhotos.size === 0 || isAlbumLocked(album) || isSubmitting) return;
+    if (!album || selectedPhotos.size === 0 || isAlbumLocked(album) || isSubmitting || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setError(null);
     setIsSubmitting(true);
     try {
@@ -364,6 +385,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       setError(getErrorMessage(err, 'Submission failed'));
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   }, [album, selectedPhotos, photoNotes, slug, isSubmitting]);
 
