@@ -40,12 +40,13 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 DEFAULT_BATCH_SIZE = 100
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
-# Only network/HTTP transport errors are retried; other exceptions (e.g.
-# programming bugs, missing local files) are allowed to propagate instead of
-# being hidden. Deliberately narrower than a bare `OSError` so a missing or
-# unreadable local file fails loudly rather than being retried as if it were a
-# flaky connection.
-NETWORK_EXCEPTIONS = RequestException
+# Only genuine transport failures are retried — connection refused/reset,
+# DNS, or a timeout. Deliberately NOT the broad `RequestException` (which
+# also covers `HTTPError` raised by raise_for_status()), because retrying on
+# a 4xx client error (401, 400, 403) is futile and masks a real bug; and NOT
+# a bare `OSError` so a missing/unreadable local file fails loudly instead of
+# being retried as a flaky connection.
+NETWORK_EXCEPTIONS = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
 REQUEST_TIMEOUT_SECONDS = 30
 
 
@@ -60,6 +61,12 @@ _MIME_OVERRIDES = {
     '.webp': 'image/webp',
     '.tiff': 'image/tiff',
     '.tif': 'image/tiff',
+    # RAW camera formats Sanity can't down-convert need an explicit image/*
+    # type too, or they'd fall back to octet-stream below and be rejected.
+    '.cr2': 'image/x-canon-cr2',
+    '.nef': 'image/x-nikon-nef',
+    '.arw': 'image/x-sony-arw',
+    '.raw': 'application/octet-stream',
 }
 
 
@@ -163,6 +170,13 @@ class SanityUploader:
         self.uploaded_files = set()
         self.claimed_files = set()  # hashes currently being uploaded by a worker
         self.lock = threading.Lock()
+        # Condition over `lock` for wait/notify on claim-completion. Replaces
+        # the earlier busy-sleep loop that manually released and re-acquired
+        # `self.lock` inside a `with self.lock:` block — that pattern leaves a
+        # window where an exception between release() and acquire() makes the
+        # with-block's exit release an already-unlocked (or double-held) lock,
+        # risking RuntimeError/deadlock.
+        self.cond = threading.Condition(self.lock)
         self.stats = {
             'uploaded': 0,
             'skipped': 0,
@@ -225,34 +239,46 @@ class SanityUploader:
 
         # Claim the hash so concurrent same-content files don't both upload;
         # the claim is only released back into a retryable state on failure.
-        with self.lock:
+        with self.cond:
             if file_hash in self.uploaded_files:
                 self.stats['skipped'] += 1
                 return None
-            if file_hash in self.claimed_files:
-                # Another worker is uploading the same content. Wait briefly
-                # for it to finish so we don't double-upload or report a
-                # permanent skip on a claim that may still fail.
-                remaining = 60
-                while file_hash in self.claimed_files and remaining > 0:
-                    self.lock.release()
-                    time.sleep(0.2)
-                    remaining -= 1
-                    self.lock.acquire()
-                if file_hash in self.uploaded_files:
-                    self.stats['skipped'] += 1
-                    return None
-                # Claim expired without completing — fall through and own it.
+            claimed_by_another = False
+            while file_hash in self.claimed_files:
+                # Another worker is uploading the same content. Wait (blocking,
+                # race-free) for it to finish rather than polling with a manual
+                # lock release/acquire — when the holder's claim completes
+                # (success, failure, or the finally below) it notifies us, so
+                # we know the outcome without holding up the lock or risking a
+                # double-upload. No timeout: the claim holder is guaranteed to
+                # free the hash (see the finally + _mark_failed paths), so
+                # this wait always terminates on its own.
+                claimed_by_another = True
+                self.cond.wait()
+            if claimed_by_another and file_hash in self.uploaded_files:
+                self.stats['skipped'] += 1
+                return None
             self.claimed_files.add(file_hash)
 
+        # Note: claim-holder must notify after mutating claimed_files/
+        # uploaded_files, done via self._notify_claims() in the finally and
+        # in _mark_failed. Success path also notifies after moving the hash.
         try:
             for attempt in range(MAX_RETRIES):
                 try:
                     # Upload image asset — stream the file object so large
                     # files don't buffer fully in memory.
                     mime = guess_image_mime(file_path)
-                    with open(file_path, 'rb') as f:
-                        asset = self.client.upload_image_asset(f, file_path.name, mime)
+                    try:
+                        with open(file_path, 'rb') as f:
+                            asset = self.client.upload_image_asset(f, file_path.name, mime)
+                    except OSError as e:
+                        # Local file became unreadable (deleted/perm-changed)
+                        # between validation and upload — this is not a
+                        # retryable transport failure, so fail the file loudly
+                        # instead of aborting the whole batch.
+                        self._mark_failed(file_path, file_hash, f"cannot open file: {e}", "local")
+                        return None
 
                     # Create photo document. `_id` is deterministic (album +
                     # content hash) so a retried/duplicate call is a safe
@@ -280,10 +306,11 @@ class SanityUploader:
                     self.client.append_photo_to_album(album_id, photo_doc['_id'])
 
                     # Only now mark as uploaded (dedup only on full success).
-                    with self.lock:
+                    with self.cond:
                         self.claimed_files.discard(file_hash)
                         self.uploaded_files.add(file_hash)
                         self.stats['uploaded'] += 1
+                        self.cond.notify_all()
                     print(f"  ✓ {file_path.name}")
                     return result
 
@@ -296,17 +323,20 @@ class SanityUploader:
                         return None
         finally:
             # If control exits without having moved the hash to uploaded_files
-            # (any failure path), free the claim so a retry can re-own it.
-            with self.lock:
+            # (any failure path), free the claim so a retry can re-own it, and
+            # wake any worker waiting on this claim.
+            with self.cond:
                 if file_hash in self.claimed_files and file_hash not in self.uploaded_files:
                     self.claimed_files.discard(file_hash)
+                self.cond.notify_all()
 
     def _mark_failed(self, file_path: Path, file_hash: Optional[str], err, kind: str):
-        with self.lock:
+        with self.cond:
             if file_hash:
                 self.claimed_files.discard(file_hash)
             self.stats['failed'] += 1
             self.stats['errors'].append(f"{file_path.name}: {err}")
+            self.cond.notify_all()
         print(f"  ✗ {file_path.name}: Failed ({kind}) ({err})")
 
     def upload_batch(self, files: list[Path], album_id: str, batch_size: int = DEFAULT_BATCH_SIZE):
