@@ -22,6 +22,22 @@ for await (const entry of glob("src/**/*.astro", { cwd: new URL("..", import.met
 
 let failed = false;
 
+// Counts consecutive backslashes immediately before `index` and reports
+// whether the character at `index` is escaped (odd count) or not (even
+// count, including zero). A single `\` escapes the following character
+// (quote stays open), but `\\` is itself an escaped backslash so the
+// following character (e.g. a closing quote) is NOT escaped — checking only
+// the single preceding character gets this wrong for runs of backslashes.
+function isEscaped(content, index) {
+  let backslashes = 0;
+  let i = index - 1;
+  while (i >= 0 && content[i] === "\\") {
+    backslashes++;
+    i--;
+  }
+  return backslashes % 2 === 1;
+}
+
 // Accumulates source text from a `<ComponentName` start (the index of its
 // `<`) up to its matching `/>` or `>` close, tracking `{...}` prop-expression
 // nesting and quoted strings so a `>` used inside an expression (e.g.
@@ -35,7 +51,7 @@ function extractTag(content, startIndex) {
   for (let i = startIndex; i < content.length; i++) {
     const char = content[i];
     if (quote) {
-      if (char === quote && content[i - 1] !== "\\") quote = null;
+      if (char === quote && !isEscaped(content, i)) quote = null;
       continue;
     }
     if (char === '"' || char === "'" || char === "`") {
