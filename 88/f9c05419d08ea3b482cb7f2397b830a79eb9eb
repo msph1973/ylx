@@ -1,0 +1,27 @@
+apps/web/src/components/admin/DatePickerField.tsx
+  s_224761bbb35871::t_0eed2f06910dec 214
+  s_224761bbb35871::t_2cb6c29e960e28 173,177,181,186
+  s_224761bbb35871::t_2937c3cf0a5481 225,228,230,235,239,241
+  s_224761bbb35871::t_c2b334e96e5bef 263
+  s_224761bbb35871::t_0dae4d65775da3 125-133,136-138
+  s_224761bbb35871::t_442cb1ebf9fec6 321-325
+  s_224761bbb35871::t_91536155290f09 167-168
+apps/web/src/components/admin/DatePickerField.test.ts
+  s_224761bbb35871::t_7db0f214cc1ae1 67-69,72-73,77-78,81-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "88f9c05419d08ea3b482cb7f2397b830a79eb9eb",
+  "prompts": {},
+  "sessions": {
+    "s_224761bbb35871": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_034354388ffefsmbETj1fxJ6l5",
+        "model": "admskhld--ep-kimi-k3-server.us-west.modal.direct"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
