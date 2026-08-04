@@ -20,13 +20,13 @@ function pad2(n: number): string {
 }
 
 /** Parses a "YYYY-MM-DD" string into numeric parts, or `null` if malformed/empty. */
-function parseYMD(value: string): { year: number; month: number; day: number } | null {
+export function parseYMD(value: string): { year: number; month: number; day: number } | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
   return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
-function formatYMD(year: number, month: number, day: number): string {
+export function formatYMD(year: number, month: number, day: number): string {
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
@@ -49,7 +49,7 @@ function formatDisplayDate(value: string): string {
   });
 }
 
-interface DayCell {
+export interface DayCell {
   ymd: string;
   day: number;
   inCurrentMonth: boolean;
@@ -61,7 +61,7 @@ interface DayCell {
 /** Builds a fixed 6-week (42-cell) grid for `year`/`month` (1-indexed). Cells
  *  outside the viewed month are filled in for alignment but always disabled —
  *  clicking to a different month is via the header's prev/next buttons only. */
-function buildMonthGrid(
+export function buildMonthGrid(
   year: number,
   month: number,
   value: string,
