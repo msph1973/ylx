@@ -126,16 +126,21 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
   // side-effectful updater calls (which StrictMode's dev double-invoke would
   // re-run, shifting the year twice across a Dec/Jan boundary).
   const [viewed, setViewed] = useState(() => parseYMD(value) ?? today);
-  // Whether the popover opens upward — set when the trigger is too close to
-  // the bottom of the viewport for the ~360px calendar to fit below it
-  // (the popover lives inside the album modal's scrolling container, so
-  // extending past the viewport bottom would clip it).
+  // Whether the popover opens upward — only when the trigger is too close to
+  // the bottom of the viewport for the ~360px calendar AND there is strictly
+  // more room above than below. Downward overflow is still scroll-reachable
+  // (the popover lives inside the modal's scroll container); upward overflow
+  // past the modal's top edge gets clipped for good, so flipping is the
+  // last-resort choice when it is actually the roomier side.
   const [flipUp, setFlipUp] = useState(false);
 
   const openPopover = () => {
     setViewed(parseYMD(value) ?? today);
     const rect = wrapperRef.current?.getBoundingClientRect();
-    setFlipUp(rect ? window.innerHeight - rect.bottom < 380 : false);
+    if (rect) {
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setFlipUp(spaceBelow < 380 && rect.top > spaceBelow);
+    }
     setIsOpen(true);
   };
 
