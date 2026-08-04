@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
-import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { hasAlbumAccess, hasActiveSession } from "../../../../lib/gallerySession";
+import { albumBySlugQuery, albumPinBySlugQuery } from "@ylx/sanity/lib/queries";
+import { hasActiveSession, hasValidPinSession } from "../../../../lib/gallerySession";
 import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
 import { getCached, CACHE_KEYS } from "../../../../lib/cache";
 import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
@@ -11,6 +11,11 @@ import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/
 // per-IP only, since a per-slug key would hand every probed slug a fresh
 // bucket. Worst case for a legit throttled visitor: re-enter the PIN.
 const MAX_SESSION_LOOKUPS_PER_IP = 30;
+
+interface AlbumPinRecord {
+  _id: string;
+  pin: string;
+}
 
 // Resume a gallery session without re-entering the PIN: the signed httpOnly
 // `gallery_pin_session` cookie (set by verify.ts, 24h) already proves PIN
@@ -61,13 +66,20 @@ export const GET: APIRoute = async ({ params, cookies, clientAddress }) => {
   }
 
   let album: SanityAlbumRaw | null;
+  let pinRecord: AlbumPinRecord | null;
   try {
-    album = await getCached<SanityAlbumRaw | null>(
-      CACHE_KEYS.albumBySlug(slug),
-      30,
-      120,
-      () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
-    );
+    [album, pinRecord] = await Promise.all([
+      getCached<SanityAlbumRaw | null>(
+        CACHE_KEYS.albumBySlug(slug),
+        30,
+        120,
+        () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
+      ),
+      // Security-sensitive, same as verify.ts: read fresh every time, never
+      // cached, so a just-changed PIN is reflected immediately below instead
+      // of continuing to validate the OLD PIN for up to the cache's TTL.
+      sanityClient.fetch<AlbumPinRecord | null>(albumPinBySlugQuery, { slug }),
+    ]);
   } catch (err) {
     // Sanity/Upstash outage escapes getCached on a hard-miss — never leak
     // internals, just log and return a generic 500 (REVIEW.md §2.2).
@@ -79,8 +91,10 @@ export const GET: APIRoute = async ({ params, cookies, clientAddress }) => {
   }
 
   // A 404-vs-401 distinction would let an unauthenticated visitor probe
-  // which slugs exist; both cases return the same 401.
-  if (!album || !hasAlbumAccess(cookies, album._id)) {
+  // which slugs exist; both cases return the same 401. Checking
+  // hasValidPinSession (not just hasAlbumAccess) means a PIN changed after
+  // this cookie was issued invalidates the session here, on resume.
+  if (!album || !pinRecord || !hasValidPinSession(cookies, album._id, pinRecord.pin)) {
     return new Response(JSON.stringify({ error: "No active gallery session" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

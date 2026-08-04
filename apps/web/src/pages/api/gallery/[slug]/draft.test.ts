@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const getCachedMock = vi.fn();
-const hasAlbumAccessMock = vi.fn();
+const hasValidPinSessionMock = vi.fn();
 const hasActiveSessionMock = vi.fn();
 const isRateLimitedMock = vi.fn();
 const cacheSetRawMock = vi.fn();
 const cacheGetRawMock = vi.fn().mockResolvedValue([]);
 const publishAdminEventMock = vi.fn();
+const sanityFetchMock = vi.fn();
 
 vi.mock("@ylx/sanity/client", () => ({
-  sanityClient: { fetch: vi.fn() },
+  sanityClient: { fetch: (...args: unknown[]) => sanityFetchMock(...args) },
   urlFor: () => ({
     width: () => ({ auto: () => ({ quality: () => ({ url: () => "https://img.test/full" }) }) }),
   }),
@@ -28,7 +29,7 @@ vi.mock("../../../../lib/cache", () => ({
   },
 }));
 vi.mock("../../../../lib/gallerySession", () => ({
-  hasAlbumAccess: (...args: unknown[]) => hasAlbumAccessMock(...args),
+  hasValidPinSession: (...args: unknown[]) => hasValidPinSessionMock(...args),
   hasActiveSession: (...args: unknown[]) => hasActiveSessionMock(...args),
 }));
 vi.mock("../../../../lib/ratelimit", () => ({
@@ -65,25 +66,37 @@ function call(body: unknown, slug: string | undefined = "doe-wedding") {
 
 beforeEach(() => {
   getCachedMock.mockReset().mockResolvedValue(ALBUM);
-  hasAlbumAccessMock.mockReset().mockReturnValue(true);
+  hasValidPinSessionMock.mockReset().mockReturnValue(true);
   hasActiveSessionMock.mockReset().mockReturnValue(true);
   isRateLimitedMock.mockReset().mockResolvedValue(false);
   cacheSetRawMock.mockReset().mockResolvedValue(undefined);
   cacheGetRawMock.mockReset().mockResolvedValue([]);
   publishAdminEventMock.mockReset().mockResolvedValue(undefined);
+  // Fresh, never-cached pin lookup draft.ts now does before trusting a
+  // session (see hasValidPinSession) — matches ALBUM.pin by default so
+  // existing tests that toggle hasValidPinSessionMock directly still work
+  // without needing to know about this extra fetch.
+  sanityFetchMock.mockReset().mockResolvedValue({ _id: ALBUM._id, pin: ALBUM.pin });
 });
 
 describe("PUT /api/gallery/[slug]/draft", () => {
-  it("401s without album access (uniform with unknown slug)", async () => {
-    hasAlbumAccessMock.mockReturnValue(false);
+  it("401s without a valid pin session (uniform with unknown slug)", async () => {
+    hasValidPinSessionMock.mockReturnValue(false);
     const res = await call({ count: 3 });
     expect(res.status).toBe(401);
 
     getCachedMock.mockResolvedValue(null);
-    hasAlbumAccessMock.mockReturnValue(true);
+    hasValidPinSessionMock.mockReturnValue(true);
     const res2 = await call({ count: 3 });
     expect(res2.status).toBe(401);
     expect(await res.json()).toEqual(await res2.json());
+    expect(cacheSetRawMock).not.toHaveBeenCalled();
+  });
+
+  it("401s when the fresh pin lookup comes back empty (e.g. album deleted moments ago)", async () => {
+    sanityFetchMock.mockResolvedValue(null);
+    const res = await call({ count: 3 });
+    expect(res.status).toBe(401);
     expect(cacheSetRawMock).not.toHaveBeenCalled();
   });
 

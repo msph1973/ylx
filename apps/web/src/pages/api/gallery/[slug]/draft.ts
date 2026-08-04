@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
-import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
-import { hasAlbumAccess, hasActiveSession } from "../../../../lib/gallerySession";
+import { albumBySlugQuery, albumPinBySlugQuery } from "@ylx/sanity/lib/queries";
+import { hasValidPinSession, hasActiveSession } from "../../../../lib/gallerySession";
 import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
 import { getCached, cacheSetRaw, cacheGetRaw, CACHE_KEYS } from "../../../../lib/cache";
 import { publishAdminEvent } from "../../../../lib/ably";
@@ -51,7 +51,23 @@ export const PUT: APIRoute = async ({ params, cookies, request, clientAddress })
   );
 
   // Same uniform 401 as session.ts so unauthenticated callers can't probe slugs.
-  if (!album || !hasAlbumAccess(cookies, album._id)) {
+  if (!album) {
+    return new Response(JSON.stringify({ error: "No active gallery session" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Bound to the album's CURRENT pin (fetched fresh, never cached — see
+  // albumPinBySlugQuery's own doc comment) rather than the looser
+  // hasAlbumAccess, so a PIN rotation revokes an old session for draft
+  // writes too, not just for session.ts's resume check. One extra
+  // single-document Sanity read per debounced write is an acceptable
+  // trade-off here: draft progress is informational only (a photo count,
+  // never the actual selection), but it should still stop responding to a
+  // session verified against a since-rotated PIN.
+  const pinRecord = await sanityClient.fetch<{ pin: string } | null>(albumPinBySlugQuery, { slug });
+  if (!pinRecord || !hasValidPinSession(cookies, album._id, pinRecord.pin)) {
     return new Response(JSON.stringify({ error: "No active gallery session" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

@@ -25,7 +25,6 @@ export interface SanityAlbumRaw {
   eventDate: string;
   status: string;
   maxSelections: number;
-  pin: string;
   lastUnlockedAt?: string | null;
   photos: SanityPhotoRaw[];
 }

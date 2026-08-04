@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
-import { albumBySlugQuery } from "@ylx/sanity/lib/queries";
+import { albumBySlugQuery, albumPinBySlugQuery } from "@ylx/sanity/lib/queries";
 import {
   isLimitReached,
   isRateLimited,
@@ -14,6 +14,11 @@ import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/
 
 const MAX_ATTEMPTS_PER_IP = 5;
 const MAX_FAILED_ATTEMPTS_PER_ALBUM = 30;
+
+interface AlbumPinRecord {
+  _id: string;
+  pin: string;
+}
 
 function pinMatches(expected: string, provided: string): boolean {
   // Defensive: a non-string here would make Buffer.from throw (TypeError -> 500).
@@ -97,6 +102,28 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     });
   }
 
+  // Security-sensitive: read the PIN fresh from Sanity every time, via a
+  // minimal, dedicated query — never through the Upstash cache. The cached
+  // album lookup below (albumBySlugQuery) intentionally no longer projects
+  // `pin` at all, so an album's PIN is never copied in plaintext into a
+  // third-party cache.
+  const pinRecord = await sanityClient.fetch<AlbumPinRecord | null>(albumPinBySlugQuery, { slug });
+
+  if (!pinRecord) {
+    return new Response(JSON.stringify({ error: "Album not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!pinMatches(pinRecord.pin, pin)) {
+    await recordFailedAttempt(albumKey);
+    return new Response(JSON.stringify({ error: "Invalid PIN" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const album = await getCached<SanityAlbumRaw | null>(
     CACHE_KEYS.albumBySlug(slug),
     30, // 30s fresh TTL
@@ -105,24 +132,23 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
   );
 
   if (!album) {
+    // Extremely unlikely — the PIN lookup above just found this exact slug
+    // moments ago — but guard anyway (e.g. the album was deleted in between).
+    // Checked BEFORE grantAlbumAccess below (not after, as this used to be
+    // ordered) so a delete landing in this exact window can't leave a
+    // granted session cookie for an album that turns out not to exist.
     return new Response(JSON.stringify({ error: "Album not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  if (!pinMatches(album.pin, pin)) {
-    await recordFailedAttempt(albumKey);
-    return new Response(JSON.stringify({ error: "Invalid PIN" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // Record that this browser proved knowledge of this album's PIN, so
-  // /api/ably/token can scope its realtime capability to just this album
-  // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe.
-  grantAlbumAccess(cookies, album._id);
+  // Record that this browser proved knowledge of this album's PIN (and
+  // which PIN, via its hash — see gallerySession.ts's hasValidPinSession),
+  // so /api/ably/token can scope its realtime capability to just this album
+  // (M-2 in new-audit.md) instead of a blanket `album:*` subscribe, and so a
+  // later PIN change invalidates this session on resume (session.ts).
+  grantAlbumAccess(cookies, pinRecord._id, pin);
 
   // Share stats are informational only (shown to the admin) — a failure here
   // must never block a client from viewing an album they just proved PIN
