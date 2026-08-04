@@ -159,8 +159,20 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
         setIsOpen(false);
       }
     };
+    // Mouse clicks are only half the story: a keyboard user can Tab out of the
+    // component entirely, and the popover must not stay open over other fields.
+    const handleFocusOut = (e: FocusEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.relatedTarget as Node | null)) {
+        setIsOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
+    const wrapper = wrapperRef.current;
+    wrapper?.addEventListener('focusout', handleFocusOut);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      wrapper?.removeEventListener('focusout', handleFocusOut);
+    };
   }, [isOpen]);
 
   // Send keyboard focus to the selected (or today's) day as soon as the grid
