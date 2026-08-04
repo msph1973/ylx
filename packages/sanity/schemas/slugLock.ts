@@ -14,8 +14,20 @@ export default defineType({
   title: "Slug Lock (internal)",
   type: "document",
   fields: [
-    defineField({ name: "slug", title: "Slug", type: "string", readOnly: true }),
-    defineField({ name: "albumId", title: "Album ID", type: "string", readOnly: true }),
+    defineField({
+      name: "slug",
+      title: "Slug",
+      type: "string",
+      readOnly: true,
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: "albumId",
+      title: "Album ID",
+      type: "string",
+      readOnly: true,
+      validation: (Rule) => Rule.required(),
+    }),
   ],
   preview: {
     select: { title: "slug", subtitle: "albumId" },

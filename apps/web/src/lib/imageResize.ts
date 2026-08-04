@@ -9,8 +9,8 @@ export const UPLOAD_RESIZE_MAX_DIMENSION = 2500; // px, cap on the image's longe
 export const UPLOAD_RESIZE_QUALITY = 0.85; // 0-1, used when re-encoding JPEG/WebP
 
 export interface ResizeResult {
-  file: File; // resized file, OR the original file unchanged if resize was skipped/failed
-  resized: boolean; // true only if the file was actually re-encoded/downsized
+  file: File; // re-encoded file, OR the original file unchanged if re-encoding was skipped/failed
+  resized: boolean; // true if the file was actually re-encoded (its pixel dimensions only shrink when the original exceeded UPLOAD_RESIZE_MAX_DIMENSION)
 }
 
 // Browsers can't reliably re-encode TIFF (or anything canvas doesn't natively
@@ -71,22 +71,30 @@ export async function resizeImageForUpload(file: File): Promise<ResizeResult> {
     // default ignores it, which would rotate phone-shot photos after resize.
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
 
-    if (bitmap.width <= UPLOAD_RESIZE_MAX_DIMENSION && bitmap.height <= UPLOAD_RESIZE_MAX_DIMENSION) {
-      // Already small enough — don't re-encode and lose quality for nothing.
-      return { file, resized: false };
-    }
-
-    const scale = UPLOAD_RESIZE_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height);
+    // Always re-encode through canvas — even when the image is already
+    // within the dimension cap — because that's what actually strips EXIF
+    // (GPS coordinates, camera serial number, etc.). This used to only
+    // happen as an incidental side-effect of downscaling, so any photo below
+    // the cap was uploaded as-is with its original metadata intact, and that
+    // asset is reachable un-transformed via the public cdn.sanity.io URL by
+    // simply omitting transform query params.
+    const scale = Math.min(1, UPLOAD_RESIZE_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
     const targetWidth = Math.round(bitmap.width * scale);
     const targetHeight = Math.round(bitmap.height * scale);
 
     const blob = await encodeToBlob(bitmap, targetWidth, targetHeight, file.type);
 
-    if (!blob || blob.size >= file.size) {
-      // Re-encoding didn't actually save anything (or failed) — use original.
+    if (!blob) {
+      // Canvas re-encoding unavailable or failed — no way to strip metadata
+      // this way, so the original (metadata intact) is the only option left.
       return { file, resized: false };
     }
 
+    // Always use the re-encoded blob, even if it isn't smaller than the
+    // original: the goal is stripping metadata, not minimizing bytes, so
+    // silently keeping the original because it happened to be a few bytes
+    // smaller would defeat that guarantee.
+    //
     // Same filename — must stay byte-identical for Lightroom filename
     // matching later on; only the pixel bytes change. Use `blob.type` (not
     // `file.type`) so the File's type always matches what was actually
@@ -95,9 +103,10 @@ export async function resizeImageForUpload(file: File): Promise<ResizeResult> {
     return { file: resizedFile, resized: true };
   } catch (error) {
     // Never throw, never block the caller — worst case we just upload the
-    // original, full-size file. Filename is passed as a structured field
-    // (not interpolated into the message) so a crafted filename can't be
-    // misread as a console format-string directive.
+    // original, full-size file (metadata not stripped in that case).
+    // Filename is passed as a structured field (not interpolated into the
+    // message) so a crafted filename can't be misread as a console
+    // format-string directive.
     console.warn('resizeImageForUpload: failed to resize file, using original', { fileName: file.name, error });
     return { file, resized: false };
   } finally {

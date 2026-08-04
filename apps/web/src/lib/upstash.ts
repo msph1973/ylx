@@ -3,8 +3,16 @@
 //
 // Configure with UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN.
 
+// This request is awaited on critical paths (login credential check, PIN
+// verification) before those routes' own logic runs. Without a timeout, a
+// hung endpoint (e.g. a blackholed TCP connection) would stall the request
+// until the platform's own function timeout, never giving the catch-based
+// degradation in cache.ts/ratelimit.ts a chance to kick in.
+const UPSTASH_FETCH_TIMEOUT_MS = 1500;
+
 interface PipelineItem {
-  result?: string | number | null;
+  // MGET (used by cacheGetRaw) returns an array of strings/nulls, one per key.
+  result?: string | number | null | Array<string | null>;
   error?: string;
 }
 
@@ -20,6 +28,7 @@ export async function upstashPipeline(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(commands),
+    signal: AbortSignal.timeout(UPSTASH_FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
-import { allAlbumsQuery } from "@ylx/sanity/lib/queries";
+import { allAlbumsQuery, allAlbumPinsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
 import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../lib/slug";
 import { publishAdminEvent } from "../../../lib/ably";
@@ -15,11 +15,15 @@ interface SanityAlbumRaw {
   title: string;
   clientName: string;
   eventDate: string;
-  pin: string;
   status: string;
   photoCount: number;
   maxSelections: number;
   selectionCount: number;
+}
+
+interface AlbumPinRecord {
+  _id: string;
+  pin: string;
 }
 
 export const GET: APIRoute = async ({ cookies }) => {
@@ -43,12 +47,18 @@ export const GET: APIRoute = async ({ cookies }) => {
       albums.map((album) => CACHE_KEYS.galleryDraft(album._id))
     );
 
+    // PINs are fetched fresh (never through the 30s/120s SWR cache above) so
+    // they're never copied into Upstash — allAlbumsQuery intentionally no
+    // longer projects `pin` for exactly this reason.
+    const pinRecords = await sanityClient.fetch<AlbumPinRecord[]>(allAlbumPinsQuery);
+    const pinsById = new Map(pinRecords.map((r) => [r._id, r.pin]));
+
     const formatted = albums.map((album, i) => ({
       id: album._id,
       title: album.title,
       clientName: album.clientName,
       eventDate: album.eventDate,
-      pin: album.pin,
+      pin: pinsById.get(album._id) ?? "",
       status: album.status,
       photoCount: album.photoCount,
       maxSelections: album.maxSelections,

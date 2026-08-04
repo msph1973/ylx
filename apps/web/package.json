@@ -2,6 +2,9 @@
   "name": "@ylx/web",
   "type": "module",
   "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
@@ -18,8 +21,6 @@
     "@astrojs/react": "^5.0.7",
     "@astrojs/vercel": "^10.0.8",
     "@sanity/client": "^6.15.5",
-    "@types/react": "^18.2.55",
-    "@types/react-dom": "^18.2.19",
     "@vercel/analytics": "^2.0.1",
     "@vercel/functions": "^3.7.5",
     "ably": "^2.23.0",
@@ -30,11 +31,15 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
     "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.62.0",
     "@ylx/sanity": "workspace:*",
     "@ylx/shared": "workspace:*",
     "eslint": "^10.5.0",
-    "eslint-plugin-astro": "^2.1.1"
+    "eslint-plugin-astro": "^2.1.1",
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.9"
   }
 }

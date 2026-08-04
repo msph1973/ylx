@@ -146,4 +146,62 @@ describe("resizeImageInWorker", () => {
     void resizeImageInWorker(file3);
     expect(lastWorkerInstance).not.toBe(crashedWorker);
   });
+
+  it("terminates the worker after the pending queue empties and the idle grace period elapses", async () => {
+    vi.useFakeTimers();
+    const { resizeImageInWorker } = await import("./imageResizeClient");
+    const file = makeFile();
+
+    const promise = resizeImageInWorker(file);
+    const worker = lastWorkerInstance!;
+    const [message] = worker.postMessage.mock.calls[0];
+
+    worker.onmessage?.({ data: { id: message.id, result: { file, resized: false } } } as MessageEvent);
+    await promise;
+
+    // Not torn down immediately — a fast follow-up batch should still be able
+    // to reuse this exact instance.
+    expect(worker.terminate).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels the pending idle-termination when a new request arrives within the grace period, reusing the same worker", async () => {
+    vi.useFakeTimers();
+    const { resizeImageInWorker } = await import("./imageResizeClient");
+    const file1 = makeFile("a.jpg");
+    const file2 = makeFile("b.jpg");
+
+    const p1 = resizeImageInWorker(file1);
+    const worker = lastWorkerInstance!;
+    const [msg1] = worker.postMessage.mock.calls[0];
+    worker.onmessage?.({ data: { id: msg1.id, result: { file: file1, resized: false } } } as MessageEvent);
+    await p1;
+
+    await vi.advanceTimersByTimeAsync(2_000); // still inside the grace period
+
+    const p2 = resizeImageInWorker(file2);
+    expect(lastWorkerInstance).toBe(worker); // reused, not rebuilt
+
+    // If the original idle-termination timer weren't cancelled, this would
+    // have fired by now (2s + 5s > the 5s grace period).
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(worker.terminate).not.toHaveBeenCalled();
+
+    const [msg2] = worker.postMessage.mock.calls[1];
+    worker.onmessage?.({ data: { id: msg2.id, result: { file: file2, resized: true } } } as MessageEvent);
+    await expect(p2).resolves.toEqual({ file: file2, resized: true });
+  });
+
+  it("terminates the worker on pagehide even if resizes are still in flight", async () => {
+    const { resizeImageInWorker } = await import("./imageResizeClient");
+    void resizeImageInWorker(makeFile());
+    const worker = lastWorkerInstance!;
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+  });
 });

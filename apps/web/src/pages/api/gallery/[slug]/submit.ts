@@ -2,9 +2,10 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
-import { hasAlbumAccess, hasActiveSession } from "../../../../lib/gallerySession";
+import { hasActiveSession, hasValidPinSession } from "../../../../lib/gallerySession";
 import {
   albumBySlugQuery,
+  albumPinBySlugQuery,
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
@@ -91,14 +92,30 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     if (s.notes) notesMap.set(s.photoId, s.notes);
   }
 
-  const album = await sanityClient.fetch<SubmitAlbum | null>(albumBySlugQuery, { slug });
+  // Both queries always run, regardless of whether the other one turns up
+  // anything — gating the pin lookup on `album` existing first would make an
+  // unauthenticated caller able to tell "album doesn't exist" from "album
+  // exists" purely from response latency (one Sanity round-trip vs two).
+  const [album, pinRecord] = await Promise.all([
+    sanityClient.fetch<SubmitAlbum | null>(albumBySlugQuery, { slug }),
+    sanityClient.fetch<{ pin: string } | null>(albumPinBySlugQuery, { slug }),
+  ]);
 
   // L-1: Verify the submitter proved PIN knowledge for this album BEFORE
   // revealing anything about the album's existence or status. Same uniform
   // 401 as session.ts/draft.ts so an unauthenticated caller can't tell
   // "album doesn't exist" from "album locked" from "album active" purely
   // from response codes.
-  if (!album || !hasAlbumAccess(cookies, album._id)) {
+  //
+  // Uses hasValidPinSession (bound to the album's CURRENT pin, fetched fresh
+  // via albumPinBySlugQuery — never from the cached `album` lookup above,
+  // which intentionally no longer projects `pin`) instead of the looser
+  // hasAlbumAccess, so that an admin rotating a compromised PIN immediately
+  // invalidates old sessions for submission too, not just for the passive
+  // resume check in session.ts. Treats a failed pin lookup (e.g. album
+  // deleted in the tiny window since the fetch above) the same as "not
+  // verified" — fail closed.
+  if (!album || !pinRecord || !hasValidPinSession(cookies, album._id, pinRecord.pin)) {
     return new Response(JSON.stringify({ error: "No active gallery session" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

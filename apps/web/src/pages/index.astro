@@ -50,9 +50,43 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   const input = document.getElementById('gallery-slug') as HTMLInputElement;
   const errorEl = document.getElementById('gallery-error') as HTMLParagraphElement;
 
+  // A pasted gallery link (a full URL, or a bare "site/gallery/<slug>" path
+  // without a protocol) should resolve to its slug segment instead of being
+  // slugified character-by-character — that would turn
+  // "https://site/gallery/foo" into garbage like "https-site-gallery-foo".
+  function extractSlugSource(value: string): string {
+    try {
+      const url = new URL(value);
+      // Only trust this parse for real http(s) URLs — `new URL()` also parses
+      // opaque custom-scheme values like "smith:wedding" successfully (scheme
+      // "smith" + opaque path "wedding"), which would otherwise silently
+      // truncate plain text containing a colon down to whatever follows it.
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        const segments = url.pathname.split('/').filter(Boolean);
+        if (segments.length > 0) return segments[segments.length - 1];
+      }
+    } catch {
+      // Not an absolute URL (e.g. no protocol, or plain album-name text) —
+      // fall through to the /gallery/<slug> pattern check below.
+    }
+    // A URI with ANY scheme (http/https handled above, but also e.g.
+    // "custom:foo/gallery/bar", "file:...", "mailto:...") must not fall into
+    // the relative-path regex below: `new URL()` parses the custom scheme
+    // without throwing, so execution reaches here carrying that still-valid
+    // parse, and the /gallery/<slug> pattern would extract the wrong segment
+    // (e.g. "bar" from a custom scheme). Reject it so the raw value is
+    // slugified instead of silently opening the wrong gallery.
+    if (/^[a-z][a-z\d+.-]*:/i.test(value)) return value;
+    const match = value.match(/gallery\/([^/?#\s]+)/i);
+    if (match) return match[1];
+    // Plain album-name input — keep the existing behavior unchanged.
+    return value;
+  }
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const slug = input.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const source = extractSlugSource(input.value.trim());
+    const slug = source.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     if (!slug) {
       errorEl.textContent = 'Please enter a gallery name.';
       input.focus();

@@ -5,6 +5,10 @@ on:
     branches: [master]
   pull_request:
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
 # Least privilege by default for every job's GITHUB_TOKEN (CodeQL: workflows
 # should set an explicit permissions block). Jobs may narrow further.
 permissions:
@@ -13,6 +17,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +50,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Skip when the Sanity credential is unavailable: fork PRs and Dependabot
     # runs don't receive Actions secrets, so the seed step would fail. Those
     # changes are covered by the trusted push run on master instead.

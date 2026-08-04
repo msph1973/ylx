@@ -74,6 +74,17 @@ function memoryRecord(key: string): void {
   entry.count += 1;
 }
 
+// Key-namespace prefixing used to be left entirely to call sites, which was
+// inconsistent in practice (`login-ip:`, `session:`, `draft:<album>:` prefixes
+// existed side by side with at least one call site passing a bare,
+// unprefixed key). `scope` lets a caller ask for `${scope}:${key}` instead of
+// hand-rolling its own prefix; omitted (the default), it's a no-op, so every
+// existing call site keeps compiling and behaving exactly as before — this is
+// purely an additive capability, not a breaking signature change.
+function namespacedKey(key: string, scope?: string): string {
+  return scope ? `${scope}:${key}` : key;
+}
+
 async function upstashLimited(
   key: string,
   maxAttempts: number,
@@ -101,13 +112,17 @@ async function upstashLimited(
 // self-inflicted DoS if Upstash has an outage.
 const IN_MEMORY_PROD_CAP_DIVISOR = 2;
 
-export async function isRateLimited(key: string, maxAttempts: number): Promise<boolean> {
+// `scope`, when given, namespaces `key` (see `namespacedKey` above) so
+// different call sites can't collide even if they happen to pass the same
+// raw key.
+export async function isRateLimited(key: string, maxAttempts: number, scope?: string): Promise<boolean> {
+  const namespaced = namespacedKey(key, scope);
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (url && token) {
     try {
-      return await upstashLimited(key, maxAttempts, url, token);
+      return await upstashLimited(namespaced, maxAttempts, url, token);
     } catch (err) {
       console.warn("[RateLimit] Upstash unavailable; degrading to in-memory:", err);
     }
@@ -117,18 +132,20 @@ export async function isRateLimited(key: string, maxAttempts: number): Promise<b
   const cap = import.meta.env.PROD
     ? Math.max(1, Math.floor(maxAttempts / IN_MEMORY_PROD_CAP_DIVISOR))
     : maxAttempts;
-  return memoryLimited(key, cap);
+  return memoryLimited(namespaced, cap);
 }
 
 // Read-only check: true once the counter for `key` has reached `maxAttempts`.
 // Does not increment — pair with `recordFailedAttempt` so only failures count.
-export async function isLimitReached(key: string, maxAttempts: number): Promise<boolean> {
+// `scope` behaves the same as in `isRateLimited` above.
+export async function isLimitReached(key: string, maxAttempts: number, scope?: string): Promise<boolean> {
+  const namespaced = namespacedKey(key, scope);
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (url && token) {
     try {
-      const data = await upstashPipeline([["GET", `rl:${key}`]], url, token);
+      const data = await upstashPipeline([["GET", `rl:${namespaced}`]], url, token);
       return Number(data?.[0]?.result ?? 0) >= maxAttempts;
     } catch (err) {
       console.warn("[RateLimit] Upstash unavailable; degrading to in-memory:", err);
@@ -138,12 +155,15 @@ export async function isLimitReached(key: string, maxAttempts: number): Promise<
   const cap = import.meta.env.PROD
     ? Math.max(1, Math.floor(maxAttempts / IN_MEMORY_PROD_CAP_DIVISOR))
     : maxAttempts;
-  return memoryCount(key) >= cap;
+  return memoryCount(namespaced) >= cap;
 }
 
 // Increment the counter for `key` (fixed 15-minute window). Errors are logged
 // and swallowed: the paired `isLimitReached` already handles degradation.
-export async function recordFailedAttempt(key: string): Promise<void> {
+// `scope` behaves the same as in `isRateLimited` above — pass the same scope
+// to both so they agree on the same namespaced key.
+export async function recordFailedAttempt(key: string, scope?: string): Promise<void> {
+  const namespaced = namespacedKey(key, scope);
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -151,20 +171,20 @@ export async function recordFailedAttempt(key: string): Promise<void> {
     try {
       await upstashPipeline(
         [
-          ["INCR", `rl:${key}`],
-          ["EXPIRE", `rl:${key}`, String(WINDOW_SECONDS), "NX"],
+          ["INCR", `rl:${namespaced}`],
+          ["EXPIRE", `rl:${namespaced}`, String(WINDOW_SECONDS), "NX"],
         ],
         url,
         token
       );
     } catch (err) {
       console.warn("[RateLimit] Upstash unavailable; recording to in-memory fallback:", err);
-      memoryRecord(key);
+      memoryRecord(namespaced);
     }
     return;
   }
 
-  memoryRecord(key);
+  memoryRecord(namespaced);
 }
 
 export const RATE_LIMIT_RETRY_AFTER = String(WINDOW_SECONDS);

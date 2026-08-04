@@ -6,6 +6,10 @@ on:
   pull_request_review_comment:
     types: [created]
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   opencode:
     if: |
@@ -26,7 +30,6 @@ jobs:
       )
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
       pull-requests: write
       issues: write
@@ -37,7 +40,7 @@ jobs:
           persist-credentials: false
 
       - name: Run opencode
-        uses: anomalyco/opencode/github@v1.2.25
+        uses: anomalyco/opencode/github@bfb736e94ad366b544cb29bf1063269d17d5a62c # v1.2.25
         env:
           DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
         with:
