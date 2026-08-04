@@ -40,8 +40,7 @@ python upload.py \
   --folder ~/wedding-photos \
   --album-id abc123def \
   --batch-size 100 \
-  --project-id 741sif2l \
-  --token skEYnSH0Mm...
+  --project-id 741sif2l
 ```
 
 ## Fitur
