@@ -58,6 +58,15 @@ export interface DayCell {
   isDisabled: boolean;
 }
 
+function firstEnabled(cells: DayCell[]): DayCell | undefined {
+  return cells.find((c) => !c.isDisabled);
+}
+
+function lastEnabled(cells: DayCell[]): DayCell | undefined {
+  for (let i = cells.length - 1; i >= 0; i--) if (!cells[i].isDisabled) return cells[i];
+  return undefined;
+}
+
 /** Builds a fixed 6-week (42-cell) grid for `year`/`month` (1-indexed). Cells
  *  outside the viewed month are filled in for alignment but always disabled —
  *  clicking to a different month is via the header's prev/next buttons only. */
@@ -133,9 +142,15 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
   // past the modal's top edge gets clipped for good, so flipping is the
   // last-resort choice when it is actually the roomier side.
   const [flipUp, setFlipUp] = useState(false);
+  // Roving-tabindex target for the day grid: one grid cell carries tabindex=0
+  // and arrows move it around (WAI-APG grid pattern), so keyboard users don't
+  // have to Tab through all 42 cells to leave the popover. null = fall back
+  // to selected / today / first enabled cell (same as the on-open focus rule).
+  const [roving, setRoving] = useState<string | null>(null);
 
   const openPopover = () => {
     setViewed(parseYMD(value) ?? today);
+    setRoving(null);
     const rect = wrapperRef.current?.getBoundingClientRect();
     if (rect) {
       const spaceBelow = window.innerHeight - rect.bottom;
@@ -202,6 +217,62 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
 
   const cells = buildMonthGrid(viewed.year, viewed.month, value, min, todayYMD);
 
+  const rovingCell = roving ? cells.find((c) => c.ymd === roving && !c.isDisabled) : undefined;
+  const tabbable =
+    rovingCell ??
+    cells.find((c) => c.isSelected && !c.isDisabled) ??
+    cells.find((c) => c.isToday && !c.isDisabled) ??
+    firstEnabled(cells);
+
+  // After an arrow key moves the roving target (possibly into a new month that
+  // was just set), land DOM focus on that cell.
+  useEffect(() => {
+    if (!isOpen || !roving) return;
+    gridRef.current?.querySelector<HTMLButtonElement>(`[data-ymd="${roving}"]`)?.focus();
+  }, [isOpen, roving, viewed]); // runs on month changes too, so month-jump arrows focus the new grid
+
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!gridRef.current?.contains(document.activeElement)) return;
+
+    if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      const target = e.key === 'Home' ? firstEnabled(cells) : lastEnabled(cells);
+      if (target) setRoving(target.ymd);
+      return;
+    }
+
+    const deltas: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    const delta = deltas[e.key];
+    if (delta === undefined) return;
+    const current = (document.activeElement as HTMLElement | null)?.dataset.ymd;
+    const idx = current ? cells.findIndex((c) => c.ymd === current) : -1;
+    if (idx < 0) return;
+    e.preventDefault();
+    // Walk the grid in the arrow direction until an enabled day appears,
+    // skipping disabled cells (out-of-month fillers or dates before `min`).
+    for (let i = idx + delta; i >= 0 && i < cells.length; i += delta) {
+      if (!cells[i].isDisabled) {
+        setRoving(cells[i].ymd);
+        return;
+      }
+    }
+    // Fell off the grid's edge — move a full month in that direction, but
+    // only when that month actually has an enabled day (e.g. `min` can make
+    // every day of the previous month off-limits; then stay put).
+    const jump = delta > 0 ? 1 : -1;
+    const nextYear = jump === 1
+      ? (viewed.month === 12 ? viewed.year + 1 : viewed.year)
+      : (viewed.month === 1 ? viewed.year - 1 : viewed.year);
+    const nextMonth = jump === 1
+      ? (viewed.month === 12 ? 1 : viewed.month + 1)
+      : (viewed.month === 1 ? 12 : viewed.month - 1);
+    const nextCells = buildMonthGrid(nextYear, nextMonth, value, min, todayYMD);
+    const target = jump === 1 ? firstEnabled(nextCells) : lastEnabled(nextCells);
+    if (!target) return;
+    setViewed({ year: nextYear, month: nextMonth, day: 1 });
+    setRoving(target.ymd);
+  };
+
   return (
     <div
       className="dp-wrapper"
@@ -267,11 +338,13 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
               ))}
             </div>
 
-            <div className="dp-grid" ref={gridRef}>
+            <div className="dp-grid" ref={gridRef} onKeyDown={handleGridKeyDown}>
               {cells.map((cell) => (
                 <button
                   key={cell.ymd}
                   type="button"
+                  data-ymd={cell.ymd}
+                  tabIndex={tabbable?.ymd === cell.ymd ? 0 : -1}
                   className={[
                     'dp-day',
                     cell.isToday && 'dp-day-today',
