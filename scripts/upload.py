@@ -44,15 +44,17 @@ RETRY_DELAY = 2  # seconds
 # Only genuine transport failures and transient server errors are retried —
 # connection refused/reset, DNS, a timeout, an HTTP 5xx (upstream Sanity
 # hiccup), a 429 (rate limited — inherently transient), or a 409 (revision/
-# write conflict — e.g. two ThreadPoolExecutor workers concurrently patching
-# the same album document's `photos[]` array in append_photo_to_album; safe
-# to retry because every mutation this script sends is idempotent —
-# create_document_if_not_exists() and album_has_photo()'s pre-check make a
-# retried attempt a cheap no-op instead of creating a duplicate or losing the
-# photo). Deliberately NOT any other 4xx client error (401, 400, 403), which
-# retrying can't fix and only masks a real bug, and NOT a bare `OSError` so a
-# missing/unreadable local file fails loudly instead of being retried as a
-# flaky connection.
+# write conflict on the album's `photos[]` patch in append_photo_to_album —
+# either an explicit `ifRevisionID` mismatch, deliberately used so two
+# *independent processes* racing on the same album never both commit a
+# duplicate reference, or two ThreadPoolExecutor workers within this same
+# run; safe to retry because every mutation this script sends is idempotent
+# — create_document_if_not_exists() and get_album_revision_and_membership()'s
+# pre-check make a retried attempt a cheap no-op instead of creating a
+# duplicate or losing the photo). Deliberately NOT any other 4xx client
+# error (401, 400, 403), which retrying can't fix and only masks a real bug,
+# and NOT a bare `OSError` so a missing/unreadable local file fails loudly
+# instead of being retried as a flaky connection.
 def is_retryable_transport(exc: Exception) -> bool:
     if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
         return True
@@ -138,47 +140,67 @@ class SanityClient:
         Idempotent: if the ref is already present (a prior attempt's append
         committed but its response was lost, so a retry runs this again), it
         is left alone. That prevents duplicate `album.photos` entries with the
-        same `_key` under transient network failures."""
-        if self.album_has_photo(album_id, photo_id):
+        same `_key` under transient network failures.
+
+        Also race-safe across independent processes, not just across the
+        ThreadPoolExecutor workers within a single run of this script: the
+        append carries `ifRevisionID` from the same read used for the
+        has-photo check, so Sanity's HTTP API rejects the patch with a 409
+        if another process appended to this exact album in between this
+        read and this write (see
+        https://www.sanity.io/docs/content-lake/transactions). This
+        script's existing retry loop (upload_single) already treats 409 as
+        retryable, so that conflict turns into a safe, automatic retry with
+        a fresh read instead of two processes silently committing a
+        duplicate `photos[]` entry for the same photo."""
+        album_rev, has_photo = self.get_album_revision_and_membership(album_id, photo_id)
+        if has_photo:
             return {}
+        patch = {
+            "id": album_id,
+            "setIfMissing": {"photos": []},
+            "insert": {
+                "at": "after",
+                "after": "photos[-1]",
+                "items": [
+                    {"_type": "reference", "_ref": photo_id, "_key": photo_id}
+                ],
+            },
+        }
+        if album_rev is not None:
+            patch["ifRevisionID"] = album_rev
         url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/data/mutate/{self.dataset}"
         response = self.session.post(
             url,
-            json={
-                "mutations": [
-                    {
-                        "patch": {
-                            "id": album_id,
-                            "setIfMissing": {"photos": []},
-                            "insert": {
-                                "at": "after",
-                                "after": "photos[-1]",
-                                "items": [
-                                    {"_type": "reference", "_ref": photo_id, "_key": photo_id}
-                                ],
-                            },
-                        }
-                    }
-                ]
-            },
+            json={"mutations": [{"patch": patch}]},
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         return response.json()
 
-    def album_has_photo(self, album_id: str, photo_id: str) -> bool:
-        """True if the album's `photos` array already contains a reference to
-        `photo_id`. Used by append_photo_to_album for idempotency.
+    def get_album_revision_and_membership(self, album_id: str, photo_id: str) -> tuple:
+        """Fetches the album's current `_rev` together with whether
+        `photos[]` already contains a reference to `photo_id`, in a single
+        request. Used by append_photo_to_album for both its idempotency
+        check and its cross-process race protection (see that method's
+        docstring).
 
-        Checks server-side via a single boolean-shaped GROQ query instead of
-        downloading every photo reference in the album and scanning them
+        Checks membership server-side via a GROQ boolean expression instead
+        of downloading every photo reference in the album and scanning them
         locally — matters for albums with thousands of photos. GROQ query
         parameters sent via the HTTP query API must be JSON-encoded values
         (e.g. a string needs literal surrounding quotes), or Sanity parses
         the raw value as an unquoted GROQ expression/path instead of a
-        string literal."""
+        string literal.
+
+        Returns `(None, False)` if the album doesn't exist yet at read
+        time — the caller then omits `ifRevisionID` from its patch, which
+        fails on its own (Sanity rejects a patch against a missing
+        document) exactly like before this method existed, so that case
+        still falls through to upload_single's normal per-file permanent-
+        failure handling instead of raising here."""
         url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/data/query/{self.dataset}"
-        query = "*[_type == 'album' && _id == $albumId && $photoId in photos[]._ref][0]._id"
+        query = "*[_type == 'album' && _id == $albumId][0]{_rev, \"hasPhoto\": $photoId in photos[]._ref}"
         response = self.session.get(
             url,
             params={
@@ -189,7 +211,10 @@ class SanityClient:
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        return response.json().get("result") is not None
+        result = response.json().get("result")
+        if not result:
+            return None, False
+        return result["_rev"], bool(result.get("hasPhoto"))
 
     def create_document_if_not_exists(self, document: dict) -> dict:
         """Creates `document` (which must include a deterministic `_id`) via
