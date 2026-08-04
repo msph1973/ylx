@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlbumCard, type AlbumCardData } from './AlbumCard';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -9,10 +9,14 @@ interface AlbumListProps {
   onSelectAlbum: (album: AlbumCardData) => void;
 }
 
+export interface AlbumListHandle {
+  refetch: () => void;
+}
+
 type StatusFilter = 'all' | AlbumStatusVariant;
 const PAGE_SIZE = 12;
 
-export function AlbumList({ onSelectAlbum }: AlbumListProps) {
+export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function AlbumList({ onSelectAlbum }, ref) {
   const shouldReduceMotion = useReducedMotion();
   const [albums, setAlbums] = useState<AlbumCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -186,6 +190,10 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
     }
   }, [selectedIds, exitSelectionMode, fetchAlbums]);
 
+  useImperativeHandle(ref, () => ({
+    refetch: () => { void fetchAlbums({ background: true }); },
+  }), [fetchAlbums]);
+
   const selectedCount = selectedIds.size;
 
   if (isLoading) {
@@ -267,12 +275,12 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
           </button>
         </div>
 
-        <div className="status-filter" role="tablist" aria-label="Filter albums by status">
+        <div className="status-filter" role="group" aria-label="Filter albums by status">
           {filterOptions.map((opt) => (
             <button
               key={opt.key}
-              role="tab"
-              aria-selected={statusFilter === opt.key}
+              type="button"
+              aria-pressed={statusFilter === opt.key}
               className={`filter-chip${statusFilter === opt.key ? ' active' : ''}`}
               onClick={() => setStatusFilter(opt.key)}
             >
@@ -708,4 +716,4 @@ export function AlbumList({ onSelectAlbum }: AlbumListProps) {
       `}</style>
     </div>
   );
-}
+});

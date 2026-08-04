@@ -5,7 +5,9 @@ export interface Selection {
   albumId: string;
   photoId: string;
   photo: Photo;
-  selectedAt: Date;
+  // The API always sends ISO strings over JSON; `Date` is still accepted so
+  // callers that construct these objects directly (e.g. tests) can use either.
+  selectedAt: Date | string;
   notes?: string;
   photographerReply?: string;
 }
@@ -14,5 +16,5 @@ export interface Submission {
   id: string;
   albumId: string;
   selections: Selection[];
-  submittedAt: Date;
+  submittedAt: string;
 }

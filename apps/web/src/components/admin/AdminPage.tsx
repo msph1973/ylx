@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { AlbumList } from '@/components/admin/AlbumList';
+import React, { useState, useCallback, useRef } from 'react';
+import { AlbumList, type AlbumListHandle } from '@/components/admin/AlbumList';
 import { AlbumDetail } from '@/components/admin/AlbumDetail';
 import { AlbumFormModal } from '@/components/admin/AlbumFormModal';
 import type { AlbumCardData } from '@/components/admin/AlbumCard';
@@ -9,9 +9,9 @@ interface AdminPageProps {
 }
 
 export default function AdminPage({ adminName }: AdminPageProps) {
+  const albumListRef = useRef<AlbumListHandle>(null);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleSelectAlbum = (album: AlbumCardData) => {
     setSelectedAlbumId(album.id);
@@ -26,17 +26,23 @@ export default function AdminPage({ adminName }: AdminPageProps) {
     window.location.href = '/admin/login';
   };
 
+  // AlbumList already refetches itself in the background on Ably realtime
+  // "admin:updates" events (see useAdminRealtime in AlbumList.tsx), which the
+  // create/update/delete API routes publish on every mutation — so no manual
+  // refresh trigger is needed here in the common case. Forcing a remount via
+  // a key bump used to discard the admin's in-progress search/filter/page
+  // state on every create.
+  //
+  // Realtime (Ably) usually refreshes the list, but its connection can still
+  // be establishing right when a fast admin creates an album — trigger an
+  // explicit background refetch as a fallback so the new album always
+  // appears without needing a manual reload.
   const handleAlbumCreated = useCallback(() => {
-    setRefreshKey((k) => k + 1);
+    albumListRef.current?.refetch();
   }, []);
 
   const handleAlbumDeleted = useCallback(() => {
     setSelectedAlbumId(null);
-    setRefreshKey((k) => k + 1);
-  }, []);
-
-  const handleAlbumUpdated = useCallback(() => {
-    setRefreshKey((k) => k + 1);
   }, []);
 
   return (
@@ -69,10 +75,9 @@ export default function AdminPage({ adminName }: AdminPageProps) {
           albumId={selectedAlbumId}
           onBack={handleBack}
           onDeleted={handleAlbumDeleted}
-          onUpdated={handleAlbumUpdated}
         />
       ) : (
-        <AlbumList key={refreshKey} onSelectAlbum={handleSelectAlbum} />
+        <AlbumList ref={albumListRef} onSelectAlbum={handleSelectAlbum} />
       )}
 
       <AlbumFormModal

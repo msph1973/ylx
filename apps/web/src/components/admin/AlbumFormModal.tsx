@@ -38,7 +38,16 @@ function getLocalTodayString(): string {
 /** Returns an error message for the first invalid field, or `null` if the
  *  form is valid. Kept separate from `handleSubmit` so each rule reads as
  *  one guard clause instead of piling onto a single function's complexity. */
-function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayString: string): string | null {
+export function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayString: string): string | null {
+  if (!form.title.trim()) {
+    return 'Album title is required';
+  }
+  if (!form.clientName.trim()) {
+    return 'Client name is required';
+  }
+  if (!form.eventDate) {
+    return 'Event date is required';
+  }
   if (!/^\d{4}$/.test(form.pin)) {
     return 'PIN must be exactly 4 digits';
   }
@@ -48,6 +57,9 @@ function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayString: st
   const maxSelectionsNum = form.maxSelections === '' ? NaN : Number(form.maxSelections);
   if (isNaN(maxSelectionsNum) || maxSelectionsNum < 1 || !Number.isInteger(maxSelectionsNum)) {
     return 'Max selections must be a whole number of at least 1';
+  }
+  if (maxSelectionsNum > 500) {
+    return 'Max selections cannot exceed 500';
   }
   if (!isEdit && form.eventDate < todayString) {
     return 'Event date cannot be in the past';
@@ -83,11 +95,15 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     setError(null);
   }, [album]);
 
+  // Depend on the primitive album?.id (not the `album` object itself, which
+  // AlbumDetail recreates as a brand-new literal on every render) so this
+  // only resets the form on an actual open/album-id transition — not on
+  // every unrelated re-render of the parent while the modal is open.
   useEffect(() => {
     if (isOpen) {
       resetForm();
     }
-  }, [isOpen, resetForm]);
+  }, [isOpen, album?.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

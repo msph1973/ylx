@@ -60,8 +60,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [reorderError, setReorderError] = useState<string | null>(null);
 
-  const { copied: copiedLink, copy: copyLink } = useCopyToClipboard();
-  const { copied: copiedPin, copy: copyPin } = useCopyToClipboard();
+  const { copied: copiedLink, error: copyLinkError, copy: copyLink } = useCopyToClipboard();
+  const { copied: copiedPin, error: copyPinError, copy: copyPin } = useCopyToClipboard();
 
   const handleCopyLink = useCallback(() => {
     const preferredSlug = album?.customSlug || album?.slug;
@@ -420,7 +420,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
               </svg>
-              {copiedLink ? 'Copied!' : (
+              {copiedLink ? 'Copied!' : copyLinkError ? 'Copy failed' : (
                 <>
                   <span className="share-btn-label--long">Copy Gallery Link</span>
                   <span className="share-btn-label--short">Copy Link</span>
@@ -432,7 +432,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 <rect x="9" y="11" width="6" height="11" rx="1" />
                 <path d="M9 11V7a3 3 0 0 1 6 0v4" />
               </svg>
-              {copiedPin ? 'Copied!' : 'Copy PIN'}
+              {copiedPin ? 'Copied!' : copyPinError ? 'Copy failed' : 'Copy PIN'}
             </button>
 
             {isActive ? (
