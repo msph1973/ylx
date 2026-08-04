@@ -1,0 +1,16 @@
+apps/web/src/components/admin/DatePickerField.test.ts
+  h_45c23cf41d175e 1-117
+apps/web/src/components/admin/DatePickerField.tsx
+  h_45c23cf41d175e 23,29,52,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "a4f3e1ed0198f5e7d2dfd4c3b0ac94a32054e755",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
