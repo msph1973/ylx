@@ -67,6 +67,12 @@ function lastEnabled(cells: DayCell[]): DayCell | undefined {
   return undefined;
 }
 
+/** Moves {year, month} by `delta` months with correct year rollover. */
+function shiftMonth(viewed: { year: number; month: number }, delta: number): { year: number; month: number } {
+  const total = viewed.year * 12 + (viewed.month - 1) + delta;
+  return { year: Math.floor(total / 12), month: (total % 12) + 1 };
+}
+
 /** Builds a fixed 6-week (42-cell) grid for `year`/`month` (1-indexed). Cells
  *  outside the viewed month are filled in for alignment but always disabled —
  *  clicking to a different month is via the header's prev/next buttons only. */
@@ -133,8 +139,12 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
   const todayYMD = formatYMD(today.year, today.month, today.day);
   // Year+month live in ONE state object: updating them separately would tempt
   // side-effectful updater calls (which StrictMode's dev double-invoke would
-  // re-run, shifting the year twice across a Dec/Jan boundary).
-  const [viewed, setViewed] = useState(() => parseYMD(value) ?? today);
+  // re-run, shifting the year twice across a Dec/Jan boundary). The grid only
+  // ever reads year+month, so the day of the selected date is stripped out.
+  const [viewed, setViewed] = useState(() => {
+    const base = parseYMD(value) ?? today;
+    return { year: base.year, month: base.month };
+  });
   // Whether the popover opens upward — only when the trigger is too close to
   // the bottom of the viewport for the ~360px calendar AND there is strictly
   // more room above than below. Downward overflow is still scroll-reachable
@@ -149,7 +159,8 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
   const [roving, setRoving] = useState<string | null>(null);
 
   const openPopover = () => {
-    setViewed(parseYMD(value) ?? today);
+    const base = parseYMD(value) ?? today;
+    setViewed({ year: base.year, month: base.month });
     setRoving(null);
     const rect = wrapperRef.current?.getBoundingClientRect();
     if (rect) {
@@ -201,13 +212,8 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
     target?.focus();
   }, [isOpen]);
 
-  const goToPrevMonth = () => {
-    setViewed((v) => (v.month === 1 ? { year: v.year - 1, month: 12, day: 1 } : { ...v, month: v.month - 1 }));
-  };
-
-  const goToNextMonth = () => {
-    setViewed((v) => (v.month === 12 ? { year: v.year + 1, month: 1, day: 1 } : { ...v, month: v.month + 1 }));
-  };
+  const goToPrevMonth = () => setViewed((v) => shiftMonth(v, -1));
+  const goToNextMonth = () => setViewed((v) => shiftMonth(v, 1));
 
   const handleSelectDay = (cell: DayCell) => {
     if (cell.isDisabled) return;
@@ -259,17 +265,11 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
     // Fell off the grid's edge — move a full month in that direction, but
     // only when that month actually has an enabled day (e.g. `min` can make
     // every day of the previous month off-limits; then stay put).
-    const jump = delta > 0 ? 1 : -1;
-    const nextYear = jump === 1
-      ? (viewed.month === 12 ? viewed.year + 1 : viewed.year)
-      : (viewed.month === 1 ? viewed.year - 1 : viewed.year);
-    const nextMonth = jump === 1
-      ? (viewed.month === 12 ? 1 : viewed.month + 1)
-      : (viewed.month === 1 ? 12 : viewed.month - 1);
-    const nextCells = buildMonthGrid(nextYear, nextMonth, value, min, todayYMD);
-    const target = jump === 1 ? firstEnabled(nextCells) : lastEnabled(nextCells);
+    const next = shiftMonth(viewed, delta > 0 ? 1 : -1);
+    const nextCells = buildMonthGrid(next.year, next.month, value, min, todayYMD);
+    const target = delta > 0 ? firstEnabled(nextCells) : lastEnabled(nextCells);
     if (!target) return;
-    setViewed({ year: nextYear, month: nextMonth, day: 1 });
+    setViewed(next);
     setRoving(target.ymd);
   };
 
@@ -354,6 +354,7 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
                   onClick={() => handleSelectDay(cell)}
                   aria-label={cell.inCurrentMonth ? formatDisplayDate(cell.ymd) : undefined}
                   aria-current={cell.isToday ? 'date' : undefined}
+                  aria-pressed={cell.isSelected}
                 >
                   {cell.day}
                 </button>
