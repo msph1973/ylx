@@ -122,14 +122,20 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
 
   const today = getLocalTodayParts();
   const todayYMD = formatYMD(today.year, today.month, today.day);
-  const initial = parseYMD(value) ?? today;
-  const [viewedYear, setViewedYear] = useState(initial.year);
-  const [viewedMonth, setViewedMonth] = useState(initial.month);
+  // Year+month live in ONE state object: updating them separately would tempt
+  // side-effectful updater calls (which StrictMode's dev double-invoke would
+  // re-run, shifting the year twice across a Dec/Jan boundary).
+  const [viewed, setViewed] = useState(() => parseYMD(value) ?? today);
+  // Whether the popover opens upward — set when the trigger is too close to
+  // the bottom of the viewport for the ~360px calendar to fit below it
+  // (the popover lives inside the album modal's scrolling container, so
+  // extending past the viewport bottom would clip it).
+  const [flipUp, setFlipUp] = useState(false);
 
   const openPopover = () => {
-    const base = parseYMD(value) ?? today;
-    setViewedYear(base.year);
-    setViewedMonth(base.month);
+    setViewed(parseYMD(value) ?? today);
+    const rect = wrapperRef.current?.getBoundingClientRect();
+    setFlipUp(rect ? window.innerHeight - rect.bottom < 380 : false);
     setIsOpen(true);
   };
 
@@ -158,31 +164,26 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
     if (!isOpen) return;
     const target =
       gridRef.current?.querySelector<HTMLButtonElement>('.dp-day-selected:not(:disabled)') ??
-      gridRef.current?.querySelector<HTMLButtonElement>('.dp-day-today:not(:disabled)');
+      gridRef.current?.querySelector<HTMLButtonElement>('.dp-day-today:not(:disabled)') ??
+      gridRef.current?.querySelector<HTMLButtonElement>('.dp-day:not(:disabled)');
     target?.focus();
   }, [isOpen]);
 
   const goToPrevMonth = () => {
-    setViewedMonth((m) => {
-      if (m === 1) { setViewedYear((y) => y - 1); return 12; }
-      return m - 1;
-    });
+    setViewed((v) => (v.month === 1 ? { year: v.year - 1, month: 12, day: 1 } : { ...v, month: v.month - 1 }));
   };
 
   const goToNextMonth = () => {
-    setViewedMonth((m) => {
-      if (m === 12) { setViewedYear((y) => y + 1); return 1; }
-      return m + 1;
-    });
+    setViewed((v) => (v.month === 12 ? { year: v.year + 1, month: 1, day: 1 } : { ...v, month: v.month + 1 }));
   };
 
   const handleSelectDay = (cell: DayCell) => {
-    if (cell.isDisabled || !cell.inCurrentMonth) return;
+    if (cell.isDisabled) return;
     onChange(cell.ymd);
     closePopover(true);
   };
 
-  const cells = buildMonthGrid(viewedYear, viewedMonth, value, min, todayYMD);
+  const cells = buildMonthGrid(viewed.year, viewed.month, value, min, todayYMD);
 
   return (
     <div
@@ -210,7 +211,7 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
         <span className={value ? 'dp-value' : 'dp-placeholder'}>
           {value ? formatDisplayDate(value) : 'Select a date'}
         </span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
           <line x1="16" y1="2" x2="16" y2="6" />
           <line x1="8" y1="2" x2="8" y2="6" />
@@ -221,23 +222,23 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="dp-popover"
+            className={flipUp ? 'dp-popover dp-popover-up' : 'dp-popover'}
             role="dialog"
             aria-label="Choose a date"
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -6 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : flipUp ? 6 : -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -6 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : flipUp ? 6 : -6 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.12 }}
           >
             <div className="dp-header">
               <button type="button" className="dp-nav" onClick={goToPrevMonth} aria-label="Previous month">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
               </button>
-              <span className="dp-month-label">{MONTH_LABELS[viewedMonth - 1]} {viewedYear}</span>
+              <span className="dp-month-label">{MONTH_LABELS[viewed.month - 1]} {viewed.year}</span>
               <button type="button" className="dp-nav" onClick={goToNextMonth} aria-label="Next month">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </button>
@@ -259,7 +260,7 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
                     cell.isToday && 'dp-day-today',
                     cell.isSelected && 'dp-day-selected',
                   ].filter(Boolean).join(' ')}
-                  disabled={cell.isDisabled || !cell.inCurrentMonth}
+                  disabled={cell.isDisabled}
                   onClick={() => handleSelectDay(cell)}
                   aria-label={cell.inCurrentMonth ? formatDisplayDate(cell.ymd) : undefined}
                   aria-current={cell.isToday ? 'date' : undefined}
@@ -315,6 +316,11 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
           border-radius: var(--radius-lg);
           padding: var(--space-3);
           box-shadow: 0 10px 15px -3px var(--overlay-shadow-dialog), 0 4px 6px -4px var(--overlay-shadow-dialog);
+        }
+
+        .dp-popover-up {
+          top: auto;
+          bottom: calc(100% + var(--space-2));
         }
 
         .dp-header {

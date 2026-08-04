@@ -64,19 +64,22 @@ describe('buildMonthGrid', () => {
   });
 
   it('rolls leading cells back into the previous December when viewing January', () => {
+    // January 2026 starts on a Thursday, so the grid always has leading
+    // filler cells — assert this unconditionally so a grid-shape regression
+    // fails the test instead of silently skipping the check.
     const jan = buildMonthGrid(2026, 1, '', undefined, '2026-01-01');
     const firstCell = jan[0];
-    if (!firstCell.inCurrentMonth) {
-      expect(firstCell.ymd.startsWith('2025-12-')).toBe(true);
-    }
+    expect(firstCell.inCurrentMonth).toBe(false);
+    expect(firstCell.ymd.startsWith('2025-12-')).toBe(true);
   });
 
   it('rolls trailing cells forward into the next January when viewing December', () => {
+    // December 2026 starts on a Tuesday and has 31 days — 4 + 31 = 35 cells,
+    // so the 42-cell grid always has trailing filler cells.
     const dec = buildMonthGrid(2026, 12, '', undefined, '2026-12-01');
     const lastCell = dec[dec.length - 1];
-    if (!lastCell.inCurrentMonth) {
-      expect(lastCell.ymd.startsWith('2027-01-')).toBe(true);
-    }
+    expect(lastCell.inCurrentMonth).toBe(false);
+    expect(lastCell.ymd.startsWith('2027-01-')).toBe(true);
   });
 
   it('disables every in-month day strictly before `min`, and nothing on/after it', () => {
