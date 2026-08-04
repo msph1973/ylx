@@ -58,12 +58,28 @@ export function useRealtime(
           callbacksRef.current.onAlbumUnlocked?.(msg.data as AlbumUnlockedData);
       }
 
+      // Awaited so a rejected attach (e.g. permission/network failure) flows
+      // into this function's own returned promise instead of becoming an
+      // unhandled rejection that the outer `.catch()` below never sees.
+      // `cancelled` is re-checked after every await: if the component unmounted
+      // or switched albums while an earlier await (getAblyClient / a previous
+      // subscribe) was still pending, we must not subscribe the remaining
+      // handlers — otherwise a stale channel can still deliver events to a
+      // component that already cleaned up, and the cleanup return (which runs
+      // with a not-yet-populated `handlers`) never sees them to unsubscribe.
       for (const [eventType, handler] of Object.entries(handlers)) {
-        channel.subscribe(eventType, handler as (message: Ably.Message) => void);
+        if (cancelled) break;
+        await channel.subscribe(eventType, handler as (message: Ably.Message) => void);
       }
     };
 
-    void setup();
+    void setup().catch((err) => {
+      // A rejected getAblyClient() (offline, failed dynamic import('ably'),
+      // or an albumId conflict thrown in ably.ts) must not become an
+      // unhandled promise rejection — log it and carry on without realtime;
+      // the gallery/admin UI still works, it just won't get live updates.
+      console.warn(`[Realtime] failed to set up realtime for album "${albumId}"; continuing without it:`, err);
+    });
 
     return () => {
       cancelled = true;

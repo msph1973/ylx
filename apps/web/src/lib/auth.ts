@@ -23,12 +23,24 @@ const SESSION_VERSION_TTL_SECONDS = 20;
 const SESSION_VERSION_STALE_TTL_SECONDS = 60;
 
 async function getCurrentSessionVersion(adminId: string): Promise<number | null> {
-  return getCached(
-    CACHE_KEYS.adminSessionVersion(adminId),
-    SESSION_VERSION_TTL_SECONDS,
-    SESSION_VERSION_STALE_TTL_SECONDS,
-    () => getAdminSessionVersion(adminId)
-  );
+  try {
+    return await getCached(
+      CACHE_KEYS.adminSessionVersion(adminId),
+      SESSION_VERSION_TTL_SECONDS,
+      SESSION_VERSION_STALE_TTL_SECONDS,
+      () => getAdminSessionVersion(adminId)
+    );
+  } catch (err) {
+    // getCached() only throws on a hard cache-miss whose fetcher() itself
+    // rejected (e.g. a transient Sanity blip) — there's no stale value to
+    // fall back to in that case, so it propagates. getSession/requireAdmin
+    // are documented as "return null on any problem" (silent rejection is
+    // safe — see the field-validation comment below), and callers like
+    // pages/admin/*.astro `await` them in frontmatter with no try/catch, so
+    // honor that contract here instead of letting it surface as a 500.
+    console.warn(`[Auth] session-version lookup failed for admin "${adminId}"; failing closed:`, err);
+    return null;
+  }
 }
 
 // Called on logout (and, in future, password change) right after bumping the

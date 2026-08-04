@@ -17,6 +17,39 @@ const pending = new Map<string, PendingResize>();
 // the caller stuck forever in a "resizing" state — fall back to the original file.
 const RESIZE_TIMEOUT_MS = 30_000;
 
+// Once every pending resize has settled, the worker used to be kept around
+// for the rest of the upload page's lifetime (only a crash ever tore it
+// down), holding its decode buffers alive the whole time. Instead, terminate
+// it after a brief grace period once the queue is empty — long enough that a
+// fast follow-up batch (e.g. the user immediately selects more photos) reuses
+// the same instance instead of paying to spawn (and re-fetch the module
+// script for) a new one on every batch.
+const WORKER_IDLE_TERMINATE_MS = 5_000;
+let idleTerminateTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelIdleTermination(): void {
+  if (idleTerminateTimer !== null) {
+    clearTimeout(idleTerminateTimer);
+    idleTerminateTimer = null;
+  }
+}
+
+function scheduleIdleTerminationIfEmpty(): void {
+  if (pending.size > 0) return;
+  cancelIdleTermination();
+  idleTerminateTimer = setTimeout(() => {
+    idleTerminateTimer = null;
+    // Only tear down if nothing queued a new request while we waited.
+    if (pending.size === 0) {
+      worker?.terminate();
+      worker = null;
+    }
+  }, WORKER_IDLE_TERMINATE_MS);
+  // Don't block Node/test process exit waiting for this timer (no-op in a
+  // real browser, where the returned handle has no `unref`).
+  if (idleTerminateTimer.unref) idleTerminateTimer.unref();
+}
+
 // A worker that crashed (onerror) or sent an undeliverable message
 // (onmessageerror) is unusable for any request still waiting on it — settle
 // every one of them with its own original file right away (instead of making
@@ -27,11 +60,15 @@ function failAllPending(): void {
     resolve({ file, resized: false });
   }
   pending.clear();
+  cancelIdleTermination();
   worker?.terminate();
   worker = null;
 }
 
 function getWorker(): Worker {
+  // Reusing (or about to (re)build) the worker — either way, any previously
+  // scheduled idle-termination for it is no longer relevant.
+  cancelIdleTermination();
   if (worker) return worker;
   const instance = new Worker(new URL('./imageResize.worker.ts', import.meta.url), { type: 'module' });
   instance.onmessage = (event: MessageEvent<{ id: string; result: ResizeResult }>) => {
@@ -39,6 +76,7 @@ function getWorker(): Worker {
     if (entry) {
       pending.delete(event.data.id);
       entry.resolve(event.data.result);
+      scheduleIdleTerminationIfEmpty();
     }
   };
   instance.onerror = () => {
@@ -53,6 +91,20 @@ function getWorker(): Worker {
   return worker;
 }
 
+// Free the worker immediately on page teardown rather than waiting out the
+// idle grace period for nothing — `pagehide` fires reliably on navigation,
+// tab close, and (unlike `beforeunload`) bfcache-eligible backgrounding.
+// Uses failAllPending() (not a raw terminate) so any resize still in flight
+// is settled with its fallback right away instead of being left to time out
+// up to RESIZE_TIMEOUT_MS later — which matters most for the bfcache case,
+// where the page can be restored and resumed while those callers are still
+// waiting.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    failAllPending();
+  });
+}
+
 export function resizeImageInWorker(file: File): Promise<ResizeResult> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -61,6 +113,7 @@ export function resizeImageInWorker(file: File): Promise<ResizeResult> {
       if (pending.delete(id)) {
         console.warn('resizeImageInWorker: timed out resizing file, uploading original', { fileName: file.name });
         resolve({ file, resized: false });
+        scheduleIdleTerminationIfEmpty();
       }
     }, RESIZE_TIMEOUT_MS);
 
@@ -82,6 +135,7 @@ export function resizeImageInWorker(file: File): Promise<ResizeResult> {
       pending.delete(id);
       console.warn('resizeImageInWorker: failed to dispatch to worker, uploading original', { fileName: file.name, error });
       resolve({ file, resized: false });
+      scheduleIdleTerminationIfEmpty();
     }
   });
 }
