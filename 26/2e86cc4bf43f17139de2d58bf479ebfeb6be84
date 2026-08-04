@@ -1,0 +1,19 @@
+apps/web/src/components/admin/DatePickerField.tsx
+  s_224761bbb35871::t_81a1d29d9d36b4 162-168,170-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "262e86cc4bf43f17139de2d58bf479ebfeb6be84",
+  "prompts": {},
+  "sessions": {
+    "s_224761bbb35871": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_034354388ffefsmbETj1fxJ6l5",
+        "model": "admskhld--ep-kimi-k3-server.us-west.modal.direct"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
