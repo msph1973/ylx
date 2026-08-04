@@ -14,6 +14,7 @@ Requirements:
 
 import argparse
 import hashlib
+import json
 import mimetypes
 import os
 import sys
@@ -41,18 +42,23 @@ DEFAULT_BATCH_SIZE = 100
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 # Only genuine transport failures and transient server errors are retried —
-# connection refused/reset, DNS, a timeout, or an HTTP 5xx (upstream Sanity
-# hiccup). Deliberately NOT a 4xx client error (401, 400, 403), which retrying
-# can't fix and only masks a real bug, and NOT a bare `OSError` so a
+# connection refused/reset, DNS, a timeout, an HTTP 5xx (upstream Sanity
+# hiccup), a 429 (rate limited — inherently transient), or a 409 (revision/
+# write conflict — e.g. two ThreadPoolExecutor workers concurrently patching
+# the same album document's `photos[]` array in append_photo_to_album; safe
+# to retry because every mutation this script sends is idempotent —
+# create_document_if_not_exists() and album_has_photo()'s pre-check make a
+# retried attempt a cheap no-op instead of creating a duplicate or losing the
+# photo). Deliberately NOT any other 4xx client error (401, 400, 403), which
+# retrying can't fix and only masks a real bug, and NOT a bare `OSError` so a
 # missing/unreadable local file fails loudly instead of being retried as a
 # flaky connection.
 def is_retryable_transport(exc: Exception) -> bool:
     if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
         return True
     if isinstance(exc, HTTPError):
-        # 5xx = transient upstream failure worth a retry; 4xx = permanent.
         status = exc.response.status_code if exc.response is not None else None
-        return status is not None and 500 <= status < 600
+        return status is not None and (status == 429 or status == 409 or 500 <= status < 600)
     return False
 
 REQUEST_TIMEOUT_SECONDS = 30
@@ -162,22 +168,28 @@ class SanityClient:
 
     def album_has_photo(self, album_id: str, photo_id: str) -> bool:
         """True if the album's `photos` array already contains a reference to
-        `photo_id`. Used by append_photo_to_album for idempotency."""
+        `photo_id`. Used by append_photo_to_album for idempotency.
+
+        Checks server-side via a single boolean-shaped GROQ query instead of
+        downloading every photo reference in the album and scanning them
+        locally — matters for albums with thousands of photos. GROQ query
+        parameters sent via the HTTP query API must be JSON-encoded values
+        (e.g. a string needs literal surrounding quotes), or Sanity parses
+        the raw value as an unquoted GROQ expression/path instead of a
+        string literal."""
         url = f"https://{self.project_id}.api.sanity.io/v{self.api_version}/data/query/{self.dataset}"
-        query = "*[_type == 'album' && _id == $albumId][0] { photos[] { _ref } }"
+        query = "*[_type == 'album' && _id == $albumId && $photoId in photos[]._ref][0]._id"
         response = self.session.get(
             url,
-            params={"query": query, "$albumId": album_id},
+            params={
+                "query": query,
+                "$albumId": json.dumps(album_id),
+                "$photoId": json.dumps(photo_id),
+            },
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        album = response.json().get("result")
-        if not album or not isinstance(album.get("photos"), list):
-            return False
-        return any(
-            isinstance(p, dict) and p.get("_ref") == photo_id
-            for p in album["photos"]
-        )
+        return response.json().get("result") is not None
 
     def create_document_if_not_exists(self, document: dict) -> dict:
         """Creates `document` (which must include a deterministic `_id`) via
