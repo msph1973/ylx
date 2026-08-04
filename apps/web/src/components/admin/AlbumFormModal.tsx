@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumCardData } from './AlbumCard';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { CUSTOM_SLUG_PATTERN } from '@ylx/sanity/lib/constants';
+import { DatePickerField } from './DatePickerField';
 
 interface AlbumFormData {
   title: string;
@@ -256,15 +257,11 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
               <div className="form-group">
                 <label className="form-label" htmlFor="album-eventDate">Event Date</label>
-                <input
+                <DatePickerField
                   id="album-eventDate"
-                  className="form-input"
-                  type="date"
-                  name="eventDate"
                   value={form.eventDate}
-                  onChange={handleChange}
+                  onChange={(eventDate) => setForm((prev) => ({ ...prev, eventDate }))}
                   min={isEdit ? undefined : todayString}
-                  required
                 />
               </div>
 
