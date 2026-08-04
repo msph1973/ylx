@@ -10,6 +10,8 @@ import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../..
 import { publishAdminEvent } from "../../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
+import { parseJsonBody } from "../../../../../lib/requestBody";
+import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, isValidCalendarDate } from "../../../../../lib/albumValidation";
 
 interface SanityImageRef {
   _type: string;
@@ -125,9 +127,15 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       })),
     };
 
+    // Response includes the album's PIN (sensitive), so it must never be
+    // cached — mirrors the `Cache-Control` header on the list endpoint in
+    // `albums.ts`.
     return new Response(JSON.stringify({ album: formatted }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "private, no-store",
+      },
     });
   } catch (error) {
     console.error("[Albums] GET album failed:", albumId, error);
@@ -147,14 +155,49 @@ interface UpdateAlbumBody {
   customSlug?: string;
 }
 
-function validatePinAndMaxSelections(pin?: string, maxSelections?: number): string | null {
-  if (pin !== undefined && !/^\d{4}$/.test(pin)) {
-    return "PIN must be exactly 4 digits";
+/** Validates a raw parsed body and narrows it into an `UpdateAlbumBody` on
+ *  success, or returns an error message for the first invalid field. Every
+ *  field is optional — only fields present in the body are checked. */
+function validateUpdateAlbumBody(body: Record<string, unknown>): { error: string } | { value: UpdateAlbumBody } {
+  const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
+
+  if (title !== undefined) {
+    if (typeof title !== "string" || title.length === 0 || title.length > MAX_TEXT_FIELD_LENGTH) {
+      return { error: `title must be a non-empty string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
+    }
   }
-  if (maxSelections !== undefined && (typeof maxSelections !== "number" || maxSelections < 1)) {
-    return "maxSelections must be a positive number";
+  if (clientName !== undefined) {
+    if (typeof clientName !== "string" || clientName.length === 0 || clientName.length > MAX_TEXT_FIELD_LENGTH) {
+      return { error: `clientName must be a non-empty string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
+    }
   }
-  return null;
+  if (eventDate !== undefined) {
+    if (typeof eventDate !== "string" || !isValidCalendarDate(eventDate)) {
+      return { error: "eventDate must be a valid calendar date in YYYY-MM-DD format" };
+    }
+  }
+  if (pin !== undefined) {
+    if (typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
+      return { error: "PIN must be exactly 4 digits" };
+    }
+  }
+  if (maxSelections !== undefined) {
+    if (
+      typeof maxSelections !== "number" ||
+      !Number.isInteger(maxSelections) ||
+      maxSelections < 1 ||
+      maxSelections > MAX_SELECTIONS_UPPER_BOUND
+    ) {
+      return { error: `maxSelections must be an integer between 1 and ${MAX_SELECTIONS_UPPER_BOUND}` };
+    }
+  }
+  if (customSlug !== undefined) {
+    if (typeof customSlug !== "string" || customSlug.length > MAX_TEXT_FIELD_LENGTH) {
+      return { error: `customSlug must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
+    }
+  }
+
+  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug } };
 }
 
 /** `undefined` = leave the field untouched, `null` = clear it, a string =
@@ -232,16 +275,23 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       );
     }
 
-    const body = await request.json() as UpdateAlbumBody;
-    const { pin, maxSelections, customSlug } = body;
-
-    const validationError = validatePinAndMaxSelections(pin, maxSelections);
-    if (validationError) {
+    const parsedBody = await parseJsonBody(request);
+    if (!parsedBody) {
       return new Response(
-        JSON.stringify({ error: validationError }),
+        JSON.stringify({ error: "Request body must be a valid JSON object" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    const validation = validateUpdateAlbumBody(parsedBody);
+    if ("error" in validation) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const body = validation.value;
+    const { pin, maxSelections, customSlug } = body;
 
     const customSlugResult = await resolveCustomSlugForUpdate(customSlug, albumId, existingAlbum.customSlug);
     if ("error" in customSlugResult) {
@@ -257,24 +307,27 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     // remain editable. New albums still enforce the future-date rule in the
     // POST create handler (`albums.ts`).
 
-    const patch = await buildAlbumPatch(body, albumId, resolvedCustomSlug, existingAlbum.slug?.current);
-    const unsetFields = resolvedCustomSlug === null ? ["customSlug"] : [];
-
-    if (Object.keys(patch).length === 0 && unsetFields.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No fields to update" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
     // Track newly created slug locks so they can be rolled back if commit fails.
     // `patch.slug` exists when title changed (new auto-slug), `resolvedCustomSlug`
-    // when customSlug changed. The `buildAlbumPatch` / `resolveCustomSlugForUpdate`
-    // calls above already reserved these locks.
-    const newSlugLock = patch.slug ? (patch.slug as { current: string }).current : undefined;
+    // when customSlug changed. `resolveCustomSlugForUpdate` above already reserved
+    // the customSlug lock; `newSlugLock` is assigned once `buildAlbumPatch` (which
+    // may call `generateUniqueSlug`) has run inside the try below.
+    let newSlugLock: string | undefined;
     const newCustomSlugLock = resolvedCustomSlug;
 
     try {
+      const patch = await buildAlbumPatch(body, albumId, resolvedCustomSlug, existingAlbum.slug?.current);
+      const unsetFields = resolvedCustomSlug === null ? ["customSlug"] : [];
+
+      if (Object.keys(patch).length === 0 && unsetFields.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "No fields to update" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      newSlugLock = patch.slug ? (patch.slug as { current: string }).current : undefined;
+
       const updated = await sanityWriteClient
         .patch(albumId)
         .set(patch)

@@ -3,6 +3,7 @@ import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
+import { parseJsonBody } from "../../../../../lib/requestBody";
 
 interface ReorderBody {
   photoIds?: string[];
@@ -38,8 +39,15 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
       });
     }
 
-    const body = await request.json() as ReorderBody;
-    const photoIds = body.photoIds ?? [];
+    const parsedBody = await parseJsonBody(request);
+    if (!parsedBody) {
+      return new Response(JSON.stringify({ error: "Request body must be a valid JSON object" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const photoIds = Array.isArray(parsedBody.photoIds) ? parsedBody.photoIds : [];
     if (photoIds.length === 0) {
       return new Response(JSON.stringify({ error: "Photo IDs are required" }), {
         status: 400,

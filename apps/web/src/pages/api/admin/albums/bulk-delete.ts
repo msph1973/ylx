@@ -4,6 +4,7 @@ import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
+import { parseJsonBody } from "../../../../lib/requestBody";
 
 interface BulkDeleteBody {
   ids?: unknown;
@@ -25,7 +26,14 @@ export const POST: APIRoute = async ({ cookies, request }) => {
   }
 
   try {
-    const body = (await request.json()) as BulkDeleteBody;
+    const body = await parseJsonBody<BulkDeleteBody>(request);
+    if (!body) {
+      return new Response(
+        JSON.stringify({ error: "Request body must be a valid JSON object" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const rawIds = Array.isArray(body.ids) ? body.ids : [];
     const ids = [...new Set(rawIds.filter((id): id is string => typeof id === "string" && id.length > 0))];
 

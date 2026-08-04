@@ -12,10 +12,26 @@ const MAX_ATTEMPTS_PER_IP = 10;
 const MAX_FAILED_PER_EMAIL = 20;
 
 export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
+  let rawBody: unknown;
   try {
-    const { email, password } = await request.json();
+    rawBody = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Request body must be valid JSON" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (typeof rawBody !== "object" || rawBody === null || Array.isArray(rawBody)) {
+    return new Response(
+      JSON.stringify({ error: "Request body must be a valid JSON object" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
-    if (!email || !password) {
+  try {
+    const { email, password } = rawBody as Record<string, unknown>;
+
+    if (!email || !password || typeof email !== "string" || typeof password !== "string") {
       return new Response(
         JSON.stringify({ error: "Email and password are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
