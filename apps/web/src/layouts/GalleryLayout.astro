@@ -6,7 +6,11 @@ export interface Props {
   clientName?: string;
 }
 
-const { title, clientName = 'Client' } = Astro.props;
+const { title, clientName } = Astro.props;
+// A default parameter only triggers on `undefined` — callers that pass an
+// empty string (e.g. before the client name is known) would otherwise
+// render a permanently-blank element, so fall back on any falsy value.
+const displayClientName = clientName || 'Client';
 ---
 
 <BaseLayout title={title}>
@@ -14,7 +18,7 @@ const { title, clientName = 'Client' } = Astro.props;
   <div class="gallery-layout">
     <header class="gallery-header">
       <div class="gallery-brand">YLx</div>
-      <div class="gallery-client">{clientName}</div>
+      <div class="gallery-client">{displayClientName}</div>
     </header>
     <main class="gallery-content">
       <slot />

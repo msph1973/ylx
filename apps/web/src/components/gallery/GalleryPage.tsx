@@ -79,7 +79,24 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const noticeTimeoutRef = useRef<number | null>(null);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const confirmTimeoutRef = useRef<number | null>(null);
+  // Guards against a fast double-tap/confirm firing a duplicate submit POST
+  // while the first one is still in flight (see the submit button's disabled
+  // condition below).
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const albumIdRef = useRef<string | null>(null);
+  // Synchronous double-submit guard: `isSubmitting` state is async (a second
+  // tap in the same tick as the first still reads `isSubmitting === false`),
+  // so a ref is flipped before any await to make the guard race-free even
+  // under the most rapid multi-taps. Mirrors the submit button's disabled
+  // condition; this is the belt-and-suspenders layer.
+  const isSubmittingRef = useRef(false);
+  // Set inside the setSelectedPhotos updater when an over-limit tap is
+  // rejected; the effect below fires the "reached the limit" toast on the
+  // commit. A ref is used (not state) so setting it inside the updater is an
+  // idempotent flag write that keeps the updater otherwise pure (no state
+  // mutation, no render), and it lets us detect the rejection from within the
+  // updater's race-free `prev` rather than from a possibly-stale closure.
+  const noticedLimitRef = useRef(false);
 
   useEffect(() => {
     albumIdRef.current = album?.id ?? null;
@@ -256,11 +273,19 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         body: JSON.stringify({ pin }),
       });
 
+      // The API returns a distinct, meaningful `error` message even on
+      // failure (429 rate-limited, 404 unknown slug, 401 wrong PIN) — read it
+      // instead of collapsing every non-OK response into a hardcoded
+      // "Invalid PIN", which is actively misleading for the other two cases.
+      const data = (await response.json().catch(() => ({}))) as { album?: AlbumData; error?: string };
+
       if (!response.ok) {
-        throw new Error('Invalid PIN');
+        throw new Error(data.error || 'Verification failed');
+      }
+      if (!data.album) {
+        throw new Error('Verification failed');
       }
 
-      const data = await response.json();
       setAlbum(data.album);
       setIsAuthenticated(true);
       restoreDraft(data.album);
@@ -275,6 +300,17 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   const togglePhoto = useCallback((photoId: string) => {
+    // The "at selection limit" notice is a side effect (setNotice plus a
+    // window.setTimeout to clear it) and must never run inside the updater
+    // passed to setSelectedPhotos — React can invoke that function more than
+    // once (StrictMode / concurrent features), which would duplicate the
+    // toast and leak a stray timer, and updaters must stay pure. So the
+    // rejection decision is made *inside* the updater (which sees the latest,
+    // race-free `prev`) and merely recorded on an idempotent ref; the actual
+    // toast fires from the effect below after the commit. Without this, a
+    // fast second tap (before React re-renders after the first) reads an
+    // out-of-date size from the `selectedPhotos` closure and the over-limit
+    // rejection is silently dropped instead of notifying the user.
     setSelectedPhotos((prev) => {
       const next = new Set(prev);
       if (next.has(photoId)) {
@@ -282,14 +318,21 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       } else if (album && next.size < album.maxSelections) {
         next.add(photoId);
       } else if (album) {
-        // Silently ignoring a tap here reads as a bug ("why didn't my selection
-        // register?"), especially on mobile where there's no hover affordance
-        // to hint the grid is at capacity.
-        showNotice(`You've reached the limit of ${album.maxSelections} photos. Deselect one to choose another.`);
+        // At capacity and this photo isn't already selected — the tap is
+        // being rejected. Flag it on a ref (idempotent, not React state) so
+        // the commit effect below surfaces the limit message.
+        noticedLimitRef.current = true;
       }
       return next;
     });
-  }, [album, showNotice]);
+  }, [album]);
+
+  useEffect(() => {
+    if (noticedLimitRef.current && album) {
+      noticedLimitRef.current = false;
+      showNotice(`You've reached the limit of ${album.maxSelections} photos. Deselect one to choose another.`);
+    }
+  }, [album, selectedPhotos, showNotice]);
 
   const setNote = useCallback((photoId: string, note: string) => {
     setPhotoNotes((prev) => {
@@ -301,9 +344,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, []);
 
   const doSubmit = useCallback(async () => {
-    if (!album || selectedPhotos.size === 0 || isAlbumLocked(album)) return;
+    if (!album || selectedPhotos.size === 0 || isAlbumLocked(album) || isSubmitting || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setError(null);
+    setIsSubmitting(true);
     try {
       const response = await fetch(`/api/gallery/${slug}/submit`, {
         method: 'POST',
@@ -316,8 +361,20 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         }),
       });
 
+      // The API returns a distinct, meaningful `error` message even on
+      // failure (403 expired PIN session, 409 locked/already-submitted, 400
+      // over the selection cap) — read it instead of a hardcoded
+      // "Submission failed" for every non-OK response.
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+
       if (!response.ok) {
-        throw new Error('Submission failed');
+        // A 403 means the 24h gallery session cookie has expired — the PIN
+        // entry screen must be shown again so the user re-verifies instead of
+        // just seeing an error toast they can't act on.
+        if (response.status === 403) {
+          setIsAuthenticated(false);
+        }
+        throw new Error(data.error || 'Submission failed');
       }
 
       // Server sets status to 'submitted' on submit (three-state model: active → submitted → locked).
@@ -326,8 +383,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       clearDraft(album.id);
     } catch (err) {
       setError(getErrorMessage(err, 'Submission failed'));
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
-  }, [album, selectedPhotos, photoNotes, slug]);
+  }, [album, selectedPhotos, photoNotes, slug, isSubmitting]);
 
   // Submitting locks the gallery — the client can't change their mind
   // afterwards without the photographer unlocking it — so a stray tap
@@ -433,7 +493,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         <button
           className="submit-btn"
           onClick={handleSubmitTap}
-          disabled={selectedPhotos.size === 0 || isAlbumLocked(album)}
+          disabled={selectedPhotos.size === 0 || isAlbumLocked(album) || isSubmitting}
         >
           {isAlbumLocked(album) ? 'Submitted' : confirmingSubmit ? 'Yes, Submit' : 'Submit Selection'}
         </button>
