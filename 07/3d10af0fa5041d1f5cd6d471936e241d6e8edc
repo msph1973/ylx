@@ -1,0 +1,18 @@
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 2,430-445,480,519,533,559,567,569,572,577,587,595,605,613,631,659
+apps/web/src/components/gallery/PhotoLightbox.tsx
+  h_45c23cf41d175e 2,150-151,161,232-234
+apps/web/src/components/gallery/PinEntry.tsx
+  h_45c23cf41d175e 2,106-107,114,134,136,140,148,153,159,161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "073d10af0fa5041d1f5cd6d471936e241d6e8edc",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
