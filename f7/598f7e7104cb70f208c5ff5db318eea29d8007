@@ -1,0 +1,14 @@
+.github/workflows/junie-review.yml
+  h_45c23cf41d175e 10-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "f7598f7e7104cb70f208c5ff5db318eea29d8007",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
