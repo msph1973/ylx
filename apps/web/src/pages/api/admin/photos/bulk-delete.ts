@@ -50,10 +50,13 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       });
     }
 
-    // These four lookups only depend on the already-parsed albumId/
-    // uniquePhotoIds, with no interdependency on one another, so run them
-    // concurrently to cut serverless latency.
-    const [album, photos, selectionIds, submissionIds] = await Promise.all([
+    // Photos must be validated first — selectionIds/submissionIds are only
+    // needed once we know the delete will actually proceed, so fetching them
+    // eagerly would fire two extra Sanity queries (and risk a 500 instead of
+    // a clean 400) on the common "these photos don't belong to this album"
+    // rejection path. The album lookup has no bearing on that validation, so
+    // it can still run alongside the photos fetch.
+    const [album, photos] = await Promise.all([
       // Fetch album slug and customSlug for cache invalidation
       sanityClient.fetch<AlbumSlugRaw | null>(
         `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
@@ -63,6 +66,18 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         `*[_type == "photo" && _id in $photoIds]{ _id, album }`,
         { photoIds: uniquePhotoIds }
       ),
+    ]);
+
+    if (photos.length !== uniquePhotoIds.length || photos.some((photo) => photo.album?._ref !== albumId)) {
+      return new Response(JSON.stringify({ error: "One or more photos do not belong to this album" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Validation passed — now it's safe to fetch the remaining, mutually
+    // independent data needed to actually perform the delete.
+    const [selectionIds, submissionIds] = await Promise.all([
       sanityClient.fetch<string[]>(
         `*[_type == "selection" && photo._ref in $photoIds]._id`,
         { photoIds: uniquePhotoIds }
@@ -72,13 +87,6 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         { albumId }
       ),
     ]);
-
-    if (photos.length !== uniquePhotoIds.length || photos.some((photo) => photo.album?._ref !== albumId)) {
-      return new Response(JSON.stringify({ error: "One or more photos do not belong to this album" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
 
     const tx = sanityWriteClient.transaction();
 
