@@ -130,10 +130,19 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   try {
-    // Verify the album exists BEFORE creating the photo. A Sanity
-    // `patch(id).append(...)` on a missing document is a silent no-op, so without
-    // this a stale/typo albumId would leave an orphan photo attached to nothing.
-    const album = await sanityWriteClient.getDocument(albumId);
+    // The album and asset are unrelated documents looked up only by their
+    // own ids, so fetch them concurrently to cut serverless latency.
+    const [album, asset] = await Promise.all([
+      // Verify the album exists BEFORE creating the photo. A Sanity
+      // `patch(id).append(...)` on a missing document is a silent no-op, so without
+      // this a stale/typo albumId would leave an orphan photo attached to nothing.
+      sanityWriteClient.getDocument(albumId),
+      // Fetch asset metadata to validate MIME type and file size server-side.
+      // Client-side validation can be bypassed; this ensures policy is enforced
+      // regardless of how the upload credential was obtained.
+      sanityWriteClient.getDocument(assetId),
+    ]);
+
     if (!album || album._type !== "album") {
       return new Response(JSON.stringify({ error: "Album not found" }), {
         status: 404,
@@ -141,10 +150,6 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
-    // Fetch asset metadata to validate MIME type and file size server-side.
-    // Client-side validation can be bypassed; this ensures policy is enforced
-    // regardless of how the upload credential was obtained.
-    const asset = await sanityWriteClient.getDocument(assetId);
     if (!asset || asset._type !== "sanity.imageAsset") {
       // Asset doesn't exist or isn't an image — delete the invalid reference
       // and reject the request.

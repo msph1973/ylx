@@ -50,16 +50,28 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       });
     }
 
-    // Fetch album slug and customSlug for cache invalidation
-    const album = await sanityClient.fetch<AlbumSlugRaw | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
-      { albumId }
-    );
-
-    const photos = await sanityClient.fetch<PhotoRecord[]>(
-      `*[_type == "photo" && _id in $photoIds]{ _id, album }`,
-      { photoIds: uniquePhotoIds }
-    );
+    // These four lookups only depend on the already-parsed albumId/
+    // uniquePhotoIds, with no interdependency on one another, so run them
+    // concurrently to cut serverless latency.
+    const [album, photos, selectionIds, submissionIds] = await Promise.all([
+      // Fetch album slug and customSlug for cache invalidation
+      sanityClient.fetch<AlbumSlugRaw | null>(
+        `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
+        { albumId }
+      ),
+      sanityClient.fetch<PhotoRecord[]>(
+        `*[_type == "photo" && _id in $photoIds]{ _id, album }`,
+        { photoIds: uniquePhotoIds }
+      ),
+      sanityClient.fetch<string[]>(
+        `*[_type == "selection" && photo._ref in $photoIds]._id`,
+        { photoIds: uniquePhotoIds }
+      ),
+      sanityClient.fetch<string[]>(
+        `*[_type == "submission" && album._ref == $albumId]._id`,
+        { albumId }
+      ),
+    ]);
 
     if (photos.length !== uniquePhotoIds.length || photos.some((photo) => photo.album?._ref !== albumId)) {
       return new Response(JSON.stringify({ error: "One or more photos do not belong to this album" }), {
@@ -67,16 +79,6 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-
-    const selectionIds = await sanityClient.fetch<string[]>(
-      `*[_type == "selection" && photo._ref in $photoIds]._id`,
-      { photoIds: uniquePhotoIds }
-    );
-
-    const submissionIds = await sanityClient.fetch<string[]>(
-      `*[_type == "submission" && album._ref == $albumId]._id`,
-      { albumId }
-    );
 
     const tx = sanityWriteClient.transaction();
 
