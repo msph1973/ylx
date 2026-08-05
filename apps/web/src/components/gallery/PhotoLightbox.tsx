@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { LazyMotion, domAnimation, m, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { Photo } from '@ylx/shared';
@@ -147,7 +147,6 @@ export function PhotoLightbox({
     // testing. It's full-opaque from the first frame instead. The fade-OUT on
     // close is kept (`exit`/`transition` below) since there's no bleed-through
     // risk while the lightbox is already closing.
-    <LazyMotion features={domAnimation} strict>
     <m.div
       className="lightbox-backdrop"
       style={appliedInset > 0 ? { paddingBottom: appliedInset + 8 } : undefined}
@@ -231,6 +230,5 @@ export function PhotoLightbox({
         </div>
       </m.div>
     </m.div>
-    </LazyMotion>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 interface PinEntryProps {
   onSubmit: (pin: string) => void;
@@ -103,7 +103,6 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
 
   return (
     <div className="pin-entry">
-      <LazyMotion features={domAnimation} strict>
       <m.div
         className="pin-inputs"
         initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
@@ -158,7 +157,6 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
           Verifying...
         </m.div>
       )}
-      </LazyMotion>
 
       <style>{`
         .pin-entry {
