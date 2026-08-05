@@ -13,18 +13,18 @@ export default function AdminPage({ adminName }: AdminPageProps) {
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const handleSelectAlbum = (album: AlbumCardData) => {
+  const handleSelectAlbum = useCallback((album: AlbumCardData) => {
     setSelectedAlbumId(album.id);
-  };
+  }, []);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     setSelectedAlbumId(null);
-  };
+  }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/admin/login';
-  };
+  }, []);
 
   // AlbumList already refetches itself in the background on Ably realtime
   // "admin:updates" events (see useAdminRealtime in AlbumList.tsx), which the
