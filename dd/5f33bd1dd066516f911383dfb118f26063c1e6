@@ -1,0 +1,14 @@
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  h_45c23cf41d175e 53-59,69-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "dd5f33bd1dd066516f911383dfb118f26063c1e6",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
