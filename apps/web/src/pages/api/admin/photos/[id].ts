@@ -47,27 +47,29 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
 
     const albumId = photo.album?._ref;
 
-    // Fetch album slug and customSlug for cache invalidation
-    const album = albumId
-      ? await sanityClient.fetch<AlbumSlugRaw | null>(
-          `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
-          { albumId }
-        )
-      : null;
-
-    // Selections that point at this photo, and the submissions that list them,
-    // must be detached before the photo can be removed (strong references).
-    const selectionIds = await sanityClient.fetch<string[]>(
-      `*[_type == "selection" && photo._ref == $photoId]._id`,
-      { photoId }
-    );
-
-    const submissionIds = albumId
-      ? await sanityClient.fetch<string[]>(
-          `*[_type == "submission" && album._ref == $albumId]._id`,
-          { albumId }
-        )
-      : [];
+    // These three lookups only depend on the already-known photoId/albumId,
+    // with no interdependency on one another, so run them concurrently.
+    const [album, selectionIds, submissionIds] = await Promise.all([
+      // Fetch album slug and customSlug for cache invalidation
+      albumId
+        ? sanityClient.fetch<AlbumSlugRaw | null>(
+            `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
+            { albumId }
+          )
+        : Promise.resolve(null),
+      // Selections that point at this photo, and the submissions that list them,
+      // must be detached before the photo can be removed (strong references).
+      sanityClient.fetch<string[]>(
+        `*[_type == "selection" && photo._ref == $photoId]._id`,
+        { photoId }
+      ),
+      albumId
+        ? sanityClient.fetch<string[]>(
+            `*[_type == "submission" && album._ref == $albumId]._id`,
+            { albumId }
+          )
+        : Promise.resolve([]),
+    ]);
 
     const tx = sanityWriteClient.transaction();
 

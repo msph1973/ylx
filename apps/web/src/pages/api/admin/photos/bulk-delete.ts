@@ -50,16 +50,23 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       });
     }
 
-    // Fetch album slug and customSlug for cache invalidation
-    const album = await sanityClient.fetch<AlbumSlugRaw | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
-      { albumId }
-    );
-
-    const photos = await sanityClient.fetch<PhotoRecord[]>(
-      `*[_type == "photo" && _id in $photoIds]{ _id, album }`,
-      { photoIds: uniquePhotoIds }
-    );
+    // Photos must be validated first — selectionIds/submissionIds are only
+    // needed once we know the delete will actually proceed, so fetching them
+    // eagerly would fire two extra Sanity queries (and risk a 500 instead of
+    // a clean 400) on the common "these photos don't belong to this album"
+    // rejection path. The album lookup has no bearing on that validation, so
+    // it can still run alongside the photos fetch.
+    const [album, photos] = await Promise.all([
+      // Fetch album slug and customSlug for cache invalidation
+      sanityClient.fetch<AlbumSlugRaw | null>(
+        `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
+        { albumId }
+      ),
+      sanityClient.fetch<PhotoRecord[]>(
+        `*[_type == "photo" && _id in $photoIds]{ _id, album }`,
+        { photoIds: uniquePhotoIds }
+      ),
+    ]);
 
     if (photos.length !== uniquePhotoIds.length || photos.some((photo) => photo.album?._ref !== albumId)) {
       return new Response(JSON.stringify({ error: "One or more photos do not belong to this album" }), {
@@ -68,15 +75,18 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       });
     }
 
-    const selectionIds = await sanityClient.fetch<string[]>(
-      `*[_type == "selection" && photo._ref in $photoIds]._id`,
-      { photoIds: uniquePhotoIds }
-    );
-
-    const submissionIds = await sanityClient.fetch<string[]>(
-      `*[_type == "submission" && album._ref == $albumId]._id`,
-      { albumId }
-    );
+    // Validation passed — now it's safe to fetch the remaining, mutually
+    // independent data needed to actually perform the delete.
+    const [selectionIds, submissionIds] = await Promise.all([
+      sanityClient.fetch<string[]>(
+        `*[_type == "selection" && photo._ref in $photoIds]._id`,
+        { photoIds: uniquePhotoIds }
+      ),
+      sanityClient.fetch<string[]>(
+        `*[_type == "submission" && album._ref == $albumId]._id`,
+        { albumId }
+      ),
+    ]);
 
     const tx = sanityWriteClient.transaction();
 

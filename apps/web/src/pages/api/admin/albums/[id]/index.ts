@@ -74,9 +74,16 @@ export const GET: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
-    const album = await sanityClient.fetch<SanityAlbumDetailRaw | null>(albumWithSelectionsQuery, {
-      albumId,
-    });
+    // Both fetches are keyed only by albumId with no interdependency, so run
+    // them concurrently to cut serverless latency.
+    const [album, selections] = await Promise.all([
+      sanityClient.fetch<SanityAlbumDetailRaw | null>(albumWithSelectionsQuery, {
+        albumId,
+      }),
+      sanityClient.fetch<SanitySelectionRaw[]>(selectionsByAlbumQuery, {
+        albumId,
+      }),
+    ]);
 
     if (!album) {
       return new Response(
@@ -84,10 +91,6 @@ export const GET: APIRoute = async ({ params, cookies }) => {
         { status: 404, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    const selections = await sanityClient.fetch<SanitySelectionRaw[]>(selectionsByAlbumQuery, {
-      albumId,
-    });
 
     const formatted = {
       id: album._id,
