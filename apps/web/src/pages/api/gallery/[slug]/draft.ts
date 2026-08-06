@@ -43,12 +43,17 @@ export const PUT: APIRoute = async ({ params, cookies, request, clientAddress })
     });
   }
 
-  const album = await getCached<SanityAlbumRaw | null>(
-    CACHE_KEYS.albumBySlug(slug),
-    30,
-    120,
-    () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
-  );
+  // These two lookups are keyed only by slug with no interdependency, so
+  // run them concurrently to cut the request's serverless latency in half.
+  const [album, pinRecord] = await Promise.all([
+    getCached<SanityAlbumRaw | null>(
+      CACHE_KEYS.albumBySlug(slug),
+      30,
+      120,
+      () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
+    ),
+    sanityClient.fetch<{ pin: string } | null>(albumPinBySlugQuery, { slug }),
+  ]);
 
   // Same uniform 401 as session.ts so unauthenticated callers can't probe slugs.
   if (!album) {
@@ -66,7 +71,6 @@ export const PUT: APIRoute = async ({ params, cookies, request, clientAddress })
   // trade-off here: draft progress is informational only (a photo count,
   // never the actual selection), but it should still stop responding to a
   // session verified against a since-rotated PIN.
-  const pinRecord = await sanityClient.fetch<{ pin: string } | null>(albumPinBySlugQuery, { slug });
   if (!pinRecord || !hasValidPinSession(cookies, album._id, pinRecord.pin)) {
     return new Response(JSON.stringify({ error: "No active gallery session" }), {
       status: 401,

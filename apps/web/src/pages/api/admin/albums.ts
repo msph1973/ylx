@@ -36,22 +36,26 @@ export const GET: APIRoute = async ({ cookies }) => {
   }
 
   try {
-    const albums = await getCached(CACHE_KEYS.albumsList(), 30, 120, () =>
-      sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery)
-    );
+    // The album list and the PIN list are independent reads, so run them
+    // concurrently to cut serverless latency.
+    const [albums, pinRecords] = await Promise.all([
+      getCached(CACHE_KEYS.albumsList(), 30, 120, () =>
+        sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery)
+      ),
+      // PINs are fetched fresh (never through the 30s/120s SWR cache above) so
+      // they're never copied into Upstash — allAlbumsQuery intentionally no
+      // longer projects `pin` for exactly this reason.
+      sanityClient.fetch<AlbumPinRecord[]>(allAlbumPinsQuery),
+    ]);
+    const pinsById = new Map(pinRecords.map((r) => [r._id, r.pin]));
 
     // Live draft progress is read fresh (outside the 30s SWR cache) so the
     // dashboard reflects a client's in-progress picks without waiting for
     // the album list cache to expire. One MGET round-trip for all albums.
+    // Depends on the album IDs above, so it can't join the Promise.all.
     const drafts = await cacheGetRaw<GalleryDraftProgress>(
       albums.map((album) => CACHE_KEYS.galleryDraft(album._id))
     );
-
-    // PINs are fetched fresh (never through the 30s/120s SWR cache above) so
-    // they're never copied into Upstash — allAlbumsQuery intentionally no
-    // longer projects `pin` for exactly this reason.
-    const pinRecords = await sanityClient.fetch<AlbumPinRecord[]>(allAlbumPinsQuery);
-    const pinsById = new Map(pinRecords.map((r) => [r._id, r.pin]));
 
     const formatted = albums.map((album, i) => ({
       id: album._id,

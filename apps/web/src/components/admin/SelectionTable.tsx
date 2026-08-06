@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { SelectionRow } from './SelectionRow';
@@ -23,15 +23,18 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
     onReplySaved?.();
   }, [onReplySaved]);
 
-  const containerVariants = {
+  // Memoized (not rebuilt every render): these only need to change when
+  // shouldReduceMotion flips, and framer-motion re-runs animations whenever
+  // the `variants` object identity changes.
+  const containerVariants = useMemo(() => ({
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: shouldReduceMotion ? 0 : 0.04 } },
-  };
+  }), [shouldReduceMotion]);
 
-  const rowVariants = {
+  const rowVariants = useMemo(() => ({
     hidden: { opacity: 0, x: shouldReduceMotion ? 0 : -12 },
     show: { opacity: 1, x: 0 },
-  };
+  }), [shouldReduceMotion]);
 
   if (selections.length === 0) {
     return (
