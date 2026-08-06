@@ -142,6 +142,7 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
           >
             {error}
           </m.div>
@@ -153,6 +154,7 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
           className="pin-loading"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
         >
           Verifying...
         </m.div>
