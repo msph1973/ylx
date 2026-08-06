@@ -1,0 +1,38 @@
+.github/workflows/junie-review.yml
+  h_45c23cf41d175e 10-18
+apps/web/src/components/admin/AdminPage.tsx
+  h_45c23cf41d175e 16,18,20,22,24,27
+apps/web/src/components/admin/AlbumCard.tsx
+  h_45c23cf41d175e 53-57,252-369
+apps/web/src/components/admin/AlbumDetail.tsx
+  h_45c23cf41d175e 36-201,446-450,484-542,794,796-817
+apps/web/src/components/admin/AlbumList.tsx
+  h_45c23cf41d175e 3,717-720
+apps/web/src/components/admin/SelectionTable.tsx
+  h_45c23cf41d175e 1,26-29,32,34,37
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 50-59,62-77,80-126,128-136,138-156,158-162,164-172,174-179,181-188,190-193,195-198,200-208,210-214,216-219,221-225,227-237,239-243,245-248,250-252,254-257,259-262,264-268,270-276,278-284,286-288,290-293,296-310,312-316,318-322,324-328,331-332,334-335,340-345,348,351-354,357-358,593-1194
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 39-50,55
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 77-86
+apps/web/src/pages/api/admin/photos/[id].ts
+  h_45c23cf41d175e 50-72
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  h_45c23cf41d175e 53-69,78-89
+apps/web/src/pages/api/admin/upload/finalize.ts
+  h_45c23cf41d175e 133-145
+apps/web/src/pages/api/gallery/[slug]/draft.ts
+  h_45c23cf41d175e 46-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d1b24ac507eb98649ac3f5e369b328f8b02118e9",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
