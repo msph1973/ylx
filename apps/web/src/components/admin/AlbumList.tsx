@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { AlbumCard, type AlbumCardData } from './AlbumCard';
+import { AlbumCard, ALBUM_CARD_STYLES, type AlbumCardData } from './AlbumCard';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useAdminRealtime } from '@/hooks/useAdminRealtime';
 import { getAlbumStatusMeta, ALBUM_STATUS_FILTERS, type AlbumStatusVariant } from '@/lib/albumStatus';
@@ -714,6 +714,10 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
           }
         }
       `}</style>
+
+      {/* Rendered once here instead of once per <AlbumCard> — see the
+          comment on ALBUM_CARD_STYLES for why. */}
+      <style>{ALBUM_CARD_STYLES}</style>
     </div>
   );
 });

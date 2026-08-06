@@ -33,6 +33,172 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   return next;
 }
 
+interface PhotoTileProps {
+  photo: AlbumPhoto;
+  index: number;
+  totalCount: number;
+  isSelected: boolean;
+  isDragged: boolean;
+  isDragOver: boolean;
+  selectionMode: boolean;
+  reorderMode: boolean;
+  isSavingOrder: boolean;
+  onTileDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
+  onTileDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onTileDrop: (event: React.DragEvent<HTMLDivElement>) => void;
+  onTileDragEnd: (event: React.DragEvent<HTMLDivElement>) => void;
+  onSelectToggle: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onDeleteClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onDragHandlePointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onDragHandlePointerMove: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onDragHandlePointerUp: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onDragHandlePointerCancel: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onMoveUp: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onMoveDown: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}
+
+// A drag/hover only touches draggedPhotoId/dragOverPhotoId on the parent, so
+// this tile is memoized to make sure that state change re-renders just the
+// tiles whose own props actually changed instead of the whole photo grid.
+function arePhotoTilePropsEqual(prev: PhotoTileProps, next: PhotoTileProps): boolean {
+  return (
+    prev.photo === next.photo &&
+    prev.photo.id === next.photo.id &&
+    prev.index === next.index &&
+    prev.totalCount === next.totalCount &&
+    prev.isSelected === next.isSelected &&
+    prev.isDragged === next.isDragged &&
+    prev.isDragOver === next.isDragOver &&
+    prev.selectionMode === next.selectionMode &&
+    prev.reorderMode === next.reorderMode &&
+    prev.isSavingOrder === next.isSavingOrder &&
+    prev.onTileDragStart === next.onTileDragStart &&
+    prev.onTileDragOver === next.onTileDragOver &&
+    prev.onTileDrop === next.onTileDrop &&
+    prev.onTileDragEnd === next.onTileDragEnd &&
+    prev.onSelectToggle === next.onSelectToggle &&
+    prev.onDeleteClick === next.onDeleteClick &&
+    prev.onDragHandlePointerDown === next.onDragHandlePointerDown &&
+    prev.onDragHandlePointerMove === next.onDragHandlePointerMove &&
+    prev.onDragHandlePointerUp === next.onDragHandlePointerUp &&
+    prev.onDragHandlePointerCancel === next.onDragHandlePointerCancel &&
+    prev.onMoveUp === next.onMoveUp &&
+    prev.onMoveDown === next.onMoveDown
+  );
+}
+
+const PhotoTile = React.memo(function PhotoTile({
+  photo,
+  index,
+  totalCount,
+  isSelected,
+  isDragged,
+  isDragOver,
+  selectionMode,
+  reorderMode,
+  isSavingOrder,
+  onTileDragStart,
+  onTileDragOver,
+  onTileDrop,
+  onTileDragEnd,
+  onSelectToggle,
+  onDeleteClick,
+  onDragHandlePointerDown,
+  onDragHandlePointerMove,
+  onDragHandlePointerUp,
+  onDragHandlePointerCancel,
+  onMoveUp,
+  onMoveDown,
+}: PhotoTileProps) {
+  return (
+    <div
+      data-photo-id={photo.id}
+      className={`photo-tile${isSelected ? ' is-selected' : ''}${isDragged ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
+      draggable={reorderMode && totalCount > 1 && !isSavingOrder}
+      onDragStart={onTileDragStart}
+      onDragOver={onTileDragOver}
+      onDrop={onTileDrop}
+      onDragEnd={onTileDragEnd}
+    >
+      {selectionMode && (
+        <button
+          type="button"
+          data-photo-id={photo.id}
+          className={`photo-select-toggle${isSelected ? ' checked' : ''}`}
+          onClick={onSelectToggle}
+          aria-pressed={isSelected}
+          aria-label={`${isSelected ? 'Deselect' : 'Select'} photo ${photo.filename}`}
+        >
+          {isSelected ? 'Selected' : 'Select'}
+        </button>
+      )}
+      <BlurImage
+        className="photo-thumb"
+        src={photo.thumbnailUrl}
+        alt={photo.filename}
+        lqip={photo.lqip}
+        srcSet={photo.thumbnailSrcSet ?? undefined}
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
+        draggable={false}
+      />
+      {!selectionMode && !reorderMode && (
+        <button
+          className="photo-delete"
+          data-photo-id={photo.id}
+          onClick={onDeleteClick}
+          aria-label={`Delete photo ${photo.filename}`}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6" /><path d="M14 11v6" />
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+        </button>
+      )}
+      {reorderMode && (
+        <div className="photo-actions" aria-label={`Reorder controls for ${photo.filename}`}>
+          <button
+            type="button"
+            data-photo-id={photo.id}
+            className="photo-move-btn photo-drag-handle"
+            onPointerDown={onDragHandlePointerDown}
+            onPointerMove={onDragHandlePointerMove}
+            onPointerUp={onDragHandlePointerUp}
+            onPointerCancel={onDragHandlePointerCancel}
+            disabled={isSavingOrder}
+            aria-label={`Drag ${photo.filename} to reorder`}
+          >
+            ⠿
+          </button>
+          <button
+            type="button"
+            data-photo-id={photo.id}
+            className="photo-move-btn"
+            onClick={onMoveUp}
+            disabled={index === 0 || isSavingOrder}
+            aria-label={`Move ${photo.filename} earlier`}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            data-photo-id={photo.id}
+            className="photo-move-btn"
+            onClick={onMoveDown}
+            disabled={index === totalCount - 1 || isSavingOrder}
+            aria-label={`Move ${photo.filename} later`}
+          >
+            ↓
+          </button>
+        </div>
+      )}
+      <span className="photo-name" title={photo.filename}>{photo.filename}</span>
+    </div>
+  );
+}, arePhotoTilePropsEqual);
+PhotoTile.displayName = 'PhotoTile';
+
 export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDetailProps) {
   const shouldReduceMotion = useReducedMotion();
   const [album, setAlbum] = useState<AlbumWithSelections | null>(null);
@@ -277,8 +443,11 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   // Touch-friendly drag via the per-tile handle: HTML5 drag events never fire
   // on touchscreens, so the handle uses Pointer Events + elementFromPoint to
   // hit-test which tile is under the finger. Works for mouse too.
-  const handleDragHandleDown = useCallback((photoId: string) => (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (!photoReorderMode || photos.length < 2 || isSavingOrder) return;
+  // Stable across all tiles (reads the id off the event target) so a
+  // pointerdown on one tile's handle doesn't force every tile to re-render.
+  const handleDragHandlePointerDown = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const photoId = event.currentTarget.dataset.photoId;
+    if (!photoId || !photoReorderMode || photos.length < 2 || isSavingOrder) return;
     // Prevents native HTML5 drag/scroll from hijacking the gesture.
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -311,6 +480,65 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     setDraggedPhotoId(null);
     setDragOverPhotoId(null);
   }, []);
+
+  // Stable, tile-agnostic drag handlers for the grid below: each reads the
+  // photo id off event.currentTarget.dataset.photoId instead of closing over
+  // a specific photo, so their identity doesn't change per-tile per-render.
+  const handleTileDragStart = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    const photoId = event.currentTarget.dataset.photoId;
+    if (!photoId || !photoReorderMode || photos.length < 2 || isSavingOrder) {
+      event.preventDefault();
+      return;
+    }
+    setDraggedPhotoId(photoId);
+    event.dataTransfer.effectAllowed = 'move';
+  }, [photoReorderMode, photos.length, isSavingOrder]);
+
+  const handleTileDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (photoReorderMode && draggedPhotoId) {
+      const photoId = event.currentTarget.dataset.photoId;
+      if (!photoId) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      setDragOverPhotoId(photoId !== draggedPhotoId ? photoId : null);
+    }
+  }, [photoReorderMode, draggedPhotoId]);
+
+  const handleTileDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragOverPhotoId(null);
+    const photoId = event.currentTarget.dataset.photoId;
+    if (photoId) handlePhotoDrop(photoId);
+  }, [handlePhotoDrop]);
+
+  const handleTileDragEnd = useCallback(() => {
+    setDraggedPhotoId(null);
+    setDragOverPhotoId(null);
+  }, []);
+
+  const handleSelectToggleClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const photoId = event.currentTarget.dataset.photoId;
+    if (photoId) togglePhotoSelection(photoId);
+  }, [togglePhotoSelection]);
+
+  const handlePhotoDeleteClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const photoId = event.currentTarget.dataset.photoId;
+    const target = photos.find((photo) => photo.id === photoId);
+    if (target) {
+      setPhotoDeleteError(null);
+      setPhotoToDelete(target);
+    }
+  }, [photos]);
+
+  const handleMoveUpClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const photoId = event.currentTarget.dataset.photoId;
+    if (photoId) movePhotoByOffset(photoId, -1);
+  }, [movePhotoByOffset]);
+
+  const handleMoveDownClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const photoId = event.currentTarget.dataset.photoId;
+    if (photoId) movePhotoByOffset(photoId, 1);
+  }, [movePhotoByOffset]);
 
   const handleDeleteSelectedPhotos = useCallback(async () => {
     if (!album || selectedPhotoCount === 0) {
@@ -563,103 +791,30 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
         ) : (
           <div className="photo-grid">
             {photos.map((photo, index) => (
-              <div
+              <PhotoTile
                 key={photo.id}
-                data-photo-id={photo.id}
-                className={`photo-tile${selectedPhotoIds.has(photo.id) ? ' is-selected' : ''}${draggedPhotoId === photo.id ? ' is-dragging' : ''}${dragOverPhotoId === photo.id ? ' is-drag-over' : ''}`}
-                draggable={photoReorderMode && photos.length > 1 && !isSavingOrder}
-                onDragStart={(event) => {
-                  if (!photoReorderMode || photos.length < 2 || isSavingOrder) {
-                    event.preventDefault();
-                    return;
-                  }
-                  setDraggedPhotoId(photo.id);
-                  event.dataTransfer.effectAllowed = 'move';
-                }}
-                onDragOver={(event) => {
-                  if (photoReorderMode && draggedPhotoId) {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = 'move';
-                    setDragOverPhotoId(photo.id !== draggedPhotoId ? photo.id : null);
-                  }
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setDragOverPhotoId(null);
-                  handlePhotoDrop(photo.id);
-                }}
-                onDragEnd={() => { setDraggedPhotoId(null); setDragOverPhotoId(null); }}
-              >
-                {photoSelectionMode && (
-                  <button
-                    type="button"
-                    className={`photo-select-toggle${selectedPhotoIds.has(photo.id) ? ' checked' : ''}`}
-                    onClick={() => togglePhotoSelection(photo.id)}
-                    aria-pressed={selectedPhotoIds.has(photo.id)}
-                    aria-label={`${selectedPhotoIds.has(photo.id) ? 'Deselect' : 'Select'} photo ${photo.filename}`}
-                  >
-                    {selectedPhotoIds.has(photo.id) ? 'Selected' : 'Select'}
-                  </button>
-                )}
-                <BlurImage
-                  className="photo-thumb"
-                  src={photo.thumbnailUrl}
-                  alt={photo.filename}
-                  lqip={photo.lqip}
-                  srcSet={photo.thumbnailSrcSet ?? undefined}
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
-                  draggable={false}
-                />
-                {!photoSelectionMode && !photoReorderMode && (
-                  <button
-                    className="photo-delete"
-                    onClick={() => { setPhotoDeleteError(null); setPhotoToDelete(photo); }}
-                    aria-label={`Delete photo ${photo.filename}`}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                      <path d="M10 11v6" /><path d="M14 11v6" />
-                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                    </svg>
-                  </button>
-                )}
-                {photoReorderMode && (
-                  <div className="photo-actions" aria-label={`Reorder controls for ${photo.filename}`}>
-                    <button
-                      type="button"
-                      className="photo-move-btn photo-drag-handle"
-                      onPointerDown={handleDragHandleDown(photo.id)}
-                      onPointerMove={handleDragHandleMove}
-                      onPointerUp={handleDragHandleUp}
-                      onPointerCancel={handleDragHandleCancel}
-                      disabled={isSavingOrder}
-                      aria-label={`Drag ${photo.filename} to reorder`}
-                    >
-                      ⠿
-                    </button>
-                    <button
-                      type="button"
-                      className="photo-move-btn"
-                      onClick={() => movePhotoByOffset(photo.id, -1)}
-                      disabled={index === 0 || isSavingOrder}
-                      aria-label={`Move ${photo.filename} earlier`}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="photo-move-btn"
-                      onClick={() => movePhotoByOffset(photo.id, 1)}
-                      disabled={index === photos.length - 1 || isSavingOrder}
-                      aria-label={`Move ${photo.filename} later`}
-                    >
-                      ↓
-                    </button>
-                  </div>
-                )}
-                <span className="photo-name" title={photo.filename}>{photo.filename}</span>
-              </div>
+                photo={photo}
+                index={index}
+                totalCount={photos.length}
+                isSelected={selectedPhotoIds.has(photo.id)}
+                isDragged={draggedPhotoId === photo.id}
+                isDragOver={dragOverPhotoId === photo.id}
+                selectionMode={photoSelectionMode}
+                reorderMode={photoReorderMode}
+                isSavingOrder={isSavingOrder}
+                onTileDragStart={handleTileDragStart}
+                onTileDragOver={handleTileDragOver}
+                onTileDrop={handleTileDrop}
+                onTileDragEnd={handleTileDragEnd}
+                onSelectToggle={handleSelectToggleClick}
+                onDeleteClick={handlePhotoDeleteClick}
+                onDragHandlePointerDown={handleDragHandlePointerDown}
+                onDragHandlePointerMove={handleDragHandleMove}
+                onDragHandlePointerUp={handleDragHandleUp}
+                onDragHandlePointerCancel={handleDragHandleCancel}
+                onMoveUp={handleMoveUpClick}
+                onMoveDown={handleMoveDownClick}
+              />
             ))}
           </div>
         )}

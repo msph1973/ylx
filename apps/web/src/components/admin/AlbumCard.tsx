@@ -50,124 +50,11 @@ export function getSelectionProgress(album: AlbumCardData, now: number = Date.no
   return null;
 }
 
-interface AlbumCardProps {
-  album: AlbumCardData;
-  onClick: (album: AlbumCardData) => void;
-  /** When true, clicking the card toggles selection instead of opening it. */
-  selectionMode?: boolean;
-  selected?: boolean;
-  onToggleSelect?: (album: AlbumCardData) => void;
-}
-
-export const AlbumCard = React.memo(function AlbumCard({
-  album,
-  onClick,
-  selectionMode = false,
-  selected = false,
-  onToggleSelect,
-}: AlbumCardProps) {
-  const shouldReduceMotion = useReducedMotion();
-  const formattedDate = formatDate(album.eventDate);
-
-  const status = getAlbumStatusMeta(album.status);
-  const [, setNowTick] = React.useState(0);
-  const progress = getSelectionProgress(album, Date.now());
-
-  // Auto-clear the "selecting now" badge when the draft freshness expires
-  // so an open dashboard doesn't show stale badges indefinitely.
-  useEffect(() => {
-    if (!progress?.live || !album.draftUpdatedAt) return;
-    const expiresAt = album.draftUpdatedAt + DRAFT_FRESH_MS;
-    const remaining = Math.max(0, expiresAt - Date.now());
-    if (remaining <= 0) return;
-    const timer = setTimeout(() => setNowTick((t) => t + 1), remaining + 100);
-    return () => clearTimeout(timer);
-  }, [progress?.live, album.draftUpdatedAt]);
-
-  const handleClick = () => {
-    if (selectionMode) {
-      onToggleSelect?.(album);
-    } else {
-      onClick(album);
-    }
-  };
-
-  return (
-    <motion.button
-      type="button"
-      className={`album-card${selected ? ' is-selected' : ''}`}
-      onClick={handleClick}
-      aria-pressed={selectionMode ? selected : undefined}
-      aria-label={
-        selectionMode
-          ? `${selected ? 'Deselect' : 'Select'} album ${album.title}`
-          : `Open album ${album.title}`
-      }
-      whileHover={shouldReduceMotion ? {} : { y: -4 }}
-      whileTap={shouldReduceMotion ? {} : { scale: 0.985 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 35 }}
-    >
-      <div className="album-card-header">
-        <div className="album-card-heading">
-          {selectionMode && (
-            <span className={`select-box${selected ? ' checked' : ''}`} aria-hidden="true">
-              {selected && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
-            </span>
-          )}
-          <h3 className="album-card-title">{album.title}</h3>
-        </div>
-        <span className={`status-badge status-badge--${status.variant}`}>
-          {status.label}
-        </span>
-      </div>
-
-      <div className="album-card-meta">
-        <span className="meta-item">
-          <span className="meta-label">Client</span>
-          <span className="meta-value">{album.clientName}</span>
-        </span>
-        <span className="meta-item">
-          <span className="meta-label">Date</span>
-          <span className="meta-value">{formattedDate}</span>
-        </span>
-      </div>
-
-      {progress && (
-        <div className="selection-progress">
-          <div
-            className="progress-track"
-            role="progressbar"
-            aria-valuenow={progress.count}
-            aria-valuemin={0}
-            aria-valuemax={progress.max}
-            aria-label={`${progress.count} of ${progress.max} photos selected`}>
-            <div
-              className="progress-fill"
-              style={{ transform: `scaleX(${progress.max > 0 ? Math.min(1, progress.count / progress.max) : 0})` }}
-            />
-          </div>
-          <span className="progress-text">
-            {progress.count}/{progress.max} selected
-            {progress.live && <span className="live-badge">selecting now</span>}
-          </span>
-        </div>
-      )}
-
-      <div className="album-card-footer">
-        <span className="stat">
-          <span className="stat-value">{album.photoCount}</span>
-          <span className="stat-label">photos</span>
-        </span>
-        {album.pin && (
-          <span className="pin-display">PIN: {album.pin}</span>
-        )}
-      </div>
-
-      <style>{`
+// Hoisted to module scope and rendered once by the parent (AlbumList),
+// instead of once per <AlbumCard> instance: up to PAGE_SIZE (12) cards render
+// simultaneously, and each one embedding this same <style> block duplicated
+// identical CSS text 12x in the DOM for no benefit.
+export const ALBUM_CARD_STYLES = `
         .album-card {
           display: flex;
           flex-direction: column;
@@ -362,7 +249,124 @@ export const AlbumCard = React.memo(function AlbumCard({
           background-color: var(--color-bg);
           border-radius: var(--radius-md);
         }
-      `}</style>
+`;
+
+interface AlbumCardProps {
+  album: AlbumCardData;
+  onClick: (album: AlbumCardData) => void;
+  /** When true, clicking the card toggles selection instead of opening it. */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (album: AlbumCardData) => void;
+}
+
+export const AlbumCard = React.memo(function AlbumCard({
+  album,
+  onClick,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+}: AlbumCardProps) {
+  const shouldReduceMotion = useReducedMotion();
+  const formattedDate = formatDate(album.eventDate);
+
+  const status = getAlbumStatusMeta(album.status);
+  const [, setNowTick] = React.useState(0);
+  const progress = getSelectionProgress(album, Date.now());
+
+  // Auto-clear the "selecting now" badge when the draft freshness expires
+  // so an open dashboard doesn't show stale badges indefinitely.
+  useEffect(() => {
+    if (!progress?.live || !album.draftUpdatedAt) return;
+    const expiresAt = album.draftUpdatedAt + DRAFT_FRESH_MS;
+    const remaining = Math.max(0, expiresAt - Date.now());
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setNowTick((t) => t + 1), remaining + 100);
+    return () => clearTimeout(timer);
+  }, [progress?.live, album.draftUpdatedAt]);
+
+  const handleClick = () => {
+    if (selectionMode) {
+      onToggleSelect?.(album);
+    } else {
+      onClick(album);
+    }
+  };
+
+  return (
+    <motion.button
+      type="button"
+      className={`album-card${selected ? ' is-selected' : ''}`}
+      onClick={handleClick}
+      aria-pressed={selectionMode ? selected : undefined}
+      aria-label={
+        selectionMode
+          ? `${selected ? 'Deselect' : 'Select'} album ${album.title}`
+          : `Open album ${album.title}`
+      }
+      whileHover={shouldReduceMotion ? {} : { y: -4 }}
+      whileTap={shouldReduceMotion ? {} : { scale: 0.985 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 35 }}
+    >
+      <div className="album-card-header">
+        <div className="album-card-heading">
+          {selectionMode && (
+            <span className={`select-box${selected ? ' checked' : ''}`} aria-hidden="true">
+              {selected && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </span>
+          )}
+          <h3 className="album-card-title">{album.title}</h3>
+        </div>
+        <span className={`status-badge status-badge--${status.variant}`}>
+          {status.label}
+        </span>
+      </div>
+
+      <div className="album-card-meta">
+        <span className="meta-item">
+          <span className="meta-label">Client</span>
+          <span className="meta-value">{album.clientName}</span>
+        </span>
+        <span className="meta-item">
+          <span className="meta-label">Date</span>
+          <span className="meta-value">{formattedDate}</span>
+        </span>
+      </div>
+
+      {progress && (
+        <div className="selection-progress">
+          <div
+            className="progress-track"
+            role="progressbar"
+            aria-valuenow={progress.count}
+            aria-valuemin={0}
+            aria-valuemax={progress.max}
+            aria-label={`${progress.count} of ${progress.max} photos selected`}>
+            <div
+              className="progress-fill"
+              style={{ transform: `scaleX(${progress.max > 0 ? Math.min(1, progress.count / progress.max) : 0})` }}
+            />
+          </div>
+          <span className="progress-text">
+            {progress.count}/{progress.max} selected
+            {progress.live && <span className="live-badge">selecting now</span>}
+          </span>
+        </div>
+      )}
+
+      <div className="album-card-footer">
+        <span className="stat">
+          <span className="stat-value">{album.photoCount}</span>
+          <span className="stat-label">photos</span>
+        </span>
+        {album.pin && (
+          <span className="pin-display">PIN: {album.pin}</span>
+        )}
+      </div>
     </motion.button>
   );
 });
