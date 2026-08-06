@@ -7,7 +7,15 @@ on:
     types: [created]
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}"
+  # Scoped by event_name too: without this, an unrelated bot posting a plain
+  # comment on the PR (issue_comment event, sharing the same PR/issue number)
+  # cancelled the in-progress pull_request-triggered review run before it
+  # could finish — even though that issue_comment job almost always no-ops
+  # (its `if` gate below requires an explicit "@junie-agent code-review"
+  # comment). Multiple pushes/comments of the SAME event type still
+  # cancel-in-progress each other as intended; only cross-event-type
+  # cancellation is prevented.
+  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}-${{ github.event_name }}"
   cancel-in-progress: true
 
 jobs:
