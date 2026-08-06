@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 interface PinEntryProps {
   onSubmit: (pin: string) => void;
@@ -103,14 +103,14 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
 
   return (
     <div className="pin-entry">
-      <motion.div
+      <m.div
         className="pin-inputs"
         initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: shouldReduceMotion ? 0 : 0.4 }}
       >
         {digits.map((digit, index) => (
-          <motion.div
+          <m.div
             key={index}
             initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -130,32 +130,34 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
               className="pin-digit"
               aria-label={`Digit ${index + 1}`}
             />
-          </motion.div>
+          </m.div>
         ))}
-      </motion.div>
+      </m.div>
 
       <AnimatePresence>
         {error && (
-          <motion.div
+          <m.div
             className="pin-error"
             role="alert"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
           >
             {error}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {isLoading && (
-        <motion.div
+        <m.div
           className="pin-loading"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
         >
           Verifying...
-        </motion.div>
+        </m.div>
       )}
 
       <style>{`

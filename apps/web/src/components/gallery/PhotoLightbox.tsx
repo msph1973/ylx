@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { Photo } from '@ylx/shared';
@@ -147,7 +147,7 @@ export function PhotoLightbox({
     // testing. It's full-opaque from the first frame instead. The fade-OUT on
     // close is kept (`exit`/`transition` below) since there's no bleed-through
     // risk while the lightbox is already closing.
-    <motion.div
+    <m.div
       className="lightbox-backdrop"
       style={appliedInset > 0 ? { paddingBottom: appliedInset + 8 } : undefined}
       exit={{ opacity: 0 }}
@@ -157,7 +157,7 @@ export function PhotoLightbox({
       aria-modal="true"
       aria-label={`Photo ${currentIndex + 1} of ${photos.length}`}
     >
-      <motion.div
+      <m.div
         ref={focusTrapRef}
         className="lightbox-content"
         style={appliedInset > 0 ? { maxHeight: window.innerHeight - appliedInset - 16 } : undefined}
@@ -228,7 +228,7 @@ export function PhotoLightbox({
             →
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }

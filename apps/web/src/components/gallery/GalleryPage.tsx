@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -89,7 +89,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
   onKeyDown,
 }: GalleryPhotoTileProps) {
   return (
-    <motion.div
+    <m.div
       data-index={index}
       role="button"
       tabIndex={0}
@@ -110,7 +110,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
         alt={`Photo ${index + 1} of ${totalPhotos}`}
       />
       {isSelected && (
-        <motion.div
+        <m.div
           className="selection-badge"
           aria-hidden="true"
           initial={{ scale: shouldReduceMotion ? 1 : 0 }}
@@ -118,9 +118,9 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           exit={{ scale: shouldReduceMotion ? 1 : 0 }}
         >
           ✓
-        </motion.div>
+        </m.div>
       )}
-    </motion.div>
+    </m.div>
   );
 }, areGalleryPhotoTilePropsEqual);
 GalleryPhotoTile.displayName = 'GalleryPhotoTile';
@@ -990,7 +990,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     }
     return (
       <div className="gallery-auth">
-        <motion.div
+        <LazyMotion features={domAnimation} strict>
+        <m.div
           className="gallery-auth-content"
           initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -1003,7 +1004,8 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             error={error}
             isLoading={isLoading}
           />
-        </motion.div>
+        </m.div>
+        </LazyMotion>
 
         <style>{`
           .gallery-auth {
@@ -1038,6 +1040,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   return (
     <div className="gallery-view">
+      <LazyMotion features={domAnimation} strict>
       <div className="gallery-selection-bar">
         <span className="selection-count">
           {confirmingSubmit
@@ -1076,7 +1079,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           </p>
         </div>
       ) : (
-      <motion.div
+      <m.div
         className="photo-grid"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -1099,12 +1102,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             onKeyDown={handlePhotoTileKeyDown}
           />
         ))}
-      </motion.div>
+      </m.div>
       )}
 
       <AnimatePresence>
         {showUnlockToast && (
-          <motion.div
+          <m.div
             className="unlock-toast"
             role="status"
             aria-live="polite"
@@ -1114,7 +1117,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
           >
             Gallery unlocked — please reselect and resubmit your photos
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1122,7 +1125,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           — this makes the limit visible instead of looking like a bug. */}
       <AnimatePresence>
         {notice && (
-          <motion.div
+          <m.div
             className="info-toast"
             role="status"
             aria-live="polite"
@@ -1132,7 +1135,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
           >
             {notice}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1140,7 +1143,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           a failed submit looked identical to a successful one (silent). */}
       <AnimatePresence>
         {error && (
-          <motion.div
+          <m.div
             className="submit-error-toast"
             role="alert"
             aria-live="assertive"
@@ -1158,7 +1161,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             >
               ✕
             </button>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1186,6 +1189,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           </LightboxErrorBoundary>
         )}
       </AnimatePresence>
+      </LazyMotion>
 
       <style>{GALLERY_VIEW_STYLES}</style>
     </div>
