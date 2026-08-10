@@ -44,64 +44,88 @@ export interface SubmissionNotification {
  *  right after a successful commit without their own try/catch. Returns the
  *  number of emails actually dispatched (0 = skipped or failed). */
 export async function notifyAdminsOfSubmission(notif: SubmissionNotification): Promise<number> {
-  // Short-circuit before any work when email isn't configured — keeps dev/
-  // preview (no Resend) from issuing a pointless Sanity read on every submit.
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  if (!apiKey) return 0;
-  if (!from) {
-    console.warn("[email] EMAIL_FROM not set — skipping admin notification");
-    return 0;
-  }
-
-  const { sanityClient } = await import("@ylx/sanity/client");
-  const { adminEmailsQuery } = await import("@ylx/sanity/lib/queries");
-
-  let emails: string[];
+  // The whole body is wrapped so the "never throws" contract holds even if a
+  // dynamic import or an unexpected code path rejects — callers (submit.ts)
+  // can `await` this right after a committed submission without their own
+  // try/catch and trust a return value, never an exception.
   try {
-    emails = await sanityClient.fetch<string[]>(adminEmailsQuery);
+    // Short-circuit before any work when email isn't configured — keeps dev/
+    // preview (no Resend) from issuing a pointless Sanity read on every submit.
+    const apiKey = process.env.RESEND_API_KEY;
+    const from = process.env.EMAIL_FROM;
+    if (!apiKey) return 0;
+    if (!from) {
+      console.warn("[email] EMAIL_FROM not set — skipping admin notification");
+      return 0;
+    }
+
+    const { sanityClient } = await import("@ylx/sanity/client");
+    const { adminEmailsQuery } = await import("@ylx/sanity/lib/queries");
+
+    let emails: string[];
+    try {
+      emails = await sanityClient.fetch<string[]>(adminEmailsQuery);
+    } catch (err) {
+      console.error("[email] failed to fetch admin emails:", err);
+      captureError(err, { route: "email/admin-emails", albumId: notif.albumId });
+      return 0;
+    }
+
+    if (emails.length === 0) return 0;
+
+    const resend = await getResend();
+    if (!resend) return 0;
+
+    const subject = `New selection: ${notif.albumTitle}`;
+    const html = renderSubmissionEmail(notif);
+
+    // Sequential on purpose: N is tiny (single admin today), and parallel
+    // sends would risk Resend's per-second rate limit for no real latency
+    // gain at this scale. A failure for one recipient is logged + reported
+    // without aborting the rest.
+    let sent = 0;
+    for (let i = 0; i < emails.length; i++) {
+      const to = emails[i];
+      try {
+        const { error } = await resend.emails.send({ from, to: [to], subject, html });
+        if (error) {
+          // Log a non-identifying index, not the recipient address, so admin
+          // emails never land in Vercel logs or Sentry.
+          console.error(`[email] Resend rejected send (recipient #${i + 1})`, error);
+          captureError(new Error(`Resend send error: ${error.message}`), {
+            route: "email/send",
+            albumId: notif.albumId,
+            recipientIndex: i,
+          });
+          continue;
+        }
+        sent++;
+      } catch (err) {
+        console.error(`[email] send threw (recipient #${i + 1})`, err);
+        captureError(err, { route: "email/send", albumId: notif.albumId, recipientIndex: i });
+      }
+    }
+    return sent;
   } catch (err) {
-    console.error("[email] failed to fetch admin emails:", err);
-    captureError(err, { route: "email/admin-emails", albumId: notif.albumId });
+    // Belt-and-suspenders for the "never throws" contract — catches an
+    // unexpected dynamic-import rejection or anything the inner try/catch
+    // blocks above didn't anticipate.
+    console.error("[email] notifyAdminsOfSubmission unexpected failure:", err);
+    captureError(err, { route: "email/notify", albumId: notif.albumId });
     return 0;
   }
-
-  if (emails.length === 0) return 0;
-
-  const resend = await getResend();
-  if (!resend) return 0;
-
-  const subject = `New selection: ${notif.albumTitle}`;
-  const html = renderSubmissionEmail(notif);
-
-  let sent = 0;
-  for (const to of emails) {
-    try {
-      const { error } = await resend.emails.send({ from, to: [to], subject, html });
-      if (error) {
-        // Resend returns a structured error object rather than throwing —
-        // log + report but keep trying the remaining recipients.
-        console.error("[email] Resend rejected send to", to, error);
-        captureError(new Error(`Resend send error: ${error.message}`), {
-          route: "email/send",
-          albumId: notif.albumId,
-          recipient: to,
-        });
-        continue;
-      }
-      sent++;
-    } catch (err) {
-      console.error("[email] send threw for", to, err);
-      captureError(err, { route: "email/send", albumId: notif.albumId, recipient: to });
-    }
-  }
-  return sent;
 }
 
 /** Minimal inline-styled HTML summary — no template dependency, stays under
  *  Resend's payload limits, renders fine in all major mail clients. */
 function renderSubmissionEmail(notif: SubmissionNotification): string {
-  const { albumTitle, clientName, selectionCount, galleryUrl } = notif;
+  // Coerce to string so a null/undefined title or clientName (shouldn't happen
+  // given the schema's required validation, but defensive against malformed
+  // data) doesn't throw inside escapeHtml's `.replace`.
+  const albumTitle = String(notif.albumTitle ?? "");
+  const clientName = notif.clientName ? String(notif.clientName) : "—";
+  const selectionCount = notif.selectionCount;
+  const galleryUrl = String(notif.galleryUrl ?? "");
   return `<!doctype html>
 <html lang="en">
   <body style="margin:0;padding:24px;background:#0f0f10;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f5f5f4;">
@@ -113,12 +137,12 @@ function renderSubmissionEmail(notif: SubmissionNotification): string {
       <tr><td style="padding:8px 24px;">
         <table role="presentation" width="100%" cellpadding="8" cellspacing="0" style="background:#0f0f10;border-radius:8px;">
           <tr><td style="color:#71717a;font-size:12px;width:100px;">Album</td><td style="color:#f5f5f4;font-size:14px;">${escapeHtml(albumTitle)}</td></tr>
-          <tr><td style="color:#71717a;font-size:12px;">Client</td><td style="color:#f5f5f4;font-size:14px;">${escapeHtml(clientName || "—")}</td></tr>
+          <tr><td style="color:#71717a;font-size:12px;">Client</td><td style="color:#f5f5f4;font-size:14px;">${escapeHtml(clientName)}</td></tr>
           <tr><td style="color:#71717a;font-size:12px;">Selected</td><td style="color:#f5f5f4;font-size:14px;">${selectionCount} photo${selectionCount === 1 ? "" : "s"}</td></tr>
         </table>
       </td></tr>
       <tr><td style="padding:16px 24px 24px;">
-        <a href="${escapeAttr(galleryUrl)}" style="display:inline-block;background:#d4a574;color:#0f0f10;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px;">View album</a>
+        <a href="${escapeHtml(galleryUrl)}" style="display:inline-block;background:#d4a574;color:#0f0f10;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px;">View album</a>
       </td></tr>
     </table>
     <p style="text-align:center;color:#52525b;font-size:11px;margin-top:16px;">YLx · Photo proofing</p>
@@ -126,14 +150,11 @@ function renderSubmissionEmail(notif: SubmissionNotification): string {
 </html>`;
 }
 
-// Minimal HTML escapers — keeps untrusted album/client names from injecting
-// markup into the email body. `galleryUrl` is built server-side from the
-// known origin, but escaping it too costs nothing and guards a future caller.
+// Escapes the HTML-special characters that matter in both text content and
+// attribute values (& < > " '), so the same helper is safe for the href too —
+// no separate (and easy-to-get-wrong) attribute escaper.
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;"
   );
-}
-function escapeAttr(s: string): string {
-  return s.replace(/"/g, "&quot;");
 }

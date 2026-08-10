@@ -86,19 +86,21 @@ beforeEach(() => {
   transactionPatchMock.mockReset().mockReturnThis();
   notifyAdminsMock.mockReset().mockResolvedValue(1);
 
-  // sanityFetchMock branches on the GROQ query string passed in args[0]:
-  // album lookup, pin lookup, existing-selections check, (email lib's
-  // admin-emails query never reaches here because the email lib is mocked).
+  // sanityFetchMock branches on the GROQ query string passed in args[0].
+  // Order matters: albumPinBySlugQuery and albumBySlugQuery both contain
+  // "slug.current == $slug" and "customSlug", so the pin query must be
+  // detected FIRST (by its `pin` projection) before falling through to the
+  // album lookup. The existing-selections query is detected by `selection`.
   sanityFetchMock.mockImplementation((query: string) => {
     if (typeof query !== "string") return Promise.resolve(null);
-    if (query.includes("slug.current == $slug") && query.includes("customSlug")) {
-      return Promise.resolve(ALBUM);
-    }
-    if (query.includes("albumBySlugPin") || /pin\b/.test(query)) {
-      // albumPinBySlugQuery — detect by its pin projection.
+    // albumPinBySlugQuery projects a `pin` field — the album query does not.
+    if (/^\*\[.*\]\s*\{\s*pin\b/.test(query) || /\{\s*pin,/.test(query)) {
       return Promise.resolve(PIN_RECORD);
     }
-    if (query.includes("selectionsByAlbum") || query.includes("selection")) {
+    if (query.includes("customSlug")) {
+      return Promise.resolve(ALBUM);
+    }
+    if (query.includes("selection")) {
       return Promise.resolve([]);
     }
     return Promise.resolve(null);
