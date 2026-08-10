@@ -1,0 +1,20 @@
+apps/web/src/lib/email.ts
+  s_224761bbb35871::t_aca10edfc3ca8a 65
+  s_224761bbb35871::t_b6bc2e6afc7b87 14,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "835f369d9618b8265e75a3fa21f2289dc2f07864",
+  "prompts": {},
+  "sessions": {
+    "s_224761bbb35871": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_034354388ffefsmbETj1fxJ6l5",
+        "model": "admskhld--ep-kimi-k3-server.us-west.modal.direct"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
