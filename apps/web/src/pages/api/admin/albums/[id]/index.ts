@@ -266,6 +266,11 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     );
   }
 
+  // Set by the nested catch below (once it captures a patch failure to
+  // Sentry), so the outer catch — which re-catches the same rethrown error —
+  // knows not to send a duplicate event for it.
+  let patchErrorCaptured = false;
+
   try {
     // Verify album exists before patching; slug/customSlug are needed so a
     // rename can release the old reservation lock once the new one is secured.
@@ -374,6 +379,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] PUT patch failed, releasing new slug locks:", patchError);
       captureError(patchError, { route: "admin/albums/[id] PUT patch", albumId });
+      patchErrorCaptured = true;
       if (newSlugLock && newSlugLock !== existingAlbum.slug?.current) {
         try { await releaseSlugLock(newSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); captureError(e, { route: "admin/albums/[id] PUT releaseSlugLock", albumId }); }
       }
@@ -384,7 +390,9 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     }
   } catch (error) {
     console.error("[Albums] PUT update album failed:", albumId, error);
-    captureError(error, { route: "admin/albums/[id] PUT", albumId });
+    if (!patchErrorCaptured) {
+      captureError(error, { route: "admin/albums/[id] PUT", albumId });
+    }
     return new Response(
       JSON.stringify({ error: "Failed to update album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

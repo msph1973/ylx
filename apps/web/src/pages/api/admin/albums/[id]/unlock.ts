@@ -14,15 +14,15 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     });
   }
 
-  try {
-    const albumId = params.id;
-    if (!albumId) {
-      return new Response(
-        JSON.stringify({ error: "Album ID is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
+  const albumId = params.id;
+  if (!albumId) {
+    return new Response(
+      JSON.stringify({ error: "Album ID is required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
+  try {
     // Fetch album slug and customSlug for cache invalidation, and confirm the
     // album actually exists — without this, a bad id falls through to a
     // Sanity patch on a missing document and surfaces as a raw 500 instead
@@ -89,7 +89,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     });
   } catch (error) {
     console.error("[Unlock]", error);
-    captureError(error, { route: "admin/albums unlock" });
+    captureError(error, { route: "admin/albums/[id]/unlock", albumId });
     return new Response(
       JSON.stringify({ error: "Failed to unlock album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

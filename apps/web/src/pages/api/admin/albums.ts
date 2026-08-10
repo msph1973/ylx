@@ -152,6 +152,12 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     });
   }
 
+  // Set by the nested catch below (once it captures a creation failure to
+  // Sentry), so the outer catch — which re-catches the same rethrown error —
+  // knows not to send a duplicate event for it. Declared out here (not
+  // inside the try) so both the nested catch and the outer catch can see it.
+  let creationErrorCaptured = false;
+
   try {
     const parsedBody = await parseJsonBody(request);
     if (!parsedBody) {
@@ -231,6 +237,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] Album creation failed, releasing slug locks:", createError);
       captureError(createError, { route: "admin/albums POST create", albumId });
+      creationErrorCaptured = true;
       if (createdSlugLock) {
         try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); captureError(e, { route: "admin/albums POST releaseSlugLock", albumId }); }
       }
@@ -241,7 +248,9 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     }
   } catch (error) {
     console.error("[Albums] POST failed:", error);
-    captureError(error, { route: "admin/albums POST" });
+    if (!creationErrorCaptured) {
+      captureError(error, { route: "admin/albums POST" });
+    }
     return new Response(
       JSON.stringify({ error: "Failed to create album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

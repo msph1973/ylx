@@ -31,15 +31,15 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     });
   }
 
-  try {
-    const albumId = params.id;
-    if (!albumId) {
-      return new Response(JSON.stringify({ error: "Album ID is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  const albumId = params.id;
+  if (!albumId) {
+    return new Response(JSON.stringify({ error: "Album ID is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
+  try {
     const parsedBody = await parseJsonBody(request);
     if (!parsedBody) {
       return new Response(JSON.stringify({ error: "Request body must be a valid JSON object" }), {
@@ -123,7 +123,7 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     });
   } catch (error) {
     console.error("[Albums] REORDER failed:", error);
-    captureError(error, { route: "admin/albums reorder" });
+    captureError(error, { route: "admin/albums/[id]/reorder", albumId });
     return new Response(JSON.stringify({ error: "Failed to reorder photos" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
