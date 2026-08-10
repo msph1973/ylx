@@ -8,6 +8,7 @@ import { publishAdminEvent } from "../../../lib/ably";
 import { getCached, invalidateCache, cacheGetRaw, CACHE_KEYS } from "../../../lib/cache";
 import { parseJsonBody } from "../../../lib/requestBody";
 import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, isValidCalendarDate } from "../../../lib/albumValidation";
+import { captureError } from "../../../lib/errorTracking";
 import type { GalleryDraftProgress } from "../gallery/[slug]/draft";
 
 interface SanityAlbumRaw {
@@ -84,6 +85,7 @@ export const GET: APIRoute = async ({ cookies }) => {
     });
   } catch (error) {
     console.error("[Albums] GET failed:", error);
+    captureError(error, { route: "admin/albums GET" });
     return new Response(
       JSON.stringify({ error: "Failed to fetch albums" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -149,6 +151,12 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Set by the nested catch below (once it captures a creation failure to
+  // Sentry), so the outer catch — which re-catches the same rethrown error —
+  // knows not to send a duplicate event for it. Declared out here (not
+  // inside the try) so both the nested catch and the outer catch can see it.
+  let creationErrorCaptured = false;
 
   try {
     const parsedBody = await parseJsonBody(request);
@@ -228,7 +236,12 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       // so these slug values can be reused by future albums.
       // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] Album creation failed, releasing slug locks:", createError);
+      captureError(createError, { route: "admin/albums POST create", albumId });
+      creationErrorCaptured = true;
       if (createdSlugLock) {
+        // releaseSlugLock() never rejects (its own catch reports failures
+        // via captureError already) — this try/catch can't actually observe
+        // anything, kept only as defensive belt-and-suspenders.
         try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
       }
       if (createdCustomSlugLock) {
@@ -238,6 +251,9 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     }
   } catch (error) {
     console.error("[Albums] POST failed:", error);
+    if (!creationErrorCaptured) {
+      captureError(error, { route: "admin/albums POST" });
+    }
     return new Response(
       JSON.stringify({ error: "Failed to create album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

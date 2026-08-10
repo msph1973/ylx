@@ -1,5 +1,6 @@
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { CUSTOM_SLUG_PATTERN } from "@ylx/sanity/lib/constants";
+import { captureError } from "./errorTracking";
 
 function slugBaseFromTitle(title: string): string {
   return (
@@ -65,13 +66,16 @@ async function reserveSlug(slug: string, albumId: string): Promise<boolean> {
 /** Best-effort release of a no-longer-needed slug lock (e.g. the old slug
  *  after a rename). Failure here only leaves that exact string unavailable
  *  for reuse — an availability inconvenience, not a uniqueness/correctness
- *  bug — so it's logged and swallowed rather than propagated. */
+ *  bug — so it's logged and swallowed rather than propagated. Reported here
+ *  (not by callers) since this function never rejects — a `try/catch` around
+ *  a call to it can never actually observe a failure. */
 export async function releaseSlugLock(slug: string | undefined): Promise<void> {
   if (!slug) return;
   try {
     await sanityWriteClient.delete(slugLockId(slug));
   } catch (err) {
     console.warn(`[Slug] Failed to release lock for "${slug}":`, err);
+    captureError(err, { route: "releaseSlugLock", slug });
   }
 }
 

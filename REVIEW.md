@@ -486,11 +486,15 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `SESSION_SECRET` | Admin session cookie HMAC signing | ✅ |
 | `UPSTASH_REDIS_REST_URL` | Gallery PIN / login rate limiter (persistent) | ✅ in production — without it, `ratelimit.ts` degrades to an in-memory fallback at half the normal cap (not a full block; see §2.4) |
 | `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN / login rate limiter (persistent) | ✅ in production — same fallback behavior as above |
+| `PUBLIC_SENTRY_DSN` | Error monitoring (`astro.config.mjs`, `sentry.client/server.config.ts`) | ❌ optional — when unset, the whole Sentry integration is skipped at build time (see PR #94); **intentionally Production-only**, not Preview (see note below) |
+| `SENTRY_PROJECT` / `SENTRY_ORG` / `SENTRY_AUTH_TOKEN` | Sentry source-map upload at build time | ❌ optional — safe to leave empty (upload is just skipped); same Production-only scoping as `PUBLIC_SENTRY_DSN` |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above
 2. Add it to `apps/web/.env.example`
 3. Confirm it's added to Vercel env vars (both environments)
+
+> **Deliberate exception to rule 3** for the 4 Sentry vars above: they're set in **Production only**, not Preview. `SENTRY_AUTH_TOKEN` is an org-level auth token — every PR's preview deployment gets a public, guessable-URL-adjacent Vercel domain, so adding one more secret there for no functional benefit (preview builds don't need source-map upload or error monitoring) isn't worth the exposure. `PUBLIC_SENTRY_DSN` follows the same scoping for consistency, even though the DSN itself isn't secret.
 
 > `PUBLIC_ABLY_KEY` is listed in `.env.example`/`README.md`/`CONTEXT.md` but is **not actually read anywhere in the app** (confirmed via grep) — the client instead authenticates through `authUrl: /api/ably/token` precisely so no Ably key is ever exposed to the browser (see the security note already in `STATUS.md`). Left out of the table above since it isn't a variable a PR needs to set for anything to work; flag for cleanup (remove from the docs above, or wire it up) rather than treating it as a required var.
 

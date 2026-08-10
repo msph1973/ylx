@@ -7,6 +7,7 @@ import {
   recordFailedAttempt,
   RATE_LIMIT_RETRY_AFTER,
 } from "../../../lib/ratelimit";
+import { captureError } from "../../../lib/errorTracking";
 
 const MAX_ATTEMPTS_PER_IP = 10;
 const MAX_FAILED_PER_EMAIL = 20;
@@ -102,6 +103,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
     );
   } catch (err) {
     console.error("[Login] Error:", err);
+    captureError(err, { route: "auth/login POST" });
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

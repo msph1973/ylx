@@ -3,6 +3,7 @@ import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
+import { captureError } from "../../../../lib/errorTracking";
 
 interface PhotoRaw {
   _id: string;
@@ -110,6 +111,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     );
   } catch (error) {
     console.error("[Photos] DELETE failed:", error);
+    captureError(error, { route: "admin/photos DELETE", photoId });
     return new Response(
       JSON.stringify({ error: "Failed to delete photo" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

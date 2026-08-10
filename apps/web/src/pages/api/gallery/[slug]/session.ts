@@ -5,6 +5,7 @@ import { hasActiveSession, hasValidPinSession } from "../../../../lib/gallerySes
 import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
 import { getCached, CACHE_KEYS } from "../../../../lib/cache";
 import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
+import { captureError } from "../../../../lib/errorTracking";
 
 // Generous for humans (one lookup per gallery page load → 30/15min per IP
 // covers ~30 loads), but a hard ceiling on slug enumeration: the key is
@@ -84,6 +85,7 @@ export const GET: APIRoute = async ({ params, cookies, clientAddress }) => {
     // Sanity/Upstash outage escapes getCached on a hard-miss — never leak
     // internals, just log and return a generic 500 (REVIEW.md §2.2).
     console.error("[Session] album lookup failed:", err);
+    captureError(err, { route: "gallery/session GET", slug });
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

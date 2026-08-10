@@ -12,6 +12,7 @@ import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 import { parseJsonBody } from "../../../../../lib/requestBody";
 import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, isValidCalendarDate } from "../../../../../lib/albumValidation";
+import { captureError } from "../../../../../lib/errorTracking";
 
 interface SanityImageRef {
   _type: string;
@@ -142,6 +143,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     });
   } catch (error) {
     console.error("[Albums] GET album failed:", albumId, error);
+    captureError(error, { route: "admin/albums/[id] GET", albumId });
     return new Response(
       JSON.stringify({ error: "Failed to fetch album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -264,6 +266,11 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     );
   }
 
+  // Set by the nested catch below (once it captures a patch failure to
+  // Sentry), so the outer catch — which re-catches the same rethrown error —
+  // knows not to send a duplicate event for it.
+  let patchErrorCaptured = false;
+
   try {
     // Verify album exists before patching; slug/customSlug are needed so a
     // rename can release the old reservation lock once the new one is secured.
@@ -371,7 +378,12 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       // ones were secured, so we don't re-reserve those here.
       // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] PUT patch failed, releasing new slug locks:", patchError);
+      captureError(patchError, { route: "admin/albums/[id] PUT patch", albumId });
+      patchErrorCaptured = true;
       if (newSlugLock && newSlugLock !== existingAlbum.slug?.current) {
+        // releaseSlugLock() never rejects (its own catch reports failures
+        // via captureError already) — this try/catch can't actually observe
+        // anything, kept only as defensive belt-and-suspenders.
         try { await releaseSlugLock(newSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
       }
       if (newCustomSlugLock && newCustomSlugLock !== existingAlbum.customSlug) {
@@ -381,6 +393,9 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     }
   } catch (error) {
     console.error("[Albums] PUT update album failed:", albumId, error);
+    if (!patchErrorCaptured) {
+      captureError(error, { route: "admin/albums/[id] PUT", albumId });
+    }
     return new Response(
       JSON.stringify({ error: "Failed to update album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -429,6 +444,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     );
   } catch (error) {
     console.error("[Albums] DELETE album failed:", albumId, error);
+    captureError(error, { route: "admin/albums/[id] DELETE", albumId });
     return new Response(
       JSON.stringify({ error: "Failed to delete album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

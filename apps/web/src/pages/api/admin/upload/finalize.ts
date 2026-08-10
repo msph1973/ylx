@@ -4,6 +4,7 @@ import { sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
+import { captureError } from "../../../../lib/errorTracking";
 
 // Second half of the direct-to-Sanity upload flow.
 //
@@ -122,6 +123,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       await sanityWriteClient.delete(assetId);
     } catch (delErr) {
       console.error("[Upload/finalize] Failed to delete orphaned asset:", delErr);
+      captureError(delErr, { route: "admin/upload/finalize deleteOrphanedAsset", assetId });
     }
     return new Response(
       JSON.stringify({ error: "Filename is too long or contains invalid characters" }),
@@ -157,6 +159,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         await sanityWriteClient.delete(assetId);
       } catch (delErr) {
         console.error("[Upload/finalize] Failed to delete invalid asset:", delErr);
+        captureError(delErr, { route: "admin/upload/finalize deleteInvalidAsset", assetId });
       }
       return new Response(
         JSON.stringify({ error: "Invalid or non-existent image asset" }),
@@ -183,6 +186,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         await sanityWriteClient.delete(assetId);
       } catch (delErr) {
         console.error("[Upload/finalize] Failed to delete invalid-type asset:", delErr);
+        captureError(delErr, { route: "admin/upload/finalize deleteInvalidTypeAsset", assetId });
       }
       return new Response(
         JSON.stringify({ error: `Invalid file type. Allowed: ${VALID_MIME_TYPES.join(", ")}` }),
@@ -196,6 +200,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         await sanityWriteClient.delete(assetId);
       } catch (delErr) {
         console.error("[Upload/finalize] Failed to delete oversized asset:", delErr);
+        captureError(delErr, { route: "admin/upload/finalize deleteOversizedAsset", assetId });
       }
       return new Response(
         JSON.stringify({ error: `File too large. Maximum size: 50MB` }),
@@ -265,6 +270,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
   } catch (err) {
     console.error("[Upload/finalize] Error:", err);
+    captureError(err, { route: "admin/upload/finalize POST", albumId });
     return new Response(
       JSON.stringify({ error: "Failed to attach uploaded photo" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

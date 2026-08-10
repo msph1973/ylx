@@ -1,0 +1,5 @@
+# This app has no public content meant for search indexing: the homepage is
+# just a gallery-access form + admin login link, galleries are PIN-protected,
+# and everything else is either an admin-only page or an API route.
+User-agent: *
+Disallow: /

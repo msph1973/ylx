@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { incrementSessionVersion } from "@ylx/sanity/lib/admin";
 import { getSession, invalidateSessionVersionCache } from "../../../lib/auth";
+import { captureError } from "../../../lib/errorTracking";
 
 export const POST: APIRoute = async ({ cookies }) => {
   try {
@@ -26,6 +27,7 @@ export const POST: APIRoute = async ({ cookies }) => {
     );
   } catch (err) {
     console.error("[Auth] logout failed:", err);
+    captureError(err, { route: "auth/logout POST" });
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

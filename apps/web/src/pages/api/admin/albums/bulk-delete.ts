@@ -5,6 +5,7 @@ import { publishAdminEvent } from "../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 import { parseJsonBody } from "../../../../lib/requestBody";
+import { captureError } from "../../../../lib/errorTracking";
 
 interface BulkDeleteBody {
   ids?: unknown;
@@ -72,6 +73,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     );
   } catch (error) {
     console.error("[Albums] bulk-delete failed:", error);
+    captureError(error, { route: "admin/albums bulk-delete" });
     return new Response(
       JSON.stringify({ error: "Failed to delete albums" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
