@@ -1,0 +1,60 @@
+.env.example
+  h_45c23cf41d175e 38-49
+apps/web/astro.config.mjs
+  h_45c23cf41d175e 4-9,12-35
+apps/web/package.json
+  h_45c23cf41d175e 24
+apps/web/public/robots.txt
+  h_45c23cf41d175e 1-5
+apps/web/sentry.client.config.ts
+  h_45c23cf41d175e 1-22
+apps/web/sentry.server.config.ts
+  h_45c23cf41d175e 1-19
+apps/web/src/lib/errorTracking.ts
+  h_45c23cf41d175e 1-22
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 11,88,233,235,238,244
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 15,146,376,378,381,387,436
+apps/web/src/pages/api/admin/albums/[id]/lock.ts
+  h_45c23cf41d175e 6,60
+apps/web/src/pages/api/admin/albums/[id]/reorder.ts
+  h_45c23cf41d175e 7,126
+apps/web/src/pages/api/admin/albums/[id]/unlock.ts
+  h_45c23cf41d175e 6,92
+apps/web/src/pages/api/admin/albums/bulk-delete.ts
+  h_45c23cf41d175e 8,76
+apps/web/src/pages/api/admin/photos/[id].ts
+  h_45c23cf41d175e 6,114
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  h_45c23cf41d175e 7,132
+apps/web/src/pages/api/admin/selections/[id].ts
+  h_45c23cf41d175e 7,94
+apps/web/src/pages/api/admin/upload/finalize.ts
+  h_45c23cf41d175e 7,126,162,189,203,273
+apps/web/src/pages/api/auth/create-admin.ts
+  h_45c23cf41d175e 4,88
+apps/web/src/pages/api/auth/login.ts
+  h_45c23cf41d175e 10,106
+apps/web/src/pages/api/auth/logout.ts
+  h_45c23cf41d175e 4,30
+apps/web/src/pages/api/gallery/[slug]/session.ts
+  h_45c23cf41d175e 8,88
+apps/web/src/pages/api/gallery/[slug]/submit.ts
+  h_45c23cf41d175e 12,213
+apps/web/src/pages/api/gallery/[slug]/verify.ts
+  h_45c23cf41d175e 14,186
+pnpm-lock.yaml
+  h_45c23cf41d175e 37,50-52,107,150,207-238,3563-3638,4941-4981,4993-5124,5130-5201,5214-5254,6131-6139,6286-6290,6839-6842,7385-7389,7482-7485,8569-8578,8639-8647,9634-9638,10008-10011,10711-10715,10731-10734,11187-11196,11630-11633,12904,12945
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "382aaa0947aad3e0a03ea77062cf5dc7cb0af191",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
