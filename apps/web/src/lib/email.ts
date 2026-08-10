@@ -8,14 +8,12 @@
 import type { Resend } from "resend";
 import { captureError } from "./errorTracking";
 
-type ResendClient = Resend;
-
 // Lazy-import the SDK only when first needed (keeps it out of cold-start for
 // routes that never email). The Resend client is constructed once and reused
 // across invocations — Vercel can retain module state between warm requests.
-let resendPromise: Promise<ResendClient | null> | null = null;
+let resendPromise: Promise<Resend | null> | null = null;
 
-function getResend(): Promise<ResendClient | null> {
+function getResend(): Promise<Resend | null> {
   if (resendPromise) return resendPromise;
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -64,7 +62,7 @@ export async function notifyAdminsOfSubmission(notif: SubmissionNotification): P
 
     let emails: string[];
     try {
-      emails = await sanityClient.fetch<string[]>(adminEmailsQuery);
+      emails = (await sanityClient.fetch<string[]>(adminEmailsQuery)) ?? [];
     } catch (err) {
       console.error("[email] failed to fetch admin emails:", err);
       captureError(err, { route: "email/admin-emails", albumId: notif.albumId });
