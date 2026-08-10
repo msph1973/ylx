@@ -1,0 +1,19 @@
+apps/web/src/pages/api/gallery/[slug]/submit.test.ts
+  s_224761bbb35871::t_0a0ff27041f5c2 90-93,96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a5e8473d89b1fa3ebb1a417a3c7470cb28b5d2c4",
+  "prompts": {},
+  "sessions": {
+    "s_224761bbb35871": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_034354388ffefsmbETj1fxJ6l5",
+        "model": "admskhld--ep-kimi-k3-server.us-west.modal.direct"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
