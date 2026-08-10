@@ -1,0 +1,23 @@
+apps/web/src/lib/email.ts
+  s_224761bbb35871::t_31ee4af02ed74f 126
+  s_224761bbb35871::t_0875d231488d59 47-60,62-63,65-72,74,76-77,79-80,82-105,108-115
+  s_224761bbb35871::t_b670e217b1222d 122-125,127-128,140,145,153-155
+apps/web/src/pages/api/gallery/[slug]/submit.test.ts
+  s_224761bbb35871::t_d852b3795a5c39 89-93,96-97,100-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "faeed03bbaecb77d5f7174a0690538e431e858c1",
+  "prompts": {},
+  "sessions": {
+    "s_224761bbb35871": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_034354388ffefsmbETj1fxJ6l5",
+        "model": "admskhld--ep-kimi-k3-server.us-west.modal.direct"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
