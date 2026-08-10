@@ -20,7 +20,7 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 | 8 | Branding kustom per album/fotografer | 3 | Belum dikerjakan |
 | 9 | Dashboard analitik ringan untuk fotografer | 3 | Belum dikerjakan |
 | 10 | Dukungan multi-bahasa (i18n) sisi klien | 3 | Belum dikerjakan |
-| 11 | Download foto (per-foto + download-all, klien & admin) | 2 | Sedang dibahas — lihat bagian detail di bawah |
+| 11 | Download foto asli (per-foto + download-all ZIP), ADMIN saja untuk sekarang | 2 | Belum dikerjakan — keputusan desain final, dikerjakan setelah #3 |
 
 > Catatan: "Catatan per foto dari klien" **sudah ada** (field `notes` + `photographerReply` di schema `selection`, lihat `packages/sanity/schemas/selection.ts`) — sengaja dicoret dari daftar usulan awal supaya tidak dikerjakan ulang.
 
@@ -191,13 +191,20 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 - Perlu tentukan **scope akses**: apakah klien boleh download foto ORIGINAL/full-res (sama seperti yang dipakai fotografer), atau hanya resolusi preview yang sudah ditampilkan di galeri (`width(1200)` seperti sekarang)? Ini berkaitan langsung dengan fitur #4 (watermark) — kalau watermark preview jadi diimplementasikan duluan, download klien sebaiknya TIDAK memberi akses ke file tanpa watermark sebelum status `delivered`.
 - Perlu tentukan **kapan** tombol download klien muncul: selalu ada (dari awal galeri dibuka), atau baru muncul setelah status tertentu (mis. `submitted`/`delivered`)? Ini terkait juga dengan fitur #2 (final delivery) — download-all yang sebenarnya paling relevan secara bisnis mungkin untuk FOTO FINAL, bukan foto preview/proofing (yang justru ingin dibatasi, lihat fitur #4).
 
-**Perlu klarifikasi ke user sebelum implementasi** (belum dijawab, didiskusikan di sesi 2026-08-10):
-1. Download per-foto: cukup foto preview yang sudah ada (`width(1200)` seperti ditampilkan), atau perlu opsi resolusi asli/original?
-2. Download-all: client-side zip (lebih sederhana, tanpa endpoint baru, tapi berat di device klien) atau server-side streaming zip (lebih konsisten tapi butuh endpoint baru + hati-hati limit Vercel)?
-3. Di sisi KLIEN, tombol download ini untuk foto preview/proofing sekarang, atau justru dimaksudkan untuk tahap final delivery (fitur #2) yang belum ada? Kalau untuk foto preview sekarang, apakah ini bertentangan dengan niat proteksi di fitur #4 (watermark/anti-save) yang juga ada di roadmap ini?
-4. Di ADMIN dashboard: download-all dari `AlbumDetail.tsx` untuk keperluan apa (backup lokal, kirim ke tim editing eksternal, dll) — apakah perlu include foto yang sudah dihapus/tidak, atau hanya foto aktif di album?
+**Keputusan desain FINAL dari user (2026-08-10, sudah final, jangan tanya ulang)**:
+1. **Resolusi: ASLI/original**, bukan preview `width(1200)` yang dipakai untuk tampilan galeri. Perlu query GROQ tambahan untuk ambil URL asset original tanpa transformasi — Sanity Image API sudah expose ini lewat `image.asset->url` (field bawaan asset, langsung ke file asli, TIDAK perlu `urlFor().width()...`), tinggal di-project di query yang relevan (mis. `albumWithSelectionsQuery`/query admin album detail di `packages/sanity/lib/queries.ts`).
+2. **Sisi KLIEN: DITUNDA.** Jangan implementasikan tombol download apa pun di `GalleryPage.tsx`/`PhotoLightbox.tsx` sekarang — ini baru relevan nanti bersamaan dengan fitur #2 (final delivery), supaya tidak bentrok dengan rencana proteksi/watermark (#4). **Scope fitur #11 sekarang HANYA sisi ADMIN.**
+3. **Download-all: client-side ZIP di browser** (mis. pakai `jszip` + `file-saver` atau setara — cek dulu apakah ada alternatif tanpa dependency baru, tapi `jszip` kemungkinan besar dibutuhkan karena tidak ada di codebase). Browser admin fetch semua URL foto original satu-satu, bungkus jadi 1 file `.zip`, lalu trigger save — TIDAK ada endpoint server baru untuk zip-nya. Perhatikan: `cdn.sanity.io` perlu bisa di-fetch dari client dengan CORS (verifikasi dulu, biasanya publik/open untuk asset Sanity) supaya `fetch()`+`blob()` per file berhasil sebelum di-zip.
+4. **Urutan kerja**: dikerjakan SETELAH item #3 (backup Sanity) selesai & merged — bukan paralel.
 
-**Kriteria selesai** (sementara, tergantung jawaban klarifikasi di atas): admin bisa download semua foto 1 album jadi 1 file (zip) dari `AlbumDetail.tsx`; klien bisa download foto individual dari `GalleryPage.tsx`/`PhotoLightbox.tsx` tanpa halaman baru yang membingungkan.
+**Yang perlu ditambahkan** (scope final, admin-only):
+- Query admin (`admin/albums/[id]/index.ts` atau `packages/sanity/lib/queries.ts`) tambah projection `"originalUrl": image.asset->url` di samping `url`/`thumbnailUrl` yang sudah ada, supaya `AlbumDetail.tsx` punya akses ke URL asli tanpa transformasi.
+- Tombol "Download" per-foto di `AlbumDetail.tsx` (link `<a href={originalUrl} download={filename}>` — cek dulu apakah atribut `download` HTML berfungsi untuk cross-origin URL Sanity CDN atau perlu `fetch()`+`blob()`+`URL.createObjectURL()` sebagai fallback yang lebih andal).
+- Tombol "Download All (.zip)" di `AlbumDetail.tsx` — fetch semua `originalUrl` album aktif secara paralel/batch (hati-hati rate-limit/memori browser untuk album besar — pertimbangkan batasi concurrency, mis. 4-6 fetch paralel sekaligus, bukan semua sekaligus), bungkus pakai `jszip`, trigger download via `file-saver` atau `URL.createObjectURL`.
+- Progress indicator wajib ada untuk download-all (bisa makan waktu lama untuk album besar) — ikuti pola progress/loading state yang sudah ada di komponen admin lain (mis. reorder/upload).
+- Test: mock `fetch`/`jszip` di vitest, pastikan tombol disabled saat proses berjalan, error handling kalau salah satu fetch foto gagal (jangan gagal total diam-diam — beri tahu foto mana yang gagal).
+
+**Kriteria selesai**: admin bisa download 1 foto resolusi asli langsung dari `AlbumDetail.tsx`; admin bisa download semua foto aktif dalam 1 album sebagai satu file `.zip` resolusi asli, dengan indikator progress dan penanganan error yang jelas kalau ada foto yang gagal di-fetch.
 
 ---
 
