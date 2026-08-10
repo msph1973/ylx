@@ -12,6 +12,7 @@ import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 import { parseJsonBody } from "../../../../../lib/requestBody";
 import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, isValidCalendarDate } from "../../../../../lib/albumValidation";
+import { captureError } from "../../../../../lib/errorTracking";
 
 interface SanityImageRef {
   _type: string;
@@ -142,6 +143,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     });
   } catch (error) {
     console.error("[Albums] GET album failed:", albumId, error);
+    captureError(error, { route: "admin/albums/[id] GET", albumId });
     return new Response(
       JSON.stringify({ error: "Failed to fetch album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -371,16 +373,18 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       // ones were secured, so we don't re-reserve those here.
       // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] PUT patch failed, releasing new slug locks:", patchError);
+      captureError(patchError, { route: "admin/albums/[id] PUT patch", albumId });
       if (newSlugLock && newSlugLock !== existingAlbum.slug?.current) {
-        try { await releaseSlugLock(newSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
+        try { await releaseSlugLock(newSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); captureError(e, { route: "admin/albums/[id] PUT releaseSlugLock", albumId }); }
       }
       if (newCustomSlugLock && newCustomSlugLock !== existingAlbum.customSlug) {
-        try { await releaseSlugLock(newCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); }
+        try { await releaseSlugLock(newCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); captureError(e, { route: "admin/albums/[id] PUT releaseCustomSlugLock", albumId }); }
       }
       throw patchError;
     }
   } catch (error) {
     console.error("[Albums] PUT update album failed:", albumId, error);
+    captureError(error, { route: "admin/albums/[id] PUT", albumId });
     return new Response(
       JSON.stringify({ error: "Failed to update album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -429,6 +433,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
     );
   } catch (error) {
     console.error("[Albums] DELETE album failed:", albumId, error);
+    captureError(error, { route: "admin/albums/[id] DELETE", albumId });
     return new Response(
       JSON.stringify({ error: "Failed to delete album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

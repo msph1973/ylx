@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { createAdmin } from "@ylx/sanity/lib/admin";
 import { requireAdmin } from "../../../lib/auth";
+import { captureError } from "../../../lib/errorTracking";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   // Admin-only, unconditionally (REVIEW.md §2.1 — no auth bypass on this route).
@@ -84,6 +85,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
   } catch (err) {
     console.error("[CreateAdmin] Error:", err);
+    captureError(err, { route: "auth/create-admin POST" });
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

@@ -4,6 +4,7 @@ import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 import { parseJsonBody } from "../../../../lib/requestBody";
+import { captureError } from "../../../../lib/errorTracking";
 
 interface PhotoRecord {
   _id: string;
@@ -128,6 +129,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     );
   } catch (error) {
     console.error("[Photos] BULK DELETE failed:", error);
+    captureError(error, { route: "admin/photos bulk-delete" });
     return new Response(JSON.stringify({ error: "Failed to delete photos" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

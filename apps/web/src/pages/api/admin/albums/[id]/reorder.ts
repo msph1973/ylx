@@ -4,6 +4,7 @@ import { requireAdmin } from "../../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 import { parseJsonBody } from "../../../../../lib/requestBody";
+import { captureError } from "../../../../../lib/errorTracking";
 
 interface ReorderBody {
   photoIds?: string[];
@@ -122,6 +123,7 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     });
   } catch (error) {
     console.error("[Albums] REORDER failed:", error);
+    captureError(error, { route: "admin/albums reorder" });
     return new Response(JSON.stringify({ error: "Failed to reorder photos" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

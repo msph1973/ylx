@@ -11,6 +11,7 @@ import {
 import { grantAlbumAccess } from "../../../../lib/gallerySession";
 import { getCached, invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 import { buildGalleryAlbumResponse, type SanityAlbumRaw } from "../../../../lib/galleryAlbumResponse";
+import { captureError } from "../../../../lib/errorTracking";
 
 const MAX_ATTEMPTS_PER_IP = 5;
 const MAX_FAILED_ATTEMPTS_PER_ALBUM = 30;
@@ -182,6 +183,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress, cookies }
     await invalidateCache(CACHE_KEYS.albumsList());
   } catch (err) {
     console.error("[Verify] Failed to update share stats:", err);
+    captureError(err, { route: "gallery/verify shareStats", slug });
   }
 
   const photosResponse = buildGalleryAlbumResponse(album);

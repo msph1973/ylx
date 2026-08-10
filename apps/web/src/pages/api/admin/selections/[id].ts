@@ -4,6 +4,7 @@ import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
+import { captureError } from "../../../../lib/errorTracking";
 
 function unauthorized(): Response {
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -90,6 +91,7 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     });
   } catch (err) {
     console.error("[Selection PATCH] Failed to update selection:", err);
+    captureError(err, { route: "admin/selections PATCH", selectionId });
     return new Response(
       JSON.stringify({ error: "Failed to update selection" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

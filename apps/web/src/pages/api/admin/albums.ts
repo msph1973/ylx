@@ -8,6 +8,7 @@ import { publishAdminEvent } from "../../../lib/ably";
 import { getCached, invalidateCache, cacheGetRaw, CACHE_KEYS } from "../../../lib/cache";
 import { parseJsonBody } from "../../../lib/requestBody";
 import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, isValidCalendarDate } from "../../../lib/albumValidation";
+import { captureError } from "../../../lib/errorTracking";
 import type { GalleryDraftProgress } from "../gallery/[slug]/draft";
 
 interface SanityAlbumRaw {
@@ -84,6 +85,7 @@ export const GET: APIRoute = async ({ cookies }) => {
     });
   } catch (error) {
     console.error("[Albums] GET failed:", error);
+    captureError(error, { route: "admin/albums GET" });
     return new Response(
       JSON.stringify({ error: "Failed to fetch albums" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -228,16 +230,18 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       // so these slug values can be reused by future albums.
       // Best-effort: lock release failure must not mask the original error.
       console.error("[Albums] Album creation failed, releasing slug locks:", createError);
+      captureError(createError, { route: "admin/albums POST create", albumId });
       if (createdSlugLock) {
-        try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
+        try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); captureError(e, { route: "admin/albums POST releaseSlugLock", albumId }); }
       }
       if (createdCustomSlugLock) {
-        try { await releaseSlugLock(createdCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); }
+        try { await releaseSlugLock(createdCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); captureError(e, { route: "admin/albums POST releaseCustomSlugLock", albumId }); }
       }
       throw createError;
     }
   } catch (error) {
     console.error("[Albums] POST failed:", error);
+    captureError(error, { route: "admin/albums POST" });
     return new Response(
       JSON.stringify({ error: "Failed to create album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

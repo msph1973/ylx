@@ -9,6 +9,7 @@ import {
   selectionsByAlbumQuery,
 } from "@ylx/sanity/lib/queries";
 import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
+import { captureError } from "../../../../lib/errorTracking";
 
 interface SubmitAlbum {
   _id: string;
@@ -209,6 +210,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       );
     }
     console.error("[Submit] commit failed:", err);
+    captureError(err, { route: "gallery/submit commit", albumId: album._id });
     return new Response(JSON.stringify({ error: "Failed to submit selection" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

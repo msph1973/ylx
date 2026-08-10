@@ -3,6 +3,7 @@ import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
+import { captureError } from "../../../../../lib/errorTracking";
 
 export const POST: APIRoute = async ({ params, cookies }) => {
   const session = await requireAdmin(cookies);
@@ -56,6 +57,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     });
   } catch (error) {
     console.error("[Lock]", error);
+    captureError(error, { route: "admin/albums lock" });
     return new Response(
       JSON.stringify({ error: "Failed to lock album" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

@@ -21,6 +21,7 @@
     "@astrojs/react": "^5.0.7",
     "@astrojs/vercel": "^10.0.8",
     "@sanity/client": "^6.15.5",
+    "@sentry/astro": "^10.69.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/functions": "^3.7.5",
     "ably": "^2.23.0",
