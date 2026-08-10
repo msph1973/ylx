@@ -146,4 +146,21 @@ describe("notifyAdminsOfSubmission", () => {
     expect(html).toContain("&lt;script&gt;");
     expect(html).toContain("Jane &lt;b&gt;");
   });
+
+  it("deduplicates admin emails case-insensitively and drops falsy entries", async () => {
+    process.env.RESEND_API_KEY = "re_test";
+    process.env.EMAIL_FROM = "YLx <noreply@ylex.my.id>";
+    sanityFetchMock.mockResolvedValue([
+      "A@ylex.my.id",
+      "a@ylex.my.id", // case dupe of above
+      "",
+      null as unknown as string, // malformed doc with no email
+      "b@ylex.my.id",
+    ]);
+    sendMock.mockResolvedValue({ data: { id: "x" }, error: null });
+    const notify = await load();
+    const sent = await notify(NOTIF);
+    expect(sent).toBe(2); // a@ylex.my.id + b@ylex.my.id — dedupe collapsed the case-dupe
+    expect(sendMock).toHaveBeenCalledTimes(2);
+  });
 });

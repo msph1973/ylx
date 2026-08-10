@@ -71,7 +71,12 @@ export async function notifyAdminsOfSubmission(notif: SubmissionNotification): P
       return 0;
     }
 
-    if (emails.length === 0) return 0;
+    // Dedupe case-insensitively and drop any falsy entries — guards against
+    // two admin docs sharing an address (double-send) or a malformed doc with
+    // a missing email field, both of which the schema's required validation
+    // should prevent but defensive code costs nothing here.
+    const uniqueEmails = [...new Set(emails.filter(Boolean).map((e) => e.toLowerCase()))];
+    if (uniqueEmails.length === 0) return 0;
 
     const resend = await getResend();
     if (!resend) return 0;
@@ -84,8 +89,8 @@ export async function notifyAdminsOfSubmission(notif: SubmissionNotification): P
     // gain at this scale. A failure for one recipient is logged + reported
     // without aborting the rest.
     let sent = 0;
-    for (let i = 0; i < emails.length; i++) {
-      const to = emails[i];
+    for (let i = 0; i < uniqueEmails.length; i++) {
+      const to = uniqueEmails[i];
       try {
         const { error } = await resend.emails.send({ from, to: [to], subject, html });
         if (error) {
