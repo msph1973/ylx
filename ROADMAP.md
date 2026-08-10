@@ -10,9 +10,9 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 
 | # | Fitur | Tingkat | Status |
 |---|-------|---------|--------|
-| 1 | Notifikasi email (submit + konfirmasi klien) | 1 | Belum dikerjakan |
+| 1 | Notifikasi email (submit + konfirmasi klien) | 1 | **MERGED** — PR #95, live & terverifikasi di produksi (user menerima email) |
 | 2 | Pengiriman hasil akhir (final delivery) | 1 | Belum dikerjakan |
-| 3 | Backup/export otomatis data Sanity | 1 | Belum dikerjakan |
+| 3 | Backup/export otomatis data Sanity | 1 | Belum dikerjakan — dipilih user sebagai item berikutnya |
 | 4 | Watermark preview + proteksi klik-kanan/drag-save | 2 | Belum dikerjakan |
 | 5 | Tingkatan pilihan foto (mis. "wajib" vs "kandidat") | 2 | Belum dikerjakan |
 | 6 | Load-testing skenario nyata (submit bersamaan) | 2 | Belum dikerjakan |
@@ -20,6 +20,7 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 | 8 | Branding kustom per album/fotografer | 3 | Belum dikerjakan |
 | 9 | Dashboard analitik ringan untuk fotografer | 3 | Belum dikerjakan |
 | 10 | Dukungan multi-bahasa (i18n) sisi klien | 3 | Belum dikerjakan |
+| 11 | Download foto (per-foto + download-all, klien & admin) | 2 | Sedang dibahas — lihat bagian detail di bawah |
 
 > Catatan: "Catatan per foto dari klien" **sudah ada** (field `notes` + `photographerReply` di schema `selection`, lihat `packages/sanity/schemas/selection.ts`) — sengaja dicoret dari daftar usulan awal supaya tidak dikerjakan ulang.
 
@@ -174,6 +175,29 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 - Ini fitur besar cakupannya (banyak file tersentuh) — pertimbangkan mulai dari scope kecil (cuma PIN entry + pesan error utama) sebelum full i18n semua komponen.
 
 **Kriteria selesai**: minimal PIN entry + pesan-pesan utama galeri bisa tampil dalam ≥2 bahasa berdasarkan field `locale` di album, tanpa regresi ke test/behavior yang sudah ada.
+
+---
+
+### 11. Download foto (per-foto + download-all, klien & admin)
+
+**Kenapa**: Saat ini tidak ada tombol download eksplisit sama sekali di kode (`grep` untuk `download`/`.zip`/`archiver`/`jszip` di `apps/web/src` nihil). Foto memang bisa di-klik-kanan-save karena disajikan langsung dari `cdn.sanity.io` (publik, lihat `img-src` di `securityHeaders.ts`), tapi ini tidak eksplisit/nyaman — klien awam sering tidak tahu caranya, dan admin tidak punya cara cepat mengunduh semua foto sekaligus.
+
+**Konteks teknis yang sudah dikonfirmasi**:
+- Semua foto (preview) diserve via `urlFor(photo.image)...url()` (helper `@ylx/sanity/client`) yang menghasilkan URL publik `cdn.sanity.io` — TIDAK ada proxy/auth di depannya. Artinya link download per-foto individual **tidak butuh endpoint baru sama sekali** — cukup tombol `<a href={photo.url} download={photo.filename}>` (atribut `download` HTML memaksa save-as alih-alih buka tab baru, meski browser modern kadang tetap membuka dulu untuk gambar cross-origin — perlu diverifikasi perilaku aktualnya).
+- Schema `photo.ts` tidak punya field ukuran file/dimensi asli — kalau UI ingin menampilkan ukuran file sebelum download, perlu tambah field atau ambil dari `image.asset->` metadata Sanity (`size`, `dimensions` sudah otomatis tersedia di asset Sanity, tinggal di-`->` project di GROQ, tidak perlu field manual baru).
+- **Download-all (ZIP)** adalah bagian yang butuh keputusan desain — TIDAK ada dependency zip (`archiver`/`jszip`) di codebase sama sekali. Dua pendekatan:
+  - **Client-side zip**: browser klien mem-fetch semua URL Sanity CDN lalu zip di browser (pakai lib seperti `jszip` sisi client) — TIDAK butuh endpoint server baru, tapi memori browser klien menanggung beban (bisa berat untuk album besar/foto resolusi tinggi), dan gagal diam-diam kalau salah satu fetch CORS-blocked (perlu cek header CORS `cdn.sanity.io` — biasanya publik dan open, tapi wajib diverifikasi).
+  - **Server-side zip (streaming)**: endpoint API baru (mis. `admin/albums/[id]/download-all.ts` dan versi klien `gallery/[slug]/download-all.ts`) yang stream zip dari server — lebih konsisten lintas-browser, tapi berisiko kena batas waktu/memori function Vercel untuk album sangat besar (perlu streaming response, bukan buffer semua di memori — Vercel serverless functions punya batas durasi berbeda tergantung plan).
+- Perlu tentukan **scope akses**: apakah klien boleh download foto ORIGINAL/full-res (sama seperti yang dipakai fotografer), atau hanya resolusi preview yang sudah ditampilkan di galeri (`width(1200)` seperti sekarang)? Ini berkaitan langsung dengan fitur #4 (watermark) — kalau watermark preview jadi diimplementasikan duluan, download klien sebaiknya TIDAK memberi akses ke file tanpa watermark sebelum status `delivered`.
+- Perlu tentukan **kapan** tombol download klien muncul: selalu ada (dari awal galeri dibuka), atau baru muncul setelah status tertentu (mis. `submitted`/`delivered`)? Ini terkait juga dengan fitur #2 (final delivery) — download-all yang sebenarnya paling relevan secara bisnis mungkin untuk FOTO FINAL, bukan foto preview/proofing (yang justru ingin dibatasi, lihat fitur #4).
+
+**Perlu klarifikasi ke user sebelum implementasi** (belum dijawab, didiskusikan di sesi 2026-08-10):
+1. Download per-foto: cukup foto preview yang sudah ada (`width(1200)` seperti ditampilkan), atau perlu opsi resolusi asli/original?
+2. Download-all: client-side zip (lebih sederhana, tanpa endpoint baru, tapi berat di device klien) atau server-side streaming zip (lebih konsisten tapi butuh endpoint baru + hati-hati limit Vercel)?
+3. Di sisi KLIEN, tombol download ini untuk foto preview/proofing sekarang, atau justru dimaksudkan untuk tahap final delivery (fitur #2) yang belum ada? Kalau untuk foto preview sekarang, apakah ini bertentangan dengan niat proteksi di fitur #4 (watermark/anti-save) yang juga ada di roadmap ini?
+4. Di ADMIN dashboard: download-all dari `AlbumDetail.tsx` untuk keperluan apa (backup lokal, kirim ke tim editing eksternal, dll) — apakah perlu include foto yang sudah dihapus/tidak, atau hanya foto aktif di album?
+
+**Kriteria selesai** (sementara, tergantung jawaban klarifikasi di atas): admin bisa download semua foto 1 album jadi 1 file (zip) dari `AlbumDetail.tsx`; klien bisa download foto individual dari `GalleryPage.tsx`/`PhotoLightbox.tsx` tanpa halaman baru yang membingungkan.
 
 ---
 
