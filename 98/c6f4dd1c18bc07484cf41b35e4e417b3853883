@@ -1,0 +1,41 @@
+REVIEW.md
+  s_224761bbb35871::t_53ed37ac5cb867 491-492
+packages/sanity/lib/queries.ts
+  s_224761bbb35871::t_f88d6c64fe1db1 87-93
+apps/web/src/pages/api/gallery/[slug]/submit.ts
+  s_224761bbb35871::t_907c1cbca4c978 6,17-18
+  s_224761bbb35871::t_c58ea1e4c05a53 253-258,271
+  s_224761bbb35871::t_060e53a98773de 246-252,259-270
+.env.example
+  s_224761bbb35871::t_76c09a51e4fa4c 50-58
+apps/web/src/lib/email.ts
+  s_224761bbb35871::t_4fd7d8e0fe4de7 1-7,9-10,12-15,19-46,57-139
+  s_224761bbb35871::t_abcb6753d70993 47-56
+  s_224761bbb35871::t_7916b7a49d7df3 16-18
+  s_224761bbb35871::t_d59a91a5e1fb53 8,11
+apps/web/src/lib/email.test.ts
+  s_224761bbb35871::t_62eab5836d0ea9 1-34,39-42,45,49-53,56-57,60-66,69-76,79-87,90-101,103-108,111-119,122-129,132-141,144-149
+  s_224761bbb35871::t_491e874ef600d7 35-38,43-44,46-48,54-55,58-59,67-68,77-78,88-89,102,109-110,120-121,130-131,142-143
+apps/web/src/pages/api/gallery/[slug]/submit.test.ts
+  s_224761bbb35871::t_71c9839b8ad99d 1-168
+apps/web/package.json
+  s_224761bbb35871::t_0edbeeb49ecba1 31-32
+pnpm-lock.yaml
+  s_224761bbb35871::t_033fc95ab21aa4 74-76,5326-5329,7861-7864,10656-10659,11216-11228,11878-11884
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "98c6f4dd1c18bc07484cf41b35e4e417b3853883",
+  "prompts": {},
+  "sessions": {
+    "s_224761bbb35871": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_034354388ffefsmbETj1fxJ6l5",
+        "model": "admskhld--ep-kimi-k3-server.us-west.modal.direct"
+      },
+      "human_author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
