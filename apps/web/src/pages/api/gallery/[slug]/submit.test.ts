@@ -87,14 +87,13 @@ beforeEach(() => {
   notifyAdminsMock.mockReset().mockResolvedValue(1);
 
   // sanityFetchMock branches on the GROQ query string passed in args[0].
-  // Order matters: albumPinBySlugQuery and albumBySlugQuery both contain
-  // "slug.current == $slug" and "customSlug", so the pin query must be
-  // detected FIRST (by its `pin` projection) before falling through to the
-  // album lookup. The existing-selections query is detected by `selection`.
+  // albumPinBySlugQuery is the only query that projects a `pin` field, so a
+  // word-boundary match on "pin" disambiguates it from albumBySlugQuery
+  // (which otherwise shares the same "slug.current == $slug ... customSlug"
+  // filter). The existing-selections query is detected by `selection`.
   sanityFetchMock.mockImplementation((query: string) => {
     if (typeof query !== "string") return Promise.resolve(null);
-    // albumPinBySlugQuery projects a `pin` field — the album query does not.
-    if (/^\*\[.*\]\s*\{\s*pin\b/.test(query) || /\{\s*pin,/.test(query)) {
+    if (/\bpin\b/.test(query)) {
       return Promise.resolve(PIN_RECORD);
     }
     if (query.includes("customSlug")) {
