@@ -1,0 +1,20 @@
+apps/web/src/lib/errorTracking.ts
+  h_45c23cf41d175e 5-12,22-23,28
+apps/web/src/lib/slug.ts
+  h_45c23cf41d175e 3,69-71,78
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 242-245,248
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 384-387,390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b56b6a6dbcf9e290b745117484aa2ff982aacc38",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
