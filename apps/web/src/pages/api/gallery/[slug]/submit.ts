@@ -3,6 +3,7 @@ import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { publishAdminEvent } from "../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../lib/cache";
 import { hasActiveSession, hasValidPinSession } from "../../../../lib/gallerySession";
+import { notifyAdminsOfSubmission } from "../../../../lib/email";
 import {
   albumBySlugQuery,
   albumPinBySlugQuery,
@@ -13,6 +14,8 @@ import { captureError } from "../../../../lib/errorTracking";
 
 interface SubmitAlbum {
   _id: string;
+  title: string;
+  clientName: string;
   status: string;
   maxSelections: number;
   photos?: { _id: string }[];
@@ -239,6 +242,32 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     albumId: album._id,
     count: uniquePhotoIds.length,
   });
+
+  // Email the admin(s) too (ROADMAP #1). notifyAdminsOfSubmission is designed
+  // to be the same no-throw shape as publishAdminEvent (missing config is a
+  // no-op, provider failures logged + reported internally), but the email
+  // path is wrapped in its own try/catch as a defensive belt-and-suspenders:
+  // a future bug in the email lib must never be able to turn an
+  // already-committed submission into a 500. captureError surfaces it to
+  // Sentry; the response is unaffected either way.
+  let origin: string;
+  try {
+    origin = new URL(request.url).origin;
+  } catch {
+    origin = "";
+  }
+  try {
+    await notifyAdminsOfSubmission({
+      albumId: album._id,
+      albumTitle: album.title,
+      clientName: album.clientName,
+      selectionCount: uniquePhotoIds.length,
+      galleryUrl: origin ? `${origin}/admin` : "",
+    });
+  } catch (err) {
+    console.error("[Submit] admin email notification failed:", err);
+    captureError(err, { route: "gallery/submit email", albumId: album._id });
+  }
 
   return new Response(
     JSON.stringify({ success: true, selectionCount: uniquePhotoIds.length }),

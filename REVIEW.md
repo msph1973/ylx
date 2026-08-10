@@ -488,6 +488,8 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `UPSTASH_REDIS_REST_TOKEN` | Gallery PIN / login rate limiter (persistent) | ✅ in production — same fallback behavior as above |
 | `PUBLIC_SENTRY_DSN` | Error monitoring (`astro.config.mjs`, `sentry.client/server.config.ts`) | ❌ optional — when unset, the whole Sentry integration is skipped at build time (see PR #94); **intentionally Production-only**, not Preview (see note below) |
 | `SENTRY_PROJECT` / `SENTRY_ORG` / `SENTRY_AUTH_TOKEN` | Sentry source-map upload at build time | ❌ optional — safe to leave empty (upload is just skipped); same Production-only scoping as `PUBLIC_SENTRY_DSN` |
+| `RESEND_API_KEY` | Transactional email — admin notification after a client submits selections (`lib/email.ts`, called from `gallery/[slug]/submit.ts`) | ❌ optional — when unset, the post-submission email is a silent no-op (dev/preview without a provider); **Production-only** recommended (org-scoped secret, same rationale as the Sentry vars) |
+| `EMAIL_FROM` | "From" address for Resend emails; must be on a domain verified in your Resend account | ❌ optional but required together with `RESEND_API_KEY` for email to actually send; safe to share across environments (not a secret) |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above

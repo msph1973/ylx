@@ -84,3 +84,10 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
     "lqip": image.asset->metadata.lqip
   }
 }`;
+
+// Every admin document's email — used by the email-notification path after a
+// client submits selections (ROADMAP item #1). Intentionally unfiltered by
+// `role`: until multi-admin ownership (ROADMAP #7) lands, every admin is
+// notified of every submission (over-notify > miss). Projects only `email`
+// so the admin's name/role/password never rides along on this read.
+export const adminEmailsQuery = `*[_type == "admin"].email`;
