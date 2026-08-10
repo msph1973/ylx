@@ -3,6 +3,8 @@
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
+> 📋 **Fitur masa depan yang sudah disetujui user tapi belum dikerjakan** (notifikasi email, final delivery, backup Sanity, watermark, tingkatan pilihan, load-testing, multi-admin ownership, branding kustom, dashboard analitik, i18n) — lihat `ROADMAP.md` di root project untuk detail teknis lengkap per item sebelum mulai mengerjakan salah satunya.
+
 ---
 
 ## Platform
