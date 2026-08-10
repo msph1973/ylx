@@ -381,10 +381,13 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       captureError(patchError, { route: "admin/albums/[id] PUT patch", albumId });
       patchErrorCaptured = true;
       if (newSlugLock && newSlugLock !== existingAlbum.slug?.current) {
-        try { await releaseSlugLock(newSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); captureError(e, { route: "admin/albums/[id] PUT releaseSlugLock", albumId }); }
+        // releaseSlugLock() never rejects (its own catch reports failures
+        // via captureError already) — this try/catch can't actually observe
+        // anything, kept only as defensive belt-and-suspenders.
+        try { await releaseSlugLock(newSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
       }
       if (newCustomSlugLock && newCustomSlugLock !== existingAlbum.customSlug) {
-        try { await releaseSlugLock(newCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); captureError(e, { route: "admin/albums/[id] PUT releaseCustomSlugLock", albumId }); }
+        try { await releaseSlugLock(newCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); }
       }
       throw patchError;
     }

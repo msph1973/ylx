@@ -239,10 +239,13 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       captureError(createError, { route: "admin/albums POST create", albumId });
       creationErrorCaptured = true;
       if (createdSlugLock) {
-        try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); captureError(e, { route: "admin/albums POST releaseSlugLock", albumId }); }
+        // releaseSlugLock() never rejects (its own catch reports failures
+        // via captureError already) — this try/catch can't actually observe
+        // anything, kept only as defensive belt-and-suspenders.
+        try { await releaseSlugLock(createdSlugLock); } catch (e) { console.error("[Albums] Failed to release slug lock:", e); }
       }
       if (createdCustomSlugLock) {
-        try { await releaseSlugLock(createdCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); captureError(e, { route: "admin/albums POST releaseCustomSlugLock", albumId }); }
+        try { await releaseSlugLock(createdCustomSlugLock); } catch (e) { console.error("[Albums] Failed to release custom slug lock:", e); }
       }
       throw createError;
     }
