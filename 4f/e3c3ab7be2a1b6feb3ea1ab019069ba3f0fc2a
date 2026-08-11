@@ -1,0 +1,42 @@
+ROADMAP.md
+  h_45c23cf41d175e 14
+apps/web/src/components/admin/AlbumDetail.tsx
+  h_45c23cf41d175e 12,338,824-830,987
+apps/web/src/components/admin/AlbumList.tsx
+  h_45c23cf41d175e 93
+apps/web/src/components/admin/FinalPhotosSection.tsx
+  h_45c23cf41d175e 1-450
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 50-59,592-653,703,801-803,812-818,1042-1054,1136,1141,1165-1174
+apps/web/src/lib/albumStatus.test.ts
+  h_45c23cf41d175e 1-46
+apps/web/src/lib/albumStatus.ts
+  h_45c23cf41d175e 1,31-36,52
+apps/web/src/lib/galleryFinalPhotosResponse.ts
+  h_45c23cf41d175e 1-32
+apps/web/src/pages/api/admin/albums/[id]/deliver.ts
+  h_45c23cf41d175e 1-91
+apps/web/src/pages/api/admin/albums/[id]/final-photos.ts
+  h_45c23cf41d175e 1-400
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 52,133-140
+apps/web/src/pages/api/gallery/[slug]/final-photos.ts
+  h_45c23cf41d175e 1-67
+packages/sanity/lib/queries.ts
+  h_45c23cf41d175e 85-89,99-111
+packages/sanity/schemas/album.ts
+  h_45c23cf41d175e 65,77-83
+packages/shared/types/album.ts
+  h_45c23cf41d175e 54-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4fe3c3ab7be2a1b6feb3ea1ab019069ba3f0fc2a",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
