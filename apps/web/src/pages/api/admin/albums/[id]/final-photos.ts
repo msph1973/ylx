@@ -87,9 +87,22 @@ const VALID_MIME_TYPES = [
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 // Statuses that may receive final photos: client selection must be closed
-// (either 'submitted' by the client or 'locked' by the admin) before final,
-// edited photos are attached — an 'active' album is still mid-proofing.
+// ('submitted' by the client, 'locked' by the admin, or 'delivered') before
+// final, edited photos are attached — an 'active' album is still mid-proofing.
 const DELIVERABLE_STATUSES = new Set(["submitted", "locked", "delivered"]);
+
+// Delete an uploaded asset that should not be kept (e.g. the album doesn't
+// exist or isn't in a valid status to accept final photos). Best-effort:
+// failures are logged but never surface to the caller — the asset is already
+// unreferenced, and a future dataset cleanup job can garbage-collect it.
+async function deleteOrphanedAsset(assetId: string): Promise<void> {
+  try {
+    await sanityWriteClient.delete(assetId);
+  } catch (delErr) {
+    console.error("[Albums/final-photos] Failed to delete orphaned asset:", delErr);
+    captureError(delErr, { route: "admin/albums/[id]/final-photos deleteOrphanedAsset", assetId });
+  }
+}
 
 export const POST: APIRoute = async ({ request, params, cookies }) => {
   const session = await requireAdmin(cookies);
@@ -172,6 +185,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
     ]);
 
     if (!album || album._type !== "album") {
+      await deleteOrphanedAsset(assetId);
       return new Response(JSON.stringify({ error: "Album not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
@@ -179,8 +193,9 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
     }
 
     if (!album.status || !DELIVERABLE_STATUSES.has(album.status)) {
+      await deleteOrphanedAsset(assetId);
       return new Response(
-        JSON.stringify({ error: "Album must be submitted or locked to receive final photos" }),
+        JSON.stringify({ error: "Album must be submitted, locked, or delivered to receive final photos" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -334,6 +349,15 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   }
   const photoId = body.photoId;
 
+  // Validate photoId format before using it in a GROQ unset path — prevents
+  // injection through crafted ids (see REVIEW.md §2.1).
+  if (!/^[a-zA-Z0-9_-]+$/.test(photoId)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid photo ID format" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     const [album, photo] = await Promise.all([
       sanityClient.fetch<AlbumRaw | null>(
@@ -355,7 +379,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
 
     if (!album.status || !DELIVERABLE_STATUSES.has(album.status)) {
       return new Response(
-        JSON.stringify({ error: "Album must be submitted or locked to remove final photos" }),
+        JSON.stringify({ error: "Album must be submitted, locked, or delivered to remove final photos" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }

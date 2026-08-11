@@ -809,11 +809,23 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     };
   }, [slug, restoreDraft]);
 
+  const fetchFinalPhotos = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/gallery/${slug}/final-photos`);
+      if (response.ok) {
+        const data = await response.json() as { finalPhotos: FinalPhotoData[] };
+        setFinalPhotos(data.finalPhotos);
+      }
+    } catch {
+      // best-effort — final photos are optional
+    }
+  }, [slug]);
+
   // Fetch final photos when the album is in delivered state.
   useEffect(() => {
     if (!isAuthenticated || !album || album.status !== 'delivered') return;
     void fetchFinalPhotos();
-  }, [isAuthenticated, album?.status, slug]);
+  }, [isAuthenticated, album?.status, slug, fetchFinalPhotos]);
 
 
   // Autosave the in-progress selection (debounced) so a closed tab or reload
@@ -1039,18 +1051,6 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // afterwards without the photographer unlocking it — so a stray tap
   // shouldn't be able to finalize it. First tap arms a confirmation instead
   // of submitting immediately.
-  const fetchFinalPhotos = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/gallery/${slug}/final-photos`);
-      if (response.ok) {
-        const data = await response.json() as { finalPhotos: FinalPhotoData[] };
-        setFinalPhotos(data.finalPhotos);
-      }
-    } catch {
-      // best-effort — final photos are optional
-    }
-  }, [slug]);
-
 
   const handleSubmitTap = useCallback(() => {
     if (!confirmingSubmit) {

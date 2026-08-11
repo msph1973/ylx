@@ -49,7 +49,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
     if (album.status !== "locked" && album.status !== "submitted") {
       return new Response(
-        JSON.stringify({ error: "Album must be submitted or locked before it can be delivered" }),
+        JSON.stringify({ error: "Album must be submitted, locked, or delivered before delivery" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }

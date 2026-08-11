@@ -86,7 +86,8 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   "finalPhotos": finalPhotos[]->{
     _id,
     filename,
-    image
+    image,
+    "lqip": image.asset->metadata.lqip
   }
 }`;
 
@@ -106,6 +107,7 @@ export const albumFinalPhotosQuery = `*[_type == "album" && (slug.current == $sl
   "finalPhotos": finalPhotos[]->{
     _id,
     filename,
-    image
+    image,
+    "lqip": image.asset->metadata.lqip
   }
 }`;

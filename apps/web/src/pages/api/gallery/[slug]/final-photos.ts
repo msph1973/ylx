@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { sanityClient } from "@ylx/sanity/client";
-import { albumFinalPhotosQuery } from "@ylx/sanity/lib/queries";
-import { hasActiveSession } from "../../../../lib/gallerySession";
+import { albumFinalPhotosQuery, albumPinBySlugQuery } from "@ylx/sanity/lib/queries";
+import { hasActiveSession, hasValidPinSession } from "../../../../lib/gallerySession";
 import { buildGalleryFinalPhotosResponse, type SanityFinalPhotoRaw } from "../../../../lib/galleryFinalPhotosResponse";
 import { captureError } from "../../../../lib/errorTracking";
 
@@ -24,7 +24,8 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     });
   }
 
-  // Must have a valid gallery session (PIN-verified, not expired).
+  // Cheap gate before any Sanity work: a client with no valid signed gallery
+  // cookie can't force album lookups by enumerating slugs.
   if (!hasActiveSession(cookies)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -33,17 +34,22 @@ export const GET: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
-    // albumFinalPhotosQuery filters status == "delivered" server-side, so
-    // if the album exists but isn't delivered, this returns null.
-    const album = await sanityClient.fetch<AlbumFinalPhotosRaw | null>(
-      albumFinalPhotosQuery,
-      { slug }
-    );
+    // Fetch both the album (delivered-only via query filter) and its pin
+    // so we can validate the session is bound to the current PIN — same
+    // pattern as submit.ts and session.ts: a PIN change must invalidate
+    // every existing session immediately, even for this read-only endpoint.
+    const [album, pinRecord] = await Promise.all([
+      sanityClient.fetch<AlbumFinalPhotosRaw | null>(
+        albumFinalPhotosQuery,
+        { slug }
+      ),
+      sanityClient.fetch<{ pin: string } | null>(albumPinBySlugQuery, { slug }),
+    ]);
 
-    if (!album) {
+    if (!album || !pinRecord || !hasValidPinSession(cookies, album._id, pinRecord.pin)) {
       return new Response(
-        JSON.stringify({ error: "Album not found or not yet delivered" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
