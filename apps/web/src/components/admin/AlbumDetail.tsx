@@ -9,6 +9,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import { getAlbumStatusMeta } from '@/lib/albumStatus';
+import { FinalPhotosSection, type FinalPhoto } from './FinalPhotosSection';
 
 interface AlbumDetailProps {
   albumId: string;
@@ -334,6 +335,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
   const selectedPhotoCount = selectedPhotoIds.size;
   const photos = (album?.photos ?? []) as AlbumPhoto[];
+  const finalPhotos = (album?.finalPhotos ?? []) as FinalPhoto[];
   const allPhotosSelected = photos.length > 0 && photos.every((photo) => selectedPhotoIds.has(photo.id));
 
   const exitPhotoSelectionMode = useCallback(() => {
@@ -819,6 +821,13 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
         )}
 
+        <FinalPhotosSection
+          albumId={albumId}
+          status={album.status}
+          finalPhotos={finalPhotos}
+          onRefresh={fetchAlbum}
+        />
+
         <AlbumFormModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
@@ -975,6 +984,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .status-badge--active { background-color: color-mix(in srgb, var(--color-success) 15%, transparent); color: var(--color-success); }
           .status-badge--submitted { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent); }
           .status-badge--locked { background-color: color-mix(in srgb, var(--color-error) 15%, transparent); color: var(--color-error); }
+.status-badge--delivered { background-color: color-mix(in srgb, var(--color-success) 18%, transparent); color: var(--color-success); }
 
           .metadata-grid {
             display: grid;

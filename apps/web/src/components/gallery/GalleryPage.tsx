@@ -47,6 +47,16 @@ interface AlbumData {
   photos: Photo[];
 }
 
+interface FinalPhotoData {
+  id: string;
+  filename: string;
+  thumbnailUrl: string;
+  thumbnailSrcSet?: string | null;
+  url: string;
+  lqip?: string | null;
+}
+
+
 interface GalleryPhotoTileProps {
   photo: Photo;
   index: number;
@@ -579,6 +589,68 @@ const GALLERY_VIEW_STYLES = `
           background: rgba(0, 0, 0, 0.7);
         }
 
+        .final-delivery-banner {
+          text-align: center;
+          padding: var(--space-6) var(--space-4);
+          margin-bottom: var(--space-4);
+        }
+
+        .final-delivery-title {
+          font-size: var(--text-2xl);
+          font-weight: var(--font-semibold);
+          margin: 0 0 var(--space-2);
+          color: var(--color-text);
+        }
+
+        .final-delivery-subtitle {
+          color: var(--color-text-muted);
+          font-size: var(--text-sm);
+          margin: 0;
+        }
+
+        .final-download-bar {
+          display: flex;
+          justify-content: center;
+          padding: var(--space-4);
+        }
+
+        .final-download-link {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+          min-height: var(--tap-target-min);
+          padding: var(--space-2-5) var(--space-5);
+          background-color: var(--color-accent);
+          color: var(--color-bg);
+          border-radius: var(--radius-md);
+          font-weight: var(--font-medium);
+          font-size: var(--text-sm);
+          text-decoration: none;
+          transition: background-color var(--transition-fast);
+        }
+
+        @media (hover: hover) {
+          .final-download-link:hover {
+            background-color: var(--color-accent-hover);
+          }
+        }
+
+        .final-delivery-banner {
+          text-align: center;
+          padding: var(--space-6) var(--space-4);
+          margin-bottom: var(--space-4);
+        }
+        .final-delivery-title {
+          font-size: var(--text-2xl);
+          font-weight: var(--font-semibold);
+          margin: 0 0 var(--space-2);
+          color: var(--color-text);
+        }
+        .final-delivery-subtitle {
+          color: var(--color-text-muted);
+          font-size: var(--text-sm);
+          margin: 0;
+        }
         .lightbox-error {
           position: fixed;
           inset: 0;
@@ -628,6 +700,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // while the first one is still in flight (see the submit button's disabled
   // condition below).
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [finalPhotos, setFinalPhotos] = useState<FinalPhotoData[] | null>(null);
   const albumIdRef = useRef<string | null>(null);
   // Synchronous double-submit guard: `isSubmitting` state is async (a second
   // tap in the same tick as the first still reads `isSubmitting === false`),
@@ -725,6 +798,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         setAlbum(resumed);
         setIsAuthenticated(true);
         restoreDraft(resumed);
+        if (resumed.status === 'delivered') {
+          setFinalPhotos(null); // trigger fetch below
+        }
       }
       setSessionChecked(true);
     })();
@@ -732,6 +808,13 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       cancelled = true;
     };
   }, [slug, restoreDraft]);
+
+  // Fetch final photos when the album is in delivered state.
+  useEffect(() => {
+    if (!isAuthenticated || !album || album.status !== 'delivered') return;
+    void fetchFinalPhotos();
+  }, [isAuthenticated, album?.status, slug]);
+
 
   // Autosave the in-progress selection (debounced) so a closed tab or reload
   // doesn't lose it. Saving an empty selection clears the stored draft.
@@ -956,6 +1039,19 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // afterwards without the photographer unlocking it — so a stray tap
   // shouldn't be able to finalize it. First tap arms a confirmation instead
   // of submitting immediately.
+  const fetchFinalPhotos = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/gallery/${slug}/final-photos`);
+      if (response.ok) {
+        const data = await response.json() as { finalPhotos: FinalPhotoData[] };
+        setFinalPhotos(data.finalPhotos);
+      }
+    } catch {
+      // best-effort — final photos are optional
+    }
+  }, [slug]);
+
+
   const handleSubmitTap = useCallback(() => {
     if (!confirmingSubmit) {
       setConfirmingSubmit(true);
@@ -1037,10 +1133,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }
 
   const hasPhotos = (album?.photos.length ?? 0) > 0;
+  const isDelivered = album?.status === 'delivered';
 
   return (
     <div className="gallery-view">
       <LazyMotion features={domAnimation} strict>
+      {!isDelivered && (
       <div className="gallery-selection-bar">
         <span className="selection-count">
           {confirmingSubmit
@@ -1064,6 +1162,16 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           {isAlbumLocked(album) ? 'Submitted' : confirmingSubmit ? 'Yes, Submit' : 'Submit Selection'}
         </button>
       </div>
+      )}
+
+      {isDelivered && (
+        <div className="final-delivery-banner">
+          <h2 className="final-delivery-title">Your Final Photos</h2>
+          <p className="final-delivery-subtitle">
+            Your photographer has delivered your edited photos. Tap any photo to view it full-size.
+          </p>
+        </div>
+      )}
 
       {hasPhotos && (
         <p className="gallery-instructions">

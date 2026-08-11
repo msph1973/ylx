@@ -49,6 +49,7 @@ interface SanityAlbumDetailRaw {
   maxSelections: number;
   status: string;
   photos: SanityPhotoRaw[];
+  finalPhotos?: SanityPhotoRaw[] | null;
 }
 
 interface SanityAlbumSlugsRaw {
@@ -128,6 +129,14 @@ export const GET: APIRoute = async ({ params, cookies }) => {
         selectedAt: s.selectedAt,
         notes: s.notes,
         photographerReply: s.photographerReply,
+      })),
+      finalPhotos: (album.finalPhotos ?? []).map((p) => ({
+        id: p._id,
+        filename: p.filename,
+        url: urlFor(p.image).auto("format").quality(80).url(),
+        thumbnailUrl: thumbnailUrl(p.image),
+        thumbnailSrcSet: thumbnailSrcSet(p.image),
+        lqip: p.lqip ?? null,
       })),
     };
 

@@ -62,6 +62,7 @@ export default defineType({
           { title: "Active", value: "active" },
           { title: "Submitted", value: "submitted" },
           { title: "Locked", value: "locked" },
+          { title: "Delivered", value: "delivered" },
         ],
       },
       initialValue: "active",
@@ -70,6 +71,13 @@ export default defineType({
     defineField({
       name: "photos",
       title: "Photos",
+      type: "array",
+      of: [{ type: "reference", to: [{ type: "photo" }] }],
+    }),
+    defineField({
+      name: "finalPhotos",
+      title: "Final Photos",
+      description: "Photos delivered to client after editing",
       type: "array",
       of: [{ type: "reference", to: [{ type: "photo" }] }],
     }),
