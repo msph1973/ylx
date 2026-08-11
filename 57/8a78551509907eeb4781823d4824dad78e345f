@@ -1,0 +1,24 @@
+apps/web/src/components/admin/FinalPhotosSection.tsx
+  h_45c23cf41d175e 101,248,366
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 812-823,828
+apps/web/src/pages/api/admin/albums/[id]/deliver.ts
+  h_45c23cf41d175e 52
+apps/web/src/pages/api/admin/albums/[id]/final-photos.ts
+  h_45c23cf41d175e 90-91,94-106,188,196,198,352-360,382
+apps/web/src/pages/api/gallery/[slug]/final-photos.ts
+  h_45c23cf41d175e 3-4,27-28,37-47,49,51-52
+packages/sanity/lib/queries.ts
+  h_45c23cf41d175e 89-90,110-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "578a78551509907eeb4781823d4824dad78e345f",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
