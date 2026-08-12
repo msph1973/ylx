@@ -693,17 +693,32 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     albumIdRef.current = album?.id ?? null;
   }, [album]);
 
+  // Realtime finalPhoto:uploaded/deleted events can fire this in quick
+  // succession (e.g. the photographer removes then re-adds a photo) — an
+  // older, slower request finishing after a newer one would otherwise
+  // overwrite the freshest result with stale data. Only the response to the
+  // most recently *started* request is committed to state.
+  const finalPhotosRequestSeqRef = useRef(0);
   const fetchFinalPhotos = useCallback(async () => {
+    const seq = ++finalPhotosRequestSeqRef.current;
     setFinalPhotosError(null);
     try {
       const response = await fetch(`/api/gallery/${slug}/final-photos`);
+      if (seq !== finalPhotosRequestSeqRef.current) return; // superseded by a newer request
       if (response.ok) {
         const data = await response.json() as { finalPhotos: FinalPhotoData[] };
+        if (seq !== finalPhotosRequestSeqRef.current) return;
         setFinalPhotos(data.finalPhotos);
+      } else if (response.status === 401) {
+        // Session expired or the PIN was rotated mid-visit — return to the PIN
+        // screen instead of leaving the client stuck on a "please retry"
+        // error that a retry can never actually resolve.
+        setIsAuthenticated(false);
       } else {
         setFinalPhotosError("Couldn't load your final photos. Please try again.");
       }
     } catch {
+      if (seq !== finalPhotosRequestSeqRef.current) return;
       setFinalPhotosError("Couldn't load your final photos. Please try again.");
     }
   }, [slug]);
@@ -1211,7 +1226,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             index={index}
             totalPhotos={displayPhotos.length}
             isSelected={selectedPhotos.has(photo.id)}
-            isDisabled={isAlbumLocked(album)}
+            // Delivered final photos are fully viewable (not locked awaiting
+            // client action) — `isAlbumLocked` includes 'delivered' so the
+            // selection UI elsewhere stays hidden, but dimming/disabling the
+            // tile itself here would make finished photos look uninteractive.
+            isDisabled={!isDelivered && isAlbumLocked(album)}
             // First row (visible without scrolling on any device) loads
             // eagerly at high priority; the rest stay lazy so the LCP
             // candidate isn't competing with dozens of below-the-fold requests.

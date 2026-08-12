@@ -124,11 +124,22 @@ function putAssetToSanity(
 
 // Wires the uploaded asset into the album's `finalPhotos` array, server-side.
 async function finalizeFinalPhoto(assetId: string, albumId: string, filename: string): Promise<void> {
-  const res = await fetch(`/api/admin/albums/${albumId}/final-photos`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ assetId, albumId, filename }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api/admin/albums/${albumId}/final-photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetId, albumId, filename }),
+    });
+  } catch {
+    // `fetch` itself rejecting (offline, DNS failure, connection dropped mid-
+    // request) is just as transient as the retryable network error already
+    // handled in putAssetToSanity's `xhr` 'error' listener — without this,
+    // uploadWithRetry's `e?.retryable === true` check sees a plain error with
+    // no `retryable` flag and treats it as permanent, forcing the photographer
+    // to reselect a file whose binary already uploaded successfully.
+    throw makeError('Network error while finalizing photo', { retryable: true, status: 0 });
+  }
   if (!res.ok) {
     throw makeError(`Finalizing photo failed (${res.status})`, {
       retryable: isRetryableStatus(res.status),

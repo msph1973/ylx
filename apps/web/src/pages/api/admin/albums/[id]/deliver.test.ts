@@ -102,6 +102,11 @@ describe("POST /api/admin/albums/[id]/deliver", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true, id: "album-1" });
     expect(commitMock).toHaveBeenCalledTimes(1);
+    expect(publishAdminEventMock).toHaveBeenCalledWith("album:delivered", { albumId: "album-1" });
     expect(publishAlbumEventMock).toHaveBeenCalledWith("album-1", "album:delivered");
+    // Cache must be invalidated before the realtime publish, so a client that
+    // refetches on receiving the event never races an already-stale cache.
+    expect(invalidateCacheMock.mock.invocationCallOrder[0])
+      .toBeLessThan(publishAlbumEventMock.mock.invocationCallOrder[0]);
   });
 });
