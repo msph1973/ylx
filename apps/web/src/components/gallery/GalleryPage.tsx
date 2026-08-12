@@ -1132,8 +1132,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     );
   }
 
-  const hasPhotos = (album?.photos.length ?? 0) > 0;
   const isDelivered = album?.status === 'delivered';
+  const displayPhotos = (isDelivered && finalPhotos ? finalPhotos : album?.photos) ?? [];
+  const hasPhotos = displayPhotos.length > 0;
 
   return (
     <div className="gallery-view">
@@ -1173,7 +1174,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         </div>
       )}
 
-      {hasPhotos && (
+      {hasPhotos && !isDelivered && (
         <p className="gallery-instructions">
           Tap a photo to preview it, then select up to {album?.maxSelections}.
         </p>
@@ -1181,9 +1182,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       {!hasPhotos ? (
         <div className="gallery-empty">
-          <p className="gallery-empty-title">No photos yet</p>
+          <p className="gallery-empty-title">{isDelivered ? 'No final photos yet' : 'No photos yet'}</p>
           <p className="gallery-empty-body">
-            Your photographer hasn't uploaded any photos to this gallery yet. Check back soon.
+            {isDelivered
+              ? "Your photographer hasn't uploaded your final photos yet. Check back soon."
+              : "Your photographer hasn't uploaded any photos to this gallery yet. Check back soon."}
           </p>
         </div>
       ) : (
@@ -1193,12 +1196,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         animate={{ opacity: 1 }}
         transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
       >
-        {album?.photos.map((photo, index) => (
+        {displayPhotos.map((photo, index) => (
           <GalleryPhotoTile
             key={photo.id}
             photo={photo}
             index={index}
-            totalPhotos={album.photos.length}
+            totalPhotos={displayPhotos.length}
             isSelected={selectedPhotos.has(photo.id)}
             isDisabled={isAlbumLocked(album)}
             // First row (visible without scrolling on any device) loads
@@ -1279,7 +1282,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             <Suspense fallback={<div className="lightbox-loading" />}>
               <PhotoLightbox
                 key="lightbox"
-                photos={album.photos}
+                photos={displayPhotos}
                 currentIndex={lightboxIndex}
                 isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
                 isDisabled={isAlbumLocked(album)}
