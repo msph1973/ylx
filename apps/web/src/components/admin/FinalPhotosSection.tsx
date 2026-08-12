@@ -205,7 +205,14 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
         try {
           const creds = await getCredentials();
           if (!assetId) {
+            // XHR fires many progress events per file; only commit a state
+            // update (which clones the whole files array and re-renders
+            // every row) when the visible percentage actually moves,
+            // matching UploadPage.tsx's throttling for the same reason.
+            let lastReportedPct = -1;
             assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
+              if (pct < 100 && pct - lastReportedPct < 3) return;
+              lastReportedPct = pct;
               setFiles((prev) => prev.map((f) => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
             });
           }

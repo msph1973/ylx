@@ -718,7 +718,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       } else if (response.status === 401) {
         // Session expired or the PIN was rotated mid-visit — return to the PIN
         // screen instead of leaving the client stuck on a "please retry"
-        // error that a retry can never actually resolve.
+        // error that a retry can never actually resolve. Also drop whatever
+        // final photos were already loaded from the PREVIOUS session, so
+        // re-entering the PIN starts from a clean loading state instead of
+        // briefly flashing stale photos while the fresh request is in flight.
+        setFinalPhotos(null);
+        setFinalPhotosError(null);
         setIsAuthenticated(false);
       } else {
         setFinalPhotosError("Couldn't load your final photos. Please try again.");
