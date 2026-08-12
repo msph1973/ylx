@@ -1,17 +1,14 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { Photo } from '@ylx/shared';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { ConfirmDialog } from './ConfirmDialog';
 import { runWithConcurrency } from '@/lib/concurrency';
 import type { AlbumStatusVariant } from '@/lib/albumStatus';
 
-export interface FinalPhoto {
-  id: string;
-  filename: string;
-  url: string;
-  thumbnailUrl: string;
-  thumbnailSrcSet?: string | null;
-  lqip?: string | null;
-}
+// `Photo` already covers every field this section reads (id/filename/url/
+// thumbnailUrl/thumbnailSrcSet/lqip) plus optional extras it doesn't use —
+// reusing it avoids a second, drifting copy of the same shape.
+export type FinalPhoto = Photo;
 
 interface FinalPhotosSectionProps {
   albumId: string;
@@ -129,7 +126,7 @@ async function finalizeFinalPhoto(assetId: string, albumId: string, filename: st
     res = await fetch(`/api/admin/albums/${albumId}/final-photos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assetId, albumId, filename }),
+      body: JSON.stringify({ assetId, filename }),
     });
   } catch {
     // `fetch` itself rejecting (offline, DNS failure, connection dropped mid-
@@ -171,6 +168,14 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const credsRef = useRef<UploadCredentials | null>(null);
+  // Guards against committing state (or calling onRefresh) after this
+  // section unmounts mid-upload — e.g. the admin navigates away from the
+  // album detail page while a batch is still in flight. Mirrors the same
+  // guard already used by UploadPage.tsx for the same reason.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const getCredentials = useCallback(async (): Promise<UploadCredentials> => {
     if (credsRef.current) return credsRef.current;
@@ -303,8 +308,10 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
           UPLOAD_CONCURRENCY,
         );
       } finally {
-        setIsUploading(false);
-        await onRefresh();
+        if (mountedRef.current) {
+          setIsUploading(false);
+          await onRefresh();
+        }
       }
     })();
   }, [onRefresh, uploadWithRetry]);

@@ -39,6 +39,11 @@ vi.mock("@ylx/sanity/client", () => ({
           commit: (...args: unknown[]) => transactionCommitMock(...args),
         }),
       }),
+      createIfNotExists: () => ({
+        patch: () => ({
+          commit: (...args: unknown[]) => transactionCommitMock(...args),
+        }),
+      }),
       patch: () => ({
         delete: () => ({
           commit: (...args: unknown[]) => transactionCommitMock(...args),
@@ -169,46 +174,80 @@ const POST_ALBUM = {
 };
 const ASSET = { _type: "sanity.imageAsset", mimeType: "image/jpeg", size: 1024 };
 
+const ASSET_ID = "image-abc123-800x600-jpg";
+// The photoId is deterministic (`final-<assetId>`), not a random UUID — see
+// final-photos.ts for why: it makes a lookup by this id structurally unable
+// to ever match an unrelated proofing `photo` document that references the
+// same asset (a real bug an earlier assetId+album *query*-based idempotency
+// check had).
+const DETERMINISTIC_PHOTO_ID = `final-${ASSET_ID}`;
+
 describe("POST /api/admin/albums/[id]/final-photos", () => {
   it("creates a new photo document + finalPhotos entry when none exists yet for this asset", async () => {
-    sanityFetchMock
-      .mockResolvedValueOnce(POST_ALBUM) // album lookup
-      .mockResolvedValueOnce(null); // idempotency check: no existing photo for this assetId
-    getDocumentMock.mockResolvedValueOnce(ASSET);
-    const res = await callPost({ assetId: "image-abc123-800x600-jpg", filename: "edit-01.jpg" });
+    sanityFetchMock.mockResolvedValueOnce(POST_ALBUM); // album lookup
+    getDocumentMock
+      .mockResolvedValueOnce(ASSET) // asset validation
+      .mockResolvedValueOnce(null); // idempotency check: no existing photo for this id
+    const res = await callPost({ assetId: ASSET_ID, filename: "edit-01.jpg" });
     expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ success: true, photoId: DETERMINISTIC_PHOTO_ID });
     expect(transactionCommitMock).toHaveBeenCalledTimes(1);
     expect(patchCommitMock).not.toHaveBeenCalled();
   });
 
-  // Idempotency guard (bot review, third pass): a retried request for an
-  // asset that was already fully wired up must not create a duplicate photo
-  // document or a duplicate finalPhotos entry.
+  // Idempotency guard (bot review, third+fourth pass): a retried request for
+  // an asset that was already fully wired up must not create a duplicate
+  // photo document or a duplicate finalPhotos entry — and the lookup must be
+  // by the deterministic id (not a fuzzy album+assetId query) so it can never
+  // latch onto an unrelated proofing photo that happens to share the asset.
   it("is idempotent: a retry with the same assetId that's already linked returns the existing photo without creating anything new", async () => {
-    const existing = { _id: "final-photo-9" };
-    sanityFetchMock
-      .mockResolvedValueOnce({ ...POST_ALBUM, finalPhotos: [{ _ref: "final-photo-9" }] })
+    const existing = { _id: DETERMINISTIC_PHOTO_ID };
+    sanityFetchMock.mockResolvedValueOnce({ ...POST_ALBUM, finalPhotos: [{ _ref: DETERMINISTIC_PHOTO_ID }] });
+    getDocumentMock
+      .mockResolvedValueOnce(ASSET)
       .mockResolvedValueOnce(existing);
-    getDocumentMock.mockResolvedValueOnce(ASSET);
-    const res = await callPost({ assetId: "image-abc123-800x600-jpg", filename: "edit-01.jpg" });
+    const res = await callPost({ assetId: ASSET_ID, filename: "edit-01.jpg" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ success: true, photoId: "final-photo-9" });
+    expect(await res.json()).toEqual({ success: true, photoId: DETERMINISTIC_PHOTO_ID });
     expect(transactionCommitMock).not.toHaveBeenCalled();
     expect(patchCommitMock).not.toHaveBeenCalled();
     expect(publishAdminEventMock).not.toHaveBeenCalled();
   });
 
   it("finishes a half-completed link: an existing photo document not yet in finalPhotos gets appended instead of duplicated", async () => {
-    const existing = { _id: "final-photo-9" };
-    sanityFetchMock
-      .mockResolvedValueOnce({ ...POST_ALBUM, finalPhotos: [] })
+    const existing = { _id: DETERMINISTIC_PHOTO_ID };
+    sanityFetchMock.mockResolvedValueOnce({ ...POST_ALBUM, finalPhotos: [] });
+    getDocumentMock
+      .mockResolvedValueOnce(ASSET)
       .mockResolvedValueOnce(existing);
-    getDocumentMock.mockResolvedValueOnce(ASSET);
-    const res = await callPost({ assetId: "image-abc123-800x600-jpg", filename: "edit-01.jpg" });
+    const res = await callPost({ assetId: ASSET_ID, filename: "edit-01.jpg" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ success: true, photoId: "final-photo-9" });
+    expect(await res.json()).toEqual({ success: true, photoId: DETERMINISTIC_PHOTO_ID });
     expect(transactionCommitMock).not.toHaveBeenCalled();
     expect(patchCommitMock).toHaveBeenCalledTimes(1);
-    expect(publishAlbumEventMock).toHaveBeenCalledWith("album-1", "finalPhoto:uploaded", { photoId: "final-photo-9", filename: "edit-01.jpg" });
+    expect(publishAlbumEventMock).toHaveBeenCalledWith("album-1", "finalPhoto:uploaded", { photoId: DETERMINISTIC_PHOTO_ID, filename: "edit-01.jpg" });
+  });
+
+  // The P1 bug this deterministic-id redesign closes: a fuzzy album+assetId
+  // query could previously match a PROOFING photo (created by
+  // upload/finalize.ts, also `_type: "photo"`, also referencing `album` and
+  // the same asset) if a photographer reused the same original file as its
+  // own final photo — risking the wrong image being served, and a later
+  // final-photo delete corrupting the shared proofing document. The
+  // deterministic id makes that structurally impossible: a proofing photo's
+  // `_id` is a plain random UUID, never `final-<assetId>`.
+  it("never matches a proofing photo that happens to reference the same asset — always creates/uses the final-<assetId> document instead", async () => {
+    sanityFetchMock.mockResolvedValueOnce({ ...POST_ALBUM, finalPhotos: [] });
+    getDocumentMock
+      .mockResolvedValueOnce(ASSET) // asset validation
+      // Idempotency lookup is by the deterministic id, which a proofing
+      // photo (random-UUID id) could never satisfy — simulate that: no
+      // document exists yet at `final-<assetId>` even though a proofing
+      // photo referencing the same asset exists elsewhere in the dataset.
+      .mockResolvedValueOnce(null);
+    const res = await callPost({ assetId: ASSET_ID, filename: "edit-01.jpg" });
+    expect(res.status).toBe(201);
+    expect(getDocumentMock).toHaveBeenNthCalledWith(2, DETERMINISTIC_PHOTO_ID);
+    expect(transactionCommitMock).toHaveBeenCalledTimes(1);
   });
 });

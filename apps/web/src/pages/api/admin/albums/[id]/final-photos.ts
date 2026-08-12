@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../../lib/auth";
@@ -227,20 +226,27 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
       );
     }
 
+    // Deterministic, namespaced id (NOT randomUUID like proofing photos in
+    // upload/finalize.ts) — this is the idempotency + type-safety key for
+    // everything below. Because it's derived from assetId with a "final-"
+    // prefix that ONLY this endpoint ever produces, a lookup by this exact
+    // id can never accidentally match an unrelated proofing `photo` document
+    // that happens to reference the same asset (a real bug an earlier,
+    // fuzzier assetId+album query-based version of this check had: it could
+    // latch onto a proofing photo, risking the client receiving the wrong
+    // image and a later final-photo delete corrupting the original gallery).
+    const photoId = `final-${assetId}`;
+
     // Idempotency guard: the client (FinalPhotosSection.tsx) retries this
     // call with backoff on a network failure, and a network failure can mean
     // the request actually succeeded server-side but the response never made
     // it back. Each such retry reuses the SAME already-uploaded `assetId`
-    // (the binary upload to Sanity's asset API isn't repeated), so if a
-    // `photo` document already exists for this exact assetId+album pairing,
-    // treat this as "already done" instead of creating a second photo
-    // document and a duplicate `finalPhotos` entry.
-    const existingPhoto = await sanityClient.fetch<{ _id: string } | null>(
-      `*[_type == "photo" && album._ref == $albumId && image.asset._ref == $assetId][0]{ _id }`,
-      { albumId, assetId }
-    );
+    // (the binary upload to Sanity's asset API isn't repeated), so with a
+    // deterministic id, a repeat request naturally targets the exact same
+    // document instead of minting a new random one.
+    const existingPhoto = await sanityWriteClient.getDocument<{ _id: string }>(photoId);
     if (existingPhoto) {
-      const alreadyLinked = (album.finalPhotos ?? []).some((ref) => ref._ref === existingPhoto._id);
+      const alreadyLinked = (album.finalPhotos ?? []).some((ref) => ref._ref === photoId);
       if (!alreadyLinked) {
         // The photo document was created by a prior attempt, but the append
         // into `finalPhotos` didn't commit (e.g. the process died between the
@@ -250,7 +256,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
             .patch(albumId)
             .setIfMissing({ finalPhotos: [] })
             .append("finalPhotos", [
-              { _type: "reference", _ref: existingPhoto._id, _key: existingPhoto._id },
+              { _type: "reference", _ref: photoId, _key: photoId },
             ])
             .commit()
         );
@@ -260,32 +266,32 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
           ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
         ]);
         await Promise.all([
-          publishAdminEvent("finalPhoto:uploaded", { albumId, photoId: existingPhoto._id, filename }),
-          publishAlbumEvent(albumId, "finalPhoto:uploaded", { photoId: existingPhoto._id, filename }),
+          publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }),
+          publishAlbumEvent(albumId, "finalPhoto:uploaded", { photoId, filename }),
         ]);
       }
       return new Response(
-        JSON.stringify({ success: true, photoId: existingPhoto._id }),
+        JSON.stringify({ success: true, photoId }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Pre-generated so the photo document's creation and its append into the
-    // album's `finalPhotos` array can be committed together in one
-    // transaction below — if a conflict forces a retry, nothing partially
-    // committed, so the same id is safely reused instead of risking an
-    // orphaned photo document that a client retry would then duplicate.
-    const photoId = randomUUID();
-
-    // Create the photo document and attach it to the album's `finalPhotos`
-    // array as one atomic transaction. Wrapped in a conflict retry so
-    // parallel uploads appending to the same album don't lose a photo to a
-    // 409 mutation conflict; since the whole transaction is atomic, a
-    // conflict means nothing committed, so retrying is safe.
+    // `createIfNotExists` (not `.create()`) makes document creation itself
+    // safe under a concurrent identical retry racing this one — Sanity
+    // guarantees only one copy is ever created for a given `_id`, so two
+    // requests hitting this branch at once can't produce two photo
+    // documents. The `finalPhotos` append that follows still has a narrow
+    // window where two such concurrent retries could each append the same
+    // `_ref`+`_key` before seeing the other's write — a real but low-severity
+    // residual risk (a harmless-looking duplicate array entry, not a
+    // duplicate document or corrupted proofing photo) documented in the PR
+    // discussion rather than solved here with a heavier conditional-patch
+    // scheme, since it requires both retries to race within the same narrow
+    // window AND both to reach this exact branch simultaneously.
     await commitWithConflictRetry(() =>
       sanityWriteClient
         .transaction()
-        .create({
+        .createIfNotExists({
           _id: photoId,
           _type: "photo",
           filename,
