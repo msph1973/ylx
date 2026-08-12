@@ -1,0 +1,24 @@
+STATUS.md
+  h_45c23cf41d175e 285
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 678-682,699,759-764,766,769
+apps/web/src/lib/concurrency.test.ts
+  h_45c23cf41d175e 25,31-37,46-72
+apps/web/src/lib/concurrency.ts
+  h_45c23cf41d175e 11-17,20-21,23,25-40,44-46
+apps/web/src/pages/api/admin/albums/[id]/deliver.test.ts
+  h_45c23cf41d175e 106
+apps/web/src/pages/api/admin/albums/[id]/deliver.ts
+  h_45c23cf41d175e 76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "2093dedbfa223e544a04f119303a3377b75b4f40",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
