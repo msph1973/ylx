@@ -1,0 +1,16 @@
+apps/web/src/pages/api/admin/albums/[id]/final-photos.test.ts
+  h_45c23cf41d175e 8,48-54,58,60,62,75-82,100,161-214
+apps/web/src/pages/api/admin/albums/[id]/final-photos.ts
+  h_45c23cf41d175e 174,230-272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "59e0e1940c4a58299047789d8fea7f1d8b227f35",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
