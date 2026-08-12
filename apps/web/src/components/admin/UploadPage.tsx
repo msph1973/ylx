@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
 import { resizeImageInWorker } from '../../lib/imageResizeClient';
+import { runWithConcurrency } from '../../lib/concurrency';
 
 interface Album {
   // The admin albums API (/api/admin/albums) returns each album keyed as `id`
@@ -135,22 +136,6 @@ async function finalizePhoto(assetId: string, albumId: string, filename: string)
       status: res.status,
     });
   }
-}
-
-// Run `worker` over `items` with at most `concurrency` in flight at once.
-async function runWithConcurrency<T>(
-  items: T[],
-  worker: (item: T) => Promise<void>,
-  concurrency: number,
-): Promise<void> {
-  let cursor = 0;
-  const run = async () => {
-    while (cursor < items.length) {
-      const item = items[cursor++];
-      await worker(item);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
 }
 
 export default function UploadPage() {

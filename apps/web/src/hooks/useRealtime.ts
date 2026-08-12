@@ -7,6 +7,9 @@ import type {
   SelectionChangedData,
   SubmissionReceivedData,
   AlbumUnlockedData,
+  AlbumDeliveredData,
+  FinalPhotoUploadedData,
+  FinalPhotoDeletedData,
 } from "@ylx/shared";
 
 export interface RealtimeCallbacks {
@@ -14,6 +17,9 @@ export interface RealtimeCallbacks {
   onSelectionChanged?: (data: SelectionChangedData) => void;
   onSubmissionReceived?: (data: SubmissionReceivedData) => void;
   onAlbumUnlocked?: (data: AlbumUnlockedData) => void;
+  onAlbumDelivered?: (data: AlbumDeliveredData) => void;
+  onFinalPhotoUploaded?: (data: FinalPhotoUploadedData) => void;
+  onFinalPhotoDeleted?: (data: FinalPhotoDeletedData) => void;
 }
 
 export function useRealtime(
@@ -56,6 +62,18 @@ export function useRealtime(
       if (callbacksRef.current.onAlbumUnlocked) {
         handlers["album:unlocked"] = (msg) =>
           callbacksRef.current.onAlbumUnlocked?.(msg.data as AlbumUnlockedData);
+      }
+      if (callbacksRef.current.onAlbumDelivered) {
+        handlers["album:delivered"] = (msg) =>
+          callbacksRef.current.onAlbumDelivered?.(msg.data as AlbumDeliveredData);
+      }
+      if (callbacksRef.current.onFinalPhotoUploaded) {
+        handlers["finalPhoto:uploaded"] = (msg) =>
+          callbacksRef.current.onFinalPhotoUploaded?.(msg.data as FinalPhotoUploadedData);
+      }
+      if (callbacksRef.current.onFinalPhotoDeleted) {
+        handlers["finalPhoto:deleted"] = (msg) =>
+          callbacksRef.current.onFinalPhotoDeleted?.(msg.data as FinalPhotoDeletedData);
       }
 
       // Awaited so a rejected attach (e.g. permission/network failure) flows

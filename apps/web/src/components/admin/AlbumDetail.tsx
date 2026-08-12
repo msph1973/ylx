@@ -8,7 +8,7 @@ import { AlbumFormModal } from './AlbumFormModal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
-import { getAlbumStatusMeta } from '@/lib/albumStatus';
+import { getAlbumStatusMeta, type AlbumStatusVariant } from '@/lib/albumStatus';
 import { FinalPhotosSection, type FinalPhoto } from './FinalPhotosSection';
 
 interface AlbumDetailProps {
@@ -823,7 +823,12 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
         <FinalPhotosSection
           albumId={albumId}
-          status={album.status}
+          // `AlbumWithSelections.status` (packages/shared) is a bare `string`
+          // (kept broad there since it's read by many response builders) —
+          // narrow to the canonical variant here, since in practice it's
+          // always one of these four and this component's own comparisons
+          // benefit from the compile-time safety.
+          status={album.status as AlbumStatusVariant}
           finalPhotos={finalPhotos}
           onRefresh={fetchAlbum}
         />

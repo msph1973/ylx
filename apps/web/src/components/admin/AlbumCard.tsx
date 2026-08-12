@@ -152,6 +152,11 @@ export const ALBUM_CARD_STYLES = `
           color: var(--color-error);
         }
 
+        .status-badge--delivered {
+          background-color: color-mix(in srgb, var(--color-success) 18%, transparent);
+          color: var(--color-success);
+        }
+
         .album-card-meta {
           display: flex;
           flex-direction: column;

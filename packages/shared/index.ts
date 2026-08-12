@@ -8,6 +8,9 @@ export type {
   SelectionChangedData,
   SubmissionReceivedData,
   AlbumUnlockedData,
+  AlbumDeliveredData,
+  FinalPhotoUploadedData,
+  FinalPhotoDeletedData,
   SelectionRepliedData,
   DraftProgressData,
 } from "./types/realtime.js";

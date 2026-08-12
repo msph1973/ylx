@@ -3,6 +3,7 @@ import { sanityClient } from "@ylx/sanity/client";
 import { albumFinalPhotosQuery, albumPinBySlugQuery } from "@ylx/sanity/lib/queries";
 import { hasActiveSession, hasValidPinSession } from "../../../../lib/gallerySession";
 import { buildGalleryFinalPhotosResponse, type SanityFinalPhotoRaw } from "../../../../lib/galleryFinalPhotosResponse";
+import { isRateLimited, RATE_LIMIT_RETRY_AFTER } from "../../../../lib/ratelimit";
 import { captureError } from "../../../../lib/errorTracking";
 
 interface AlbumFinalPhotosRaw {
@@ -12,10 +13,16 @@ interface AlbumFinalPhotosRaw {
   finalPhotos: SanityFinalPhotoRaw[];
 }
 
+// Generous for humans (one lookup per delivered gallery page load), same
+// bound as session.ts's per-IP lookup cap — this endpoint does the same
+// shape of work (a couple of Sanity reads gated by a signed cookie), so it
+// gets the same ceiling on enumeration/resource-abuse of the read path.
+const MAX_FINAL_PHOTOS_LOOKUPS_PER_IP = 30;
+
 // Client-facing endpoint: returns the final delivered photos for a gallery.
 // Only accessible when the client has an active PIN session AND the album
 // status is "delivered".
-export const GET: APIRoute = async ({ params, cookies }) => {
+export const GET: APIRoute = async ({ params, cookies, clientAddress }) => {
   const slug = params.slug;
   if (!slug) {
     return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -31,6 +38,28 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Same missing-address guard as verify.ts/session.ts — no shared "unknown"
+  // production bucket that every IP-less request would pile into.
+  if (!clientAddress && import.meta.env.PROD) {
+    return new Response(JSON.stringify({ error: "Unable to determine client address" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const ip = clientAddress ?? "unknown";
+  if (await isRateLimited(`final-photos:${ip}`, MAX_FINAL_PHOTOS_LOOKUPS_PER_IP)) {
+    return new Response(
+      JSON.stringify({ error: "Too many attempts. Please try again later." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": RATE_LIMIT_RETRY_AFTER,
+        },
+      }
+    );
   }
 
   try {

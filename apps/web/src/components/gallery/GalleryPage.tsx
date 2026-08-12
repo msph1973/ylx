@@ -608,49 +608,21 @@ const GALLERY_VIEW_STYLES = `
           margin: 0;
         }
 
-        .final-download-bar {
+        .final-photos-loading,
+        .final-photos-error {
           display: flex;
-          justify-content: center;
-          padding: var(--space-4);
-        }
-
-        .final-download-link {
-          display: inline-flex;
+          flex-direction: column;
           align-items: center;
-          gap: var(--space-2);
-          min-height: var(--tap-target-min);
-          padding: var(--space-2-5) var(--space-5);
-          background-color: var(--color-accent);
-          color: var(--color-bg);
-          border-radius: var(--radius-md);
-          font-weight: var(--font-medium);
-          font-size: var(--text-sm);
-          text-decoration: none;
-          transition: background-color var(--transition-fast);
-        }
-
-        @media (hover: hover) {
-          .final-download-link:hover {
-            background-color: var(--color-accent-hover);
-          }
-        }
-
-        .final-delivery-banner {
           text-align: center;
-          padding: var(--space-6) var(--space-4);
-          margin-bottom: var(--space-4);
-        }
-        .final-delivery-title {
-          font-size: var(--text-2xl);
-          font-weight: var(--font-semibold);
-          margin: 0 0 var(--space-2);
-          color: var(--color-text);
-        }
-        .final-delivery-subtitle {
+          gap: var(--space-2);
+          padding: var(--space-8) var(--space-4);
           color: var(--color-text-muted);
-          font-size: var(--text-sm);
-          margin: 0;
         }
+
+        .final-photos-error {
+          color: var(--color-error);
+        }
+
         .lightbox-error {
           position: fixed;
           inset: 0;
@@ -665,7 +637,7 @@ const GALLERY_VIEW_STYLES = `
 `;
 
 function isAlbumLocked(album: AlbumData | null): boolean {
-  return album?.status === 'locked' || album?.status === 'submitted';
+  return album?.status === 'locked' || album?.status === 'submitted' || album?.status === 'delivered';
 }
 
 // `fetch` rejects with a generic TypeError (message often just "Failed to
@@ -701,6 +673,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // condition below).
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [finalPhotos, setFinalPhotos] = useState<FinalPhotoData[] | null>(null);
+  const [finalPhotosError, setFinalPhotosError] = useState<string | null>(null);
   const albumIdRef = useRef<string | null>(null);
   // Synchronous double-submit guard: `isSubmitting` state is async (a second
   // tap in the same tick as the first still reads `isSubmitting === false`),
@@ -720,6 +693,21 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     albumIdRef.current = album?.id ?? null;
   }, [album]);
 
+  const fetchFinalPhotos = useCallback(async () => {
+    setFinalPhotosError(null);
+    try {
+      const response = await fetch(`/api/gallery/${slug}/final-photos`);
+      if (response.ok) {
+        const data = await response.json() as { finalPhotos: FinalPhotoData[] };
+        setFinalPhotos(data.finalPhotos);
+      } else {
+        setFinalPhotosError("Couldn't load your final photos. Please try again.");
+      }
+    } catch {
+      setFinalPhotosError("Couldn't load your final photos. Please try again.");
+    }
+  }, [slug]);
+
   const realtimeCallbacks = useMemo(() => ({
     onAlbumUnlocked: () => {
       setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
@@ -738,7 +726,23 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         unlockToastTimeoutRef.current = null;
       }, 4000);
     },
-  }), []);
+    // Flip an already-open gallery straight to the delivered view — the
+    // final-photos fetch effect (keyed on album.status) picks up from here.
+    onAlbumDelivered: () => {
+      setAlbum((prev) => prev ? { ...prev, status: 'delivered' } : prev);
+      setFinalPhotos(null);
+      setFinalPhotosError(null);
+    },
+    // Keep an already-open delivered gallery's final-photos grid in sync
+    // when the photographer adds/removes a photo after delivery, instead of
+    // requiring a manual reload.
+    onFinalPhotoUploaded: () => {
+      void fetchFinalPhotos();
+    },
+    onFinalPhotoDeleted: () => {
+      void fetchFinalPhotos();
+    },
+  }), [fetchFinalPhotos]);
 
   // Cleanup toast timeouts on unmount
   useEffect(() => {
@@ -808,18 +812,6 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       cancelled = true;
     };
   }, [slug, restoreDraft]);
-
-  const fetchFinalPhotos = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/gallery/${slug}/final-photos`);
-      if (response.ok) {
-        const data = await response.json() as { finalPhotos: FinalPhotoData[] };
-        setFinalPhotos(data.finalPhotos);
-      }
-    } catch {
-      // best-effort — final photos are optional
-    }
-  }, [slug]);
 
   // Fetch final photos when the album is in delivered state.
   useEffect(() => {
@@ -1133,7 +1125,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }
 
   const isDelivered = album?.status === 'delivered';
-  const displayPhotos = (isDelivered && finalPhotos ? finalPhotos : album?.photos) ?? [];
+  // Once delivered, the proofing set (`album.photos`) must never be shown —
+  // fall back to an empty array (not the proofing photos) while `finalPhotos`
+  // is still loading or failed to load, so a delivered client is never shown
+  // photos they weren't meant to receive.
+  const finalPhotosLoading = isDelivered && finalPhotos === null && !finalPhotosError;
+  const displayPhotos = isDelivered ? (finalPhotos ?? []) : (album?.photos ?? []);
   const hasPhotos = displayPhotos.length > 0;
 
   return (
@@ -1180,7 +1177,18 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         </p>
       )}
 
-      {!hasPhotos ? (
+      {finalPhotosLoading ? (
+        <div className="final-photos-loading" role="status" aria-live="polite">
+          <p>Loading your final photos&hellip;</p>
+        </div>
+      ) : isDelivered && finalPhotosError ? (
+        <div className="final-photos-error" role="alert">
+          <p>{finalPhotosError}</p>
+          <button type="button" className="submit-cancel-btn" onClick={() => void fetchFinalPhotos()}>
+            Retry
+          </button>
+        </div>
+      ) : !hasPhotos ? (
         <div className="gallery-empty">
           <p className="gallery-empty-title">{isDelivered ? 'No final photos yet' : 'No photos yet'}</p>
           <p className="gallery-empty-body">
@@ -1284,12 +1292,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 key="lightbox"
                 photos={displayPhotos}
                 currentIndex={lightboxIndex}
-                isSelected={selectedPhotos.has(album.photos[lightboxIndex]?.id ?? '')}
+                isSelected={selectedPhotos.has(displayPhotos[lightboxIndex]?.id ?? '')}
                 isDisabled={isAlbumLocked(album)}
-                note={photoNotes.get(album.photos[lightboxIndex]?.id ?? '')}
+                note={photoNotes.get(displayPhotos[lightboxIndex]?.id ?? '')}
                 onNoteChange={
                   !isAlbumLocked(album)
-                    ? (note) => setNote(album.photos[lightboxIndex]?.id ?? '', note)
+                    ? (note) => setNote(displayPhotos[lightboxIndex]?.id ?? '', note)
                     : undefined
                 }
                 onClose={closeLightbox}

@@ -1,6 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { ConfirmDialog } from './ConfirmDialog';
+import { runWithConcurrency } from '@/lib/concurrency';
+import type { AlbumStatusVariant } from '@/lib/albumStatus';
 
 export interface FinalPhoto {
   id: string;
@@ -13,7 +15,7 @@ export interface FinalPhoto {
 
 interface FinalPhotosSectionProps {
   albumId: string;
-  status: string;
+  status: AlbumStatusVariant;
   finalPhotos: FinalPhoto[];
   /** Re-fetches the parent album so `status`/`finalPhotos` reflect the latest state. */
   onRefresh: () => void | Promise<void>;
@@ -41,6 +43,18 @@ interface RetryableError extends Error {
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — mirrors the main upload flow.
 const VALID_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif'];
+
+// Mirrors UploadPage.tsx's bounded-concurrency and retry settings so large
+// batches of final photos get the same protection against saturating the
+// browser/Sanity API, and transient failures (network blips, Sanity 429s)
+// don't force the photographer to manually reselect the file.
+const UPLOAD_CONCURRENCY = 3;
+// 1 initial attempt + up to 2 retries for transient failures.
+const MAX_UPLOAD_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 800;
+const MAX_RETRY_DELAY_MS = 30_000;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function makeError(message: string, opts: { retryable: boolean; status?: number }): RetryableError {
   const err = new Error(message) as RetryableError;
@@ -98,7 +112,10 @@ function putAssetToSanity(
       reject(makeError('Upload timed out', { retryable: true, status: 0 })),
     );
     xhr.open('POST', url);
-    xhr.timeout = 120000;
+    // No xhr.timeout: matches UploadPage.tsx, which deliberately doesn't cap
+    // this request either — large files on a slow connection can legitimately
+    // take longer than any fixed timeout, and aborting them mid-upload is
+    // worse than just letting them run.
     xhr.setRequestHeader('Authorization', `Bearer ${creds.token}`);
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
     xhr.send(file);
@@ -158,20 +175,61 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
     return creds;
   }, []);
 
-  const uploadOne = useCallback(async (uploadFile: FinalUploadFile): Promise<void> => {
-    setFiles((prev) => prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'uploading', progress: 0, error: undefined } : f)));
-    try {
-      const creds = await getCredentials();
-      const assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
-        setFiles((prev) => prev.map((f) => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
-      });
-      await finalizeFinalPhoto(assetId, albumId, uploadFile.file.name);
-      setFiles((prev) => prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'done', progress: 100 } : f)));
-    } catch (err) {
-      const e = err as RetryableError;
-      setFiles((prev) => prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'error', error: e?.message ?? 'Upload failed' } : f)));
-    }
-  }, [albumId, getCredentials]);
+  // Upload a single file with automatic retry on transient failures, mirroring
+  // UploadPage.tsx's uploadWithRetry: the binary goes straight to Sanity
+  // (progress tracked), then a tiny finalize call wires it into the album's
+  // `finalPhotos` array. The asset id is preserved across retries so a binary
+  // upload that already succeeded isn't redone if only finalize failed —
+  // otherwise a retry would leave an orphaned duplicate asset behind.
+  const uploadWithRetry = useCallback(
+    async (uploadFile: FinalUploadFile): Promise<{ ok: boolean; error?: string }> => {
+      let lastError = 'Upload failed';
+      let assetId: string | null = null;
+
+      for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
+        setFiles((prev) => prev.map((f) =>
+          f.id === uploadFile.id ? { ...f, status: 'uploading', progress: assetId ? 100 : 0, error: undefined } : f
+        ));
+
+        try {
+          const creds = await getCredentials();
+          if (!assetId) {
+            assetId = await putAssetToSanity(creds, uploadFile.file, (pct) => {
+              setFiles((prev) => prev.map((f) => (f.id === uploadFile.id ? { ...f, progress: pct } : f)));
+            });
+          }
+          await finalizeFinalPhoto(assetId, albumId, uploadFile.file.name);
+          return { ok: true };
+        } catch (err) {
+          const e = err as RetryableError;
+          lastError = e?.message || 'Upload failed';
+          let canRetry = e?.retryable === true && attempt < MAX_UPLOAD_ATTEMPTS;
+          // A 401 with a freshly-refreshed token is already fixed — no need to
+          // wait out the normal backoff delay before the next attempt.
+          let recoveredFrom401 = false;
+
+          if (e?.status === 401) {
+            credsRef.current = null;
+            try {
+              await getCredentials();
+              canRetry = attempt < MAX_UPLOAD_ATTEMPTS;
+              recoveredFrom401 = true;
+            } catch {
+              canRetry = false;
+            }
+          }
+
+          if (!canRetry) break;
+          if (!recoveredFrom401) {
+            await delay(Math.min(MAX_RETRY_DELAY_MS, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
+          }
+        }
+      }
+
+      return { ok: false, error: lastError };
+    },
+    [albumId, getCredentials],
+  );
 
   const addFiles = useCallback((newFiles: FileList) => {
     const fileArray = Array.from(newFiles);
@@ -209,13 +267,29 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
 
     void (async () => {
       try {
-        await Promise.all(queued.map((uploadFile) => uploadOne(uploadFile)));
+        await runWithConcurrency(
+          queued,
+          async (uploadFile) => {
+            const result = await uploadWithRetry(uploadFile);
+            setFiles((prev) => prev.map((f) =>
+              f.id === uploadFile.id
+                ? {
+                    ...f,
+                    status: result.ok ? 'done' : 'error',
+                    progress: result.ok ? 100 : 0,
+                    error: result.ok ? undefined : result.error,
+                  }
+                : f
+            ));
+          },
+          UPLOAD_CONCURRENCY,
+        );
       } finally {
         setIsUploading(false);
         await onRefresh();
       }
     })();
-  }, [onRefresh, uploadOne]);
+  }, [onRefresh, uploadWithRetry]);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -305,7 +379,10 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
               type="button"
               className="lock-btn deliver-btn"
               onClick={() => { void handleDeliver(); }}
-              disabled={isDelivering}
+              // Also disabled while an upload is in flight — delivering
+              // mid-upload could hand off before a newly selected photo has
+              // finished attaching to the album.
+              disabled={isDelivering || isUploading}
             >
               {isDelivering ? 'Delivering…' : 'Deliver to Client'}
             </button>

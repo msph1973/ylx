@@ -29,6 +29,7 @@ interface AlbumRaw {
   status?: string;
   slug?: { current: string };
   customSlug?: string;
+  finalPhotos?: { _ref: string }[];
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -158,12 +159,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
     // calling this endpoint — rejecting without cleanup would leave that
     // asset orphaned in the dataset forever, since no `photo` document will
     // ever reference it.
-    try {
-      await sanityWriteClient.delete(assetId);
-    } catch (delErr) {
-      console.error("[Albums/final-photos] Failed to delete orphaned asset:", delErr);
-      captureError(delErr, { route: "admin/albums/[id]/final-photos deleteOrphanedAsset", assetId });
-    }
+    await deleteOrphanedAsset(assetId);
     return new Response(
       JSON.stringify({ error: "Filename is too long or contains invalid characters" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
@@ -203,12 +199,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
     if (!asset || asset._type !== "sanity.imageAsset") {
       // Asset doesn't exist or isn't an image — delete the invalid reference
       // and reject the request.
-      try {
-        await sanityWriteClient.delete(assetId);
-      } catch (delErr) {
-        console.error("[Albums/final-photos] Failed to delete invalid asset:", delErr);
-        captureError(delErr, { route: "admin/albums/[id]/final-photos deleteInvalidAsset", assetId });
-      }
+      await deleteOrphanedAsset(assetId);
       return new Response(
         JSON.stringify({ error: "Invalid or non-existent image asset" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -220,12 +211,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
 
     if (!mimeType || !VALID_MIME_TYPES.includes(mimeType)) {
       // Invalid MIME type — delete the asset and reject.
-      try {
-        await sanityWriteClient.delete(assetId);
-      } catch (delErr) {
-        console.error("[Albums/final-photos] Failed to delete invalid-type asset:", delErr);
-        captureError(delErr, { route: "admin/albums/[id]/final-photos deleteInvalidTypeAsset", assetId });
-      }
+      await deleteOrphanedAsset(assetId);
       return new Response(
         JSON.stringify({ error: `Invalid file type. Allowed: ${VALID_MIME_TYPES.join(", ")}` }),
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -234,12 +220,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
 
     if (!fileSize || fileSize > MAX_FILE_SIZE) {
       // File too large — delete the asset and reject.
-      try {
-        await sanityWriteClient.delete(assetId);
-      } catch (delErr) {
-        console.error("[Albums/final-photos] Failed to delete oversized asset:", delErr);
-        captureError(delErr, { route: "admin/albums/[id]/final-photos deleteOversizedAsset", assetId });
-      }
+      await deleteOrphanedAsset(assetId);
       return new Response(
         JSON.stringify({ error: `File too large. Maximum size: 50MB` }),
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -361,7 +342,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   try {
     const [album, photo] = await Promise.all([
       sanityClient.fetch<AlbumRaw | null>(
-        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, slug, customSlug }`,
+        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, slug, customSlug, finalPhotos[]{_ref} }`,
         { albumId }
       ),
       sanityClient.fetch<PhotoRaw | null>(
@@ -385,6 +366,21 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
     }
 
     if (!photo || photo.album?._ref !== albumId) {
+      return new Response(
+        JSON.stringify({ error: "Final photo not found on this album" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // `photo.album._ref === albumId` is also true for the album's ORIGINAL
+    // proofing photos (upload/finalize.ts stamps the same `album` reference
+    // field on them) — so it alone can't tell a final photo apart from a
+    // proofing photo. Confirm `photoId` is actually a member of this album's
+    // `finalPhotos` array before allowing the delete below, so a proofing
+    // photo id can't be used to delete/corrupt a photo document through this
+    // endpoint.
+    const finalPhotoRefs = new Set((album.finalPhotos ?? []).map((ref) => ref._ref));
+    if (!finalPhotoRefs.has(photoId)) {
       return new Response(
         JSON.stringify({ error: "Final photo not found on this album" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
