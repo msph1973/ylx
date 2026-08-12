@@ -1,0 +1,44 @@
+apps/web/src/components/admin/AlbumCard.tsx
+  h_45c23cf41d175e 155-159
+apps/web/src/components/admin/AlbumDetail.tsx
+  h_45c23cf41d175e 11,826-831
+apps/web/src/components/admin/FinalPhotosSection.tsx
+  h_45c23cf41d175e 4-5,18,47-58,115-118,178-232,270-286,292,382-385
+apps/web/src/components/admin/UploadPage.tsx
+  h_45c23cf41d175e 5
+apps/web/src/components/gallery/GalleryPage.test.tsx
+  h_45c23cf41d175e 1-93
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 611-612,614,616,618-619,622-623,640,676,696-710,729-745,1128-1133,1180-1191,1295,1297,1300
+apps/web/src/hooks/useRealtime.ts
+  h_45c23cf41d175e 10-12,20-22,66-77
+apps/web/src/lib/concurrency.ts
+  h_45c23cf41d175e 1-19
+apps/web/src/pages/api/admin/albums/[id]/deliver.test.ts
+  h_45c23cf41d175e 1-107
+apps/web/src/pages/api/admin/albums/[id]/deliver.ts
+  h_45c23cf41d175e 52
+apps/web/src/pages/api/admin/albums/[id]/final-photos.test.ts
+  h_45c23cf41d175e 1-143
+apps/web/src/pages/api/admin/albums/[id]/final-photos.ts
+  h_45c23cf41d175e 32,162,202,214,223,345,375-389
+apps/web/src/pages/api/gallery/[slug]/final-photos.test.ts
+  h_45c23cf41d175e 1-97
+apps/web/src/pages/api/gallery/[slug]/final-photos.ts
+  h_45c23cf41d175e 6,16-21,25,43-64
+packages/shared/index.ts
+  h_45c23cf41d175e 11-13
+packages/shared/types/realtime.ts
+  h_45c23cf41d175e 6,8-10,39-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "8306192d8648e654dc38eb43e3d21b31a549096c",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
