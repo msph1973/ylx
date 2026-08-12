@@ -1,0 +1,18 @@
+apps/web/src/components/admin/FinalPhotosSection.tsx
+  h_45c23cf41d175e 1-2,8-11,129,171-178,311-314
+apps/web/src/pages/api/admin/albums/[id]/final-photos.test.ts
+  h_45c23cf41d175e 42-46,177-184,187-191,193,198-202,204-207,209,211,218-221,223,225,228-251
+apps/web/src/pages/api/admin/albums/[id]/final-photos.ts
+  h_45c23cf41d175e 229-239,244-247,249,259,269-270,274,279-290,294
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6e732e13068d4878f1390be87e5dafcf5676ea34",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
