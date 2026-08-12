@@ -168,6 +168,13 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const credsRef = useRef<UploadCredentials | null>(null);
+  // Mirrors `files` so addFiles can read the current queue synchronously
+  // (to reject duplicate filenames) without depending on `files` itself,
+  // which would recreate the callback on every queue change.
+  const filesRef = useRef<FinalUploadFile[]>([]);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
   // Guards against committing state (or calling onRefresh) after this
   // section unmounts mid-upload — e.g. the admin navigates away from the
   // album detail page while a batch is still in flight. Mirrors the same
@@ -256,8 +263,16 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
 
   const addFiles = useCallback((newFiles: FileList) => {
     const fileArray = Array.from(newFiles);
+    // Names already queued — rejects duplicate filenames (case-insensitive),
+    // matching UploadPage.tsx's dedup so a photographer can't accidentally
+    // queue the same edit twice.
+    const existingNames = new Set(filesRef.current.map((f) => f.file.name.toLowerCase()));
+    // Names accepted within this same drop/pick batch, so a batch that
+    // contains the same filename twice only keeps the first occurrence.
+    const seenInBatch = new Set<string>();
     const accepted: File[] = [];
     let invalidCount = 0;
+    let duplicateCount = 0;
 
     for (const file of fileArray) {
       const ext = file.name.toLowerCase().split('.').pop();
@@ -265,15 +280,24 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
         invalidCount++;
         continue;
       }
+      const key = file.name.toLowerCase();
+      if (existingNames.has(key) || seenInBatch.has(key)) {
+        duplicateCount++;
+        continue;
+      }
+      seenInBatch.add(key);
       accepted.push(file);
     }
 
+    const parts: string[] = [];
     if (invalidCount > 0) {
       const maxMb = Math.round(MAX_FILE_SIZE / (1024 * 1024));
-      setUploadError(`${invalidCount} file${invalidCount === 1 ? '' : 's'} skipped — unsupported format or larger than ${maxMb}MB.`);
-    } else {
-      setUploadError(null);
+      parts.push(`${invalidCount} file${invalidCount === 1 ? '' : 's'} skipped — unsupported format or larger than ${maxMb}MB`);
     }
+    if (duplicateCount > 0) {
+      parts.push(`${duplicateCount} duplicate filename${duplicateCount === 1 ? '' : 's'} skipped`);
+    }
+    setUploadError(parts.length > 0 ? `${parts.join('; ')}.` : null);
 
     const queued: FinalUploadFile[] = accepted.map((file) => ({
       file,

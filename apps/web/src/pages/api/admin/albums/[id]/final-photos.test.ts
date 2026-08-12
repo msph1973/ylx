@@ -175,12 +175,14 @@ const POST_ALBUM = {
 const ASSET = { _type: "sanity.imageAsset", mimeType: "image/jpeg", size: 1024 };
 
 const ASSET_ID = "image-abc123-800x600-jpg";
-// The photoId is deterministic (`final-<assetId>`), not a random UUID — see
-// final-photos.ts for why: it makes a lookup by this id structurally unable
-// to ever match an unrelated proofing `photo` document that references the
-// same asset (a real bug an earlier assetId+album *query*-based idempotency
-// check had).
-const DETERMINISTIC_PHOTO_ID = `final-${ASSET_ID}`;
+// The photoId is deterministic (`final-<albumId>-<assetId>`), not a random
+// UUID — see final-photos.ts for why: it makes a lookup by this id
+// structurally unable to ever match an unrelated proofing `photo` document
+// that references the same asset (a real bug an earlier assetId+album
+// *query*-based idempotency check had), and scoping by album (not just
+// asset) avoids a cross-album id collision when Sanity's content-hash asset
+// dedup returns the same assetId for the same file uploaded to two albums.
+const DETERMINISTIC_PHOTO_ID = `final-${POST_ALBUM._id}-${ASSET_ID}`;
 
 describe("POST /api/admin/albums/[id]/final-photos", () => {
   it("creates a new photo document + finalPhotos entry when none exists yet for this asset", async () => {

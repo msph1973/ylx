@@ -228,14 +228,20 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
 
     // Deterministic, namespaced id (NOT randomUUID like proofing photos in
     // upload/finalize.ts) — this is the idempotency + type-safety key for
-    // everything below. Because it's derived from assetId with a "final-"
-    // prefix that ONLY this endpoint ever produces, a lookup by this exact
-    // id can never accidentally match an unrelated proofing `photo` document
-    // that happens to reference the same asset (a real bug an earlier,
-    // fuzzier assetId+album query-based version of this check had: it could
-    // latch onto a proofing photo, risking the client receiving the wrong
-    // image and a later final-photo delete corrupting the original gallery).
-    const photoId = `final-${assetId}`;
+    // everything below. Because it's derived from albumId+assetId with a
+    // "final-" prefix that ONLY this endpoint ever produces, a lookup by
+    // this exact id can never accidentally match an unrelated proofing
+    // `photo` document that happens to reference the same asset (a real bug
+    // an earlier, fuzzier assetId+album query-based version of this check
+    // had: it could latch onto a proofing photo, risking the client
+    // receiving the wrong image and a later final-photo delete corrupting
+    // the original gallery). `albumId` is included (not just `assetId`)
+    // because Sanity dedupes assets by content hash — uploading the exact
+    // same file bytes as a final photo for two DIFFERENT albums returns the
+    // SAME `assetId`, and an assetId-only id would collide across albums,
+    // letting the second album's delete accidentally target a document
+    // whose `album` reference still points at the first album.
+    const photoId = `final-${albumId}-${assetId}`;
 
     // Idempotency guard: the client (FinalPhotosSection.tsx) retries this
     // call with backoff on a network failure, and a network failure can mean

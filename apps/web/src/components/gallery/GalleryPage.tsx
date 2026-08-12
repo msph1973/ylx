@@ -1328,7 +1328,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 photos={displayPhotos}
                 currentIndex={lightboxIndex}
                 isSelected={selectedPhotos.has(displayPhotos[lightboxIndex]?.id ?? '')}
-                isDisabled={isAlbumLocked(album)}
+                // Same exception as the grid tile above: delivered final
+                // photos are fully viewable, not dimmed/disabled like a
+                // locked-awaiting-action photo.
+                isDisabled={!isDelivered && isAlbumLocked(album)}
                 note={photoNotes.get(displayPhotos[lightboxIndex]?.id ?? '')}
                 onNoteChange={
                   !isAlbumLocked(album)
