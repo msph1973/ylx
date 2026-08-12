@@ -1,0 +1,14 @@
+packages/shared/types/realtime.ts
+  h_45c23cf41d175e 46,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "28f6086da1f2acf62b85795824f7ccb1439afb2d",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
