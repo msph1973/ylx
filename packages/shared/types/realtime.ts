@@ -43,10 +43,12 @@ export interface AlbumDeliveredData {
 export interface FinalPhotoUploadedData {
   photoId: string;
   filename: string;
+  albumId?: string;
 }
 
 export interface FinalPhotoDeletedData {
   photoId: string;
+  albumId?: string;
 }
 
 export interface SelectionRepliedData {
