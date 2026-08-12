@@ -171,7 +171,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
     // own ids, so fetch them concurrently to cut serverless latency.
     const [album, asset] = await Promise.all([
       sanityClient.fetch<AlbumRaw | null>(
-        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, slug, customSlug }`,
+        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, slug, customSlug, "finalPhotos": finalPhotos[]{ _ref } }`,
         { albumId }
       ),
       // Fetch asset metadata to validate MIME type and file size server-side.
@@ -224,6 +224,49 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
       return new Response(
         JSON.stringify({ error: `File too large. Maximum size: 50MB` }),
         { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Idempotency guard: the client (FinalPhotosSection.tsx) retries this
+    // call with backoff on a network failure, and a network failure can mean
+    // the request actually succeeded server-side but the response never made
+    // it back. Each such retry reuses the SAME already-uploaded `assetId`
+    // (the binary upload to Sanity's asset API isn't repeated), so if a
+    // `photo` document already exists for this exact assetId+album pairing,
+    // treat this as "already done" instead of creating a second photo
+    // document and a duplicate `finalPhotos` entry.
+    const existingPhoto = await sanityClient.fetch<{ _id: string } | null>(
+      `*[_type == "photo" && album._ref == $albumId && image.asset._ref == $assetId][0]{ _id }`,
+      { albumId, assetId }
+    );
+    if (existingPhoto) {
+      const alreadyLinked = (album.finalPhotos ?? []).some((ref) => ref._ref === existingPhoto._id);
+      if (!alreadyLinked) {
+        // The photo document was created by a prior attempt, but the append
+        // into `finalPhotos` didn't commit (e.g. the process died between the
+        // two steps) — finish that half instead of leaving it dangling.
+        await commitWithConflictRetry(() =>
+          sanityWriteClient
+            .patch(albumId)
+            .setIfMissing({ finalPhotos: [] })
+            .append("finalPhotos", [
+              { _type: "reference", _ref: existingPhoto._id, _key: existingPhoto._id },
+            ])
+            .commit()
+        );
+        await invalidateCache([
+          CACHE_KEYS.albumsList(),
+          ...(album.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
+          ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
+        ]);
+        await Promise.all([
+          publishAdminEvent("finalPhoto:uploaded", { albumId, photoId: existingPhoto._id, filename }),
+          publishAlbumEvent(albumId, "finalPhoto:uploaded", { photoId: existingPhoto._id, filename }),
+        ]);
+      }
+      return new Response(
+        JSON.stringify({ success: true, photoId: existingPhoto._id }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
