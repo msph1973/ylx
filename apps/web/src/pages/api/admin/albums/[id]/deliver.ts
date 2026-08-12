@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     ]);
     await Promise.all([
       publishAdminEvent("album:delivered", { albumId }),
-      publishAlbumEvent(albumId, "album:delivered"),
+      publishAlbumEvent(albumId, "album:delivered", { albumId }),
     ]);
 
     return new Response(JSON.stringify({ success: true, id: albumId }), {

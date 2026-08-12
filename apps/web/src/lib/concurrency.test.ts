@@ -22,13 +22,19 @@ describe('runWithConcurrency', () => {
 
   it('rejects instead of silently completing when given a non-positive concurrency', async () => {
     const worker = vi.fn().mockResolvedValue(undefined);
-    await expect(runWithConcurrency([1, 2, 3], worker, 0)).rejects.toThrow(/positive finite number/);
+    await expect(runWithConcurrency([1, 2, 3], worker, 0)).rejects.toThrow(/positive integer/);
     expect(worker).not.toHaveBeenCalled();
   });
 
   it('rejects on a non-finite concurrency', async () => {
     const worker = vi.fn().mockResolvedValue(undefined);
-    await expect(runWithConcurrency([1, 2, 3], worker, NaN)).rejects.toThrow(/positive finite number/);
+    await expect(runWithConcurrency([1, 2, 3], worker, NaN)).rejects.toThrow(/positive integer/);
+    expect(worker).not.toHaveBeenCalled();
+  });
+
+  it('rejects a fractional concurrency instead of silently running one worker', async () => {
+    const worker = vi.fn().mockResolvedValue(undefined);
+    await expect(runWithConcurrency([1, 2, 3], worker, 1.5)).rejects.toThrow(/positive integer/);
     expect(worker).not.toHaveBeenCalled();
   });
 
@@ -36,5 +42,32 @@ describe('runWithConcurrency', () => {
     const worker = vi.fn().mockResolvedValue(undefined);
     await expect(runWithConcurrency([], worker, 3)).resolves.toBeUndefined();
     expect(worker).not.toHaveBeenCalled();
+  });
+
+  it('waits for every started worker loop to finish before rethrowing, instead of abandoning in-flight work', async () => {
+    const items = [1, 2, 3, 4];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const finished: number[] = [];
+
+    const worker = async (item: number) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      if (item === 2) {
+        inFlight--;
+        throw new Error('boom');
+      }
+      // A slower "other" worker that must be allowed to finish even though
+      // item 2 fails on a sibling loop.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      finished.push(item);
+      inFlight--;
+    };
+
+    await expect(runWithConcurrency(items, worker, 2)).rejects.toThrow('boom');
+    // Items started before the failure on other loops must have completed
+    // (not been abandoned mid-flight) by the time runWithConcurrency rejects.
+    expect(finished).toContain(1);
+    expect(inFlight).toBe(0);
   });
 });

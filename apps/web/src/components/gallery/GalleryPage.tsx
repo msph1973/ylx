@@ -675,6 +675,11 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [finalPhotos, setFinalPhotos] = useState<FinalPhotoData[] | null>(null);
   const [finalPhotosError, setFinalPhotosError] = useState<string | null>(null);
   const albumIdRef = useRef<string | null>(null);
+  // realtimeCallbacks below is memoized on [fetchFinalPhotos] (stable across
+  // most renders), so its closures would otherwise capture a stale `album`
+  // from whenever it was last created — a ref keeps the current status
+  // readable from inside those closures without forcing a re-memoization.
+  const albumStatusRef = useRef<string | undefined>(undefined);
   // Synchronous double-submit guard: `isSubmitting` state is async (a second
   // tap in the same tick as the first still reads `isSubmitting === false`),
   // so a ref is flipped before any await to make the guard race-free even
@@ -691,6 +696,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   useEffect(() => {
     albumIdRef.current = album?.id ?? null;
+    albumStatusRef.current = album?.status;
   }, [album]);
 
   // Realtime finalPhoto:uploaded/deleted events can fire this in quick
@@ -750,12 +756,17 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     },
     // Keep an already-open delivered gallery's final-photos grid in sync
     // when the photographer adds/removes a photo after delivery, instead of
-    // requiring a manual reload.
+    // requiring a manual reload. The admin final-photos endpoint also
+    // publishes these events for `submitted`/`locked` albums (final photos
+    // can be staged before delivery) — but the client-facing final-photos
+    // endpoint only serves `delivered` albums, so calling it any earlier
+    // would get a non-200 response and could be mistaken for an expired
+    // session. Only refetch once this gallery is actually delivered.
     onFinalPhotoUploaded: () => {
-      void fetchFinalPhotos();
+      if (albumStatusRef.current === 'delivered') void fetchFinalPhotos();
     },
     onFinalPhotoDeleted: () => {
-      void fetchFinalPhotos();
+      if (albumStatusRef.current === 'delivered') void fetchFinalPhotos();
     },
   }), [fetchFinalPhotos]);
 
