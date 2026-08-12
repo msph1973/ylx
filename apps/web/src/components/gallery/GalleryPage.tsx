@@ -47,15 +47,10 @@ interface AlbumData {
   photos: Photo[];
 }
 
-interface FinalPhotoData {
-  id: string;
-  filename: string;
-  thumbnailUrl: string;
-  thumbnailSrcSet?: string | null;
-  url: string;
-  lqip?: string | null;
-}
-
+// `Photo` (already imported above) covers every field the delivered-view
+// fetch returns — reusing it avoids a second, drifting copy of the same
+// shape (see the same dedup already applied to FinalPhotosSection.tsx).
+type FinalPhotoData = Photo;
 
 interface GalleryPhotoTileProps {
   photo: Photo;
