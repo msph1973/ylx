@@ -5,6 +5,7 @@ import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
 import { invalidateCache, CACHE_KEYS } from "../../../../../lib/cache";
 import { parseJsonBody } from "../../../../../lib/requestBody";
 import { captureError } from "../../../../../lib/errorTracking";
+import { delay } from "../../../../../lib/sanityUpload";
 
 // Final-delivery counterpart to upload/finalize.ts: the browser has already
 // uploaded the edited photo's binary straight to Sanity's asset API and holds
@@ -30,8 +31,6 @@ interface AlbumRaw {
   customSlug?: string;
   finalPhotos?: { _ref: string }[];
 }
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Mirrors upload/finalize.ts: a Sanity transaction that mutates a document
 // commits with optimistic concurrency, so two appends racing on the same
