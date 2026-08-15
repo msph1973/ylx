@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
-import JSZip from 'jszip';
 import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -1276,6 +1275,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     setDownloadError(null);
     setIsDownloading(true);
     try {
+      // Dynamic import: jszip is only needed for the (relatively rare)
+      // "download all"/batch-download path, not on initial page load — this
+      // keeps it out of the gallery's critical-path bundle (client:load).
+      const { default: JSZip } = await import('jszip');
       const zip = new JSZip();
       const failedFlags = new Array<boolean>(entries.length).fill(false);
       await runWithConcurrency(

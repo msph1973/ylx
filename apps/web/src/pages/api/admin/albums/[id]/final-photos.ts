@@ -94,8 +94,22 @@ const DELIVERABLE_STATUSES = new Set(["submitted", "locked", "delivered"]);
 // exist or isn't in a valid status to accept final photos). Best-effort:
 // failures are logged but never surface to the caller — the asset is already
 // unreferenced, and a future dataset cleanup job can garbage-collect it.
+//
+// Sanity dedupes assets by content hash, so this exact assetId can already
+// be referenced by an unrelated, already-created `photo` document (e.g. an
+// earlier successful upload of identical file bytes, for this album or a
+// different one) even though THIS particular request is being rejected.
+// Deleting it unconditionally would corrupt that other document's image.
+// Guard with a reference check first — only delete if truly orphaned.
 async function deleteOrphanedAsset(assetId: string): Promise<void> {
   try {
+    const referencedElsewhere = await sanityClient.fetch<boolean>(
+      `count(*[references($assetId)]) > 0`,
+      { assetId }
+    );
+    if (referencedElsewhere) {
+      return;
+    }
     await sanityWriteClient.delete(assetId);
   } catch (delErr) {
     console.error("[Albums/final-photos] Failed to delete orphaned asset:", delErr);
