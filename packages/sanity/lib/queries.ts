@@ -11,6 +11,7 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
   maxSelections,
   status,
   lastUnlockedAt,
+  showOriginalAfterDelivery,
   photos[]-> {
     _id,
     filename,
@@ -77,6 +78,7 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   lastAccessedAt,
   maxSelections,
   status,
+  showOriginalAfterDelivery,
   photos[]-> {
     _id,
     filename,

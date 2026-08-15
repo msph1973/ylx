@@ -165,6 +165,7 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
 
   const [isDelivering, setIsDelivering] = useState(false);
   const [deliverError, setDeliverError] = useState<string | null>(null);
+  const [includeOriginals, setIncludeOriginals] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const credsRef = useRef<UploadCredentials | null>(null);
@@ -374,7 +375,11 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
     setIsDelivering(true);
     setDeliverError(null);
     try {
-      const response = await fetch(`/api/admin/albums/${albumId}/deliver`, { method: 'POST' });
+      const response = await fetch(`/api/admin/albums/${albumId}/deliver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeOriginals }),
+      });
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(data.error ?? 'Failed to deliver to client');
@@ -385,7 +390,7 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
     } finally {
       setIsDelivering(false);
     }
-  }, [albumId, onRefresh]);
+  }, [albumId, includeOriginals, onRefresh]);
 
   if (!isVisible) return null;
 
@@ -423,6 +428,17 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
           >
             {isUploading ? 'Uploading…' : 'Upload Final Photos'}
           </button>
+          {canDeliver && (
+            <label className="deliver-originals-toggle">
+              <input
+                type="checkbox"
+                checked={includeOriginals}
+                onChange={(e) => setIncludeOriginals(e.target.checked)}
+                disabled={isDelivering}
+              />
+              Give client access to original photos too
+            </label>
+          )}
           {canDeliver && (
             <button
               type="button"
@@ -527,6 +543,19 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
         .deliver-btn:hover:not(:disabled) {
           border-color: var(--color-success);
           color: var(--color-success);
+        }
+
+        .deliver-originals-toggle {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-sm);
+          color: var(--color-text-muted);
+          cursor: pointer;
+        }
+
+        .deliver-originals-toggle input[type="checkbox"] {
+          cursor: pointer;
         }
 
         .final-upload-list {

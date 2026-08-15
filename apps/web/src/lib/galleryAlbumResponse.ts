@@ -26,6 +26,7 @@ export interface SanityAlbumRaw {
   status: string;
   maxSelections: number;
   lastUnlockedAt?: string | null;
+  showOriginalAfterDelivery?: boolean;
   photos: SanityPhotoRaw[];
 }
 
@@ -53,6 +54,10 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
       // Draft revision marker — the client discards drafts saved before the
       // most recent unlock (see selectionDraft.loadDraft's notBefore).
       lastUnlockedAt: album.lastUnlockedAt ?? null,
+      // Admin-controlled, set fresh at delivery time (deliver.ts) — defaults
+      // to false (hide the originals tab) for any album that predates this
+      // field and was never re-delivered since.
+      showOriginalAfterDelivery: album.showOriginalAfterDelivery === true,
       photos,
     },
   };

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const requireAdminMock = vi.fn();
 const sanityFetchMock = vi.fn();
 const patchMock = vi.fn();
+const setMock = vi.fn();
 const commitMock = vi.fn();
 const publishAdminEventMock = vi.fn();
 const publishAlbumEventMock = vi.fn();
@@ -35,9 +36,12 @@ vi.mock("@ylx/sanity/client", () => ({
 
 import { POST } from "./deliver";
 
-function call(id = "album-1") {
+function call(id = "album-1", body?: unknown) {
   return POST({
     params: { id },
+    request: {
+      json: () => (body === undefined ? Promise.reject(new SyntaxError("Unexpected end of JSON input")) : Promise.resolve(body)),
+    },
     cookies: { get: () => undefined },
   } as never);
 }
@@ -46,7 +50,8 @@ beforeEach(() => {
   requireAdminMock.mockReset().mockResolvedValue({ adminId: "admin-1" });
   sanityFetchMock.mockReset();
   commitMock.mockReset().mockResolvedValue({});
-  patchMock.mockReset().mockReturnValue({ set: () => ({ commit: commitMock }) });
+  setMock.mockReset().mockReturnValue({ commit: commitMock });
+  patchMock.mockReset().mockReturnValue({ set: (...args: unknown[]) => setMock(...args) });
   publishAdminEventMock.mockReset().mockResolvedValue(undefined);
   publishAlbumEventMock.mockReset().mockResolvedValue(undefined);
   invalidateCacheMock.mockReset().mockResolvedValue(undefined);
@@ -108,5 +113,67 @@ describe("POST /api/admin/albums/[id]/deliver", () => {
     // refetches on receiving the event never races an already-stale cache.
     expect(invalidateCacheMock.mock.invocationCallOrder[0])
       .toBeLessThan(publishAlbumEventMock.mock.invocationCallOrder[0]);
+  });
+
+  // New body-parsing behavior: `{ includeOriginals?: boolean }`, defaulting
+  // to `true` on a missing/malformed body so the old bodyless POST stays
+  // backward compatible.
+  it("defaults showOriginalAfterDelivery to true when the body is missing", async () => {
+    sanityFetchMock.mockResolvedValue({
+      _id: "album-1",
+      status: "locked",
+      finalPhotos: [{ _ref: "p1" }],
+    });
+    const res = await call("album-1", undefined);
+    expect(res.status).toBe(200);
+    expect(setMock).toHaveBeenCalledWith({ status: "delivered", showOriginalAfterDelivery: true });
+  });
+
+  it("defaults showOriginalAfterDelivery to true when the body is malformed JSON", async () => {
+    sanityFetchMock.mockResolvedValue({
+      _id: "album-1",
+      status: "locked",
+      finalPhotos: [{ _ref: "p1" }],
+    });
+    const res = await POST({
+      params: { id: "album-1" },
+      request: { json: () => Promise.reject(new SyntaxError("Unexpected token")) },
+      cookies: { get: () => undefined },
+    } as never);
+    expect(res.status).toBe(200);
+    expect(setMock).toHaveBeenCalledWith({ status: "delivered", showOriginalAfterDelivery: true });
+  });
+
+  it("defaults showOriginalAfterDelivery to true when includeOriginals isn't a boolean", async () => {
+    sanityFetchMock.mockResolvedValue({
+      _id: "album-1",
+      status: "locked",
+      finalPhotos: [{ _ref: "p1" }],
+    });
+    const res = await call("album-1", { includeOriginals: "nope" });
+    expect(res.status).toBe(200);
+    expect(setMock).toHaveBeenCalledWith({ status: "delivered", showOriginalAfterDelivery: true });
+  });
+
+  it("honors an explicit includeOriginals: false", async () => {
+    sanityFetchMock.mockResolvedValue({
+      _id: "album-1",
+      status: "locked",
+      finalPhotos: [{ _ref: "p1" }],
+    });
+    const res = await call("album-1", { includeOriginals: false });
+    expect(res.status).toBe(200);
+    expect(setMock).toHaveBeenCalledWith({ status: "delivered", showOriginalAfterDelivery: false });
+  });
+
+  it("honors an explicit includeOriginals: true", async () => {
+    sanityFetchMock.mockResolvedValue({
+      _id: "album-1",
+      status: "locked",
+      finalPhotos: [{ _ref: "p1" }],
+    });
+    const res = await call("album-1", { includeOriginals: true });
+    expect(res.status).toBe(200);
+    expect(setMock).toHaveBeenCalledWith({ status: "delivered", showOriginalAfterDelivery: true });
   });
 });

@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
+import JSZip from 'jszip';
 import { PinEntry } from '@/components/gallery/PinEntry';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useRealtime } from '@/hooks/useRealtime';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
 import { fetchResumeSession } from '@/lib/gallerySessionClient';
+import { buildDownloadManifest, type DownloadFolder, type DownloadManifestEntry } from '@/lib/galleryDownload';
 import type { Photo } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
@@ -44,8 +46,11 @@ interface AlbumData {
   maxSelections: number;
   status: string;
   lastUnlockedAt?: string | null;
+  showOriginalAfterDelivery: boolean;
   photos: Photo[];
 }
+
+type DeliveredTab = 'cetak' | 'original';
 
 // `Photo` (already imported above) covers every field the delivered-view
 // fetch returns — reusing it avoids a second, drifting copy of the same
@@ -62,6 +67,10 @@ interface GalleryPhotoTileProps {
   shouldReduceMotion: boolean | null;
   onOpen: (event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+  // Only set once delivered — renders a small per-tile download icon that
+  // downloads just that photo, independent of the tap-to-open/tap-to-select
+  // behavior above (the button stops propagation so it never triggers those).
+  onDownloadClick?: (photo: Photo) => void;
 }
 
 // Toggling one photo's selection only flips isSelected for that single tile,
@@ -78,7 +87,8 @@ function areGalleryPhotoTilePropsEqual(prev: GalleryPhotoTileProps, next: Galler
     prev.isAboveFold === next.isAboveFold &&
     prev.shouldReduceMotion === next.shouldReduceMotion &&
     prev.onOpen === next.onOpen &&
-    prev.onKeyDown === next.onKeyDown
+    prev.onKeyDown === next.onKeyDown &&
+    prev.onDownloadClick === next.onDownloadClick
   );
 }
 
@@ -92,10 +102,12 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
   shouldReduceMotion,
   onOpen,
   onKeyDown,
+  onDownloadClick,
 }: GalleryPhotoTileProps) {
   return (
     <m.div
       data-index={index}
+      data-photo-id={photo.id}
       role="button"
       tabIndex={0}
       aria-label={`View photo ${photo.filename}${isSelected ? ' (selected)' : ''}`}
@@ -124,6 +136,16 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
         >
           ✓
         </m.div>
+      )}
+      {onDownloadClick && (
+        <button
+          type="button"
+          className="photo-download-btn"
+          onClick={(event) => { event.stopPropagation(); onDownloadClick(photo); }}
+          aria-label={`Download photo ${photo.filename}`}
+        >
+          ⬇
+        </button>
       )}
     </m.div>
   );
@@ -645,6 +667,32 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
+// Sanity CDN URLs are cross-origin, so a plain `<a href download>` won't
+// force a download in most browsers (it navigates/opens instead) — fetching
+// as a blob and saving via an object URL works everywhere.
+async function fetchAsBlob(url: string): Promise<Blob> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+  return await response.blob();
+}
+
+function saveBlob(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(objectUrl);
+}
+
+// Zip filenames can't contain path separators and read oddly with
+// characters an album title might contain (quotes, colons, etc.).
+function sanitizeZipFilename(name: string): string {
+  return name.replace(/[^a-z0-9 _-]/gi, '_').trim() || 'gallery';
+}
+
 export function GalleryPage({ slug }: GalleryPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -669,6 +717,15 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [finalPhotos, setFinalPhotos] = useState<FinalPhotoData[] | null>(null);
   const [finalPhotosError, setFinalPhotosError] = useState<string | null>(null);
+  // Delivered-view only: which of the two tabs is showing, the "Pilih untuk
+  // Download" select mode toggle, the set of photo ids queued for a batch
+  // download (no max — unlike selectedPhotos, which caps at maxSelections),
+  // and any download failure to surface (mirrors finalPhotosError's pattern).
+  const [activeDeliveredTab, setActiveDeliveredTab] = useState<DeliveredTab>('cetak');
+  const [isDownloadSelectMode, setIsDownloadSelectMode] = useState(false);
+  const [selectedForDownload, setSelectedForDownload] = useState<Set<string>>(new Set());
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const albumIdRef = useRef<string | null>(null);
   // realtimeCallbacks below is memoized on [fetchFinalPhotos] (stable across
   // most renders), so its closures would otherwise capture a stale `album`
@@ -1010,6 +1067,120 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     }
   }, [album, selectedPhotos, showNotice]);
 
+  // Delivered-view "Pilih untuk Download" mode: same tap-to-toggle shape as
+  // togglePhoto above, but with no max-selection limit and no notice side effect.
+  const toggleDownloadSelection = useCallback((photoId: string) => {
+    setSelectedForDownload((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) next.delete(photoId);
+      else next.add(photoId);
+      return next;
+    });
+  }, []);
+
+  // Turning the mode off also clears the in-progress selection, so
+  // re-entering select mode later starts from a clean slate.
+  const handleToggleDownloadSelectMode = useCallback(() => {
+    setIsDownloadSelectMode((prev) => {
+      const next = !prev;
+      if (!next) setSelectedForDownload(new Set());
+      return next;
+    });
+  }, []);
+
+  // Grid tiles are shared between the pre-delivery selection flow and the
+  // delivered/download-select flow — this picks whichever tap behavior
+  // currently applies instead of duplicating the tile-rendering block.
+  const handleTileActivate = useCallback((event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement>) => {
+    if (isDownloadSelectMode) {
+      const photoId = event.currentTarget.dataset.photoId;
+      if (photoId) toggleDownloadSelection(photoId);
+      return;
+    }
+    handlePhotoTileOpen(event);
+  }, [isDownloadSelectMode, toggleDownloadSelection, handlePhotoTileOpen]);
+
+  const handleTileActivateKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleTileActivate(event);
+    }
+  }, [handleTileActivate]);
+
+  const downloadSinglePhoto = useCallback(async (photo: Photo) => {
+    setDownloadError(null);
+    setIsDownloading(true);
+    try {
+      const blob = await fetchAsBlob(photo.url);
+      saveBlob(blob, photo.filename);
+    } catch {
+      setDownloadError(`Gagal mengunduh ${photo.filename}. Silakan coba lagi.`);
+    } finally {
+      setIsDownloading(false);
+    }
+  }, []);
+
+  // Fetches every entry's blob (best-effort — a single failed fetch is
+  // skipped, not fatal to the whole batch) and bundles them into one zip
+  // with the entry's folder as the path prefix (e.g. "Cetak/edit_1.jpg").
+  const downloadManifestAsZip = useCallback(async (entries: DownloadManifestEntry[], zipFilename: string) => {
+    if (entries.length === 0) {
+      setDownloadError('Tidak ada foto untuk diunduh.');
+      return;
+    }
+    setDownloadError(null);
+    setIsDownloading(true);
+    try {
+      const zip = new JSZip();
+      const results = await Promise.allSettled(entries.map((entry) => fetchAsBlob(entry.photo.url)));
+      let failedCount = 0;
+      results.forEach((result, index) => {
+        const entry = entries[index];
+        if (result.status === 'fulfilled') {
+          zip.folder(entry.folder)?.file(entry.filename, result.value);
+        } else {
+          failedCount += 1;
+        }
+      });
+      if (failedCount === entries.length) {
+        setDownloadError('Semua unduhan gagal. Silakan coba lagi.');
+        return;
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      saveBlob(zipBlob, zipFilename);
+      if (failedCount > 0) {
+        setDownloadError(`${failedCount} dari ${entries.length} foto gagal diunduh.`);
+      }
+    } catch {
+      setDownloadError('Gagal membuat file ZIP. Silakan coba lagi.');
+    } finally {
+      setIsDownloading(false);
+    }
+  }, []);
+
+  const handleDownloadAll = useCallback(() => {
+    const folders: DownloadFolder[] = [{ folder: 'Cetak', photos: finalPhotos ?? [] }];
+    if (album?.showOriginalAfterDelivery) {
+      folders.push({ folder: 'Semua Foto', photos: album.photos ?? [] });
+    }
+    void downloadManifestAsZip(buildDownloadManifest(folders), `${sanitizeZipFilename(album?.title ?? 'gallery')}.zip`);
+  }, [album, finalPhotos, downloadManifestAsZip]);
+
+  const handleDownloadSelected = useCallback(() => {
+    const selectedFinal = (finalPhotos ?? []).filter((photo) => selectedForDownload.has(photo.id));
+    const selectedOriginal = album?.showOriginalAfterDelivery
+      ? (album.photos ?? []).filter((photo) => selectedForDownload.has(photo.id))
+      : [];
+    const folders: DownloadFolder[] = [
+      { folder: 'Cetak', photos: selectedFinal },
+      { folder: 'Semua Foto', photos: selectedOriginal },
+    ].filter((folder) => folder.photos.length > 0);
+    void downloadManifestAsZip(
+      buildDownloadManifest(folders),
+      `${sanitizeZipFilename(album?.title ?? 'gallery')}-terpilih.zip`
+    );
+  }, [album, finalPhotos, selectedForDownload, downloadManifestAsZip]);
+
   const setNote = useCallback((photoId: string, note: string) => {
     setPhotoNotes((prev) => {
       const next = new Map(prev);
@@ -1151,13 +1322,23 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }
 
   const isDelivered = album?.status === 'delivered';
-  // Once delivered, the proofing set (`album.photos`) must never be shown —
-  // fall back to an empty array (not the proofing photos) while `finalPhotos`
-  // is still loading or failed to load, so a delivered client is never shown
-  // photos they weren't meant to receive.
-  const finalPhotosLoading = isDelivered && finalPhotos === null && !finalPhotosError;
-  const displayPhotos = isDelivered ? (finalPhotos ?? []) : (album?.photos ?? []);
+  // The "Semua Foto" (originals) tab only exists when the admin opted in at
+  // delivery time — falls back to the "cetak" (final photos) tab otherwise,
+  // even if `activeDeliveredTab` state was somehow left at 'original' (e.g.
+  // a realtime album:delivered event flips isDelivered without resetting it).
+  const canShowOriginalTab = isDelivered && album?.showOriginalAfterDelivery === true;
+  const effectiveDeliveredTab: DeliveredTab = canShowOriginalTab ? activeDeliveredTab : 'cetak';
+  // Once delivered, the proofing set (`album.photos`) must never be shown on
+  // the "cetak" tab — fall back to an empty array (not the proofing photos)
+  // while `finalPhotos` is still loading or failed to load, so a delivered
+  // client is never shown photos they weren't meant to receive.
+  const finalPhotosLoading = isDelivered && effectiveDeliveredTab === 'cetak' && finalPhotos === null && !finalPhotosError;
+  const displayPhotos = isDelivered
+    ? (effectiveDeliveredTab === 'original' ? (album?.photos ?? []) : (finalPhotos ?? []))
+    : (album?.photos ?? []);
   const hasPhotos = displayPhotos.length > 0;
+  // Tiles have no selection concept on the read-only originals tab.
+  const tileIsDisabled = isDelivered ? effectiveDeliveredTab === 'original' : isAlbumLocked(album);
 
   return (
     <div className="gallery-view">
@@ -1194,6 +1375,52 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           <p className="final-delivery-subtitle">
             Your photographer has delivered your edited photos. Tap any photo to view it full-size.
           </p>
+        </div>
+      )}
+
+      {isDelivered && (
+        <div className="delivered-controls">
+          {canShowOriginalTab && (
+            <div className="delivered-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveDeliveredTab === 'cetak'}
+                className={`delivered-tab-btn ${effectiveDeliveredTab === 'cetak' ? 'active' : ''}`}
+                onClick={() => setActiveDeliveredTab('cetak')}
+              >
+                Cetak
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveDeliveredTab === 'original'}
+                className={`delivered-tab-btn ${effectiveDeliveredTab === 'original' ? 'active' : ''}`}
+                onClick={() => setActiveDeliveredTab('original')}
+              >
+                Semua Foto
+              </button>
+            </div>
+          )}
+          <div className="delivered-download-actions">
+            <button
+              type="button"
+              className={`download-select-toggle-btn ${isDownloadSelectMode ? 'active' : ''}`}
+              onClick={handleToggleDownloadSelectMode}
+              aria-pressed={isDownloadSelectMode}
+            >
+              {isDownloadSelectMode ? 'Batal Pilih' : 'Pilih untuk Download'}
+            </button>
+            <button
+              type="button"
+              className="download-all-btn"
+              onClick={handleDownloadAll}
+              disabled={isDownloading}
+            >
+              Download Semua
+            </button>
+          </div>
+          {downloadError && <p className="inline-error" role="alert">{downloadError}</p>}
         </div>
       )}
 
@@ -1236,22 +1463,37 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             photo={photo}
             index={index}
             totalPhotos={displayPhotos.length}
-            isSelected={selectedPhotos.has(photo.id)}
-            // Delivered final photos are fully viewable (not locked awaiting
-            // client action) — `isAlbumLocked` includes 'delivered' so the
-            // selection UI elsewhere stays hidden, but dimming/disabling the
-            // tile itself here would make finished photos look uninteractive.
-            isDisabled={!isDelivered && isAlbumLocked(album)}
+            // Pre-delivery: the real "selected for submission" state.
+            // Delivered + download-select mode: highlights photos queued
+            // for the batch download instead — there's no submission
+            // selection concept once delivered.
+            isSelected={isDelivered ? (isDownloadSelectMode && selectedForDownload.has(photo.id)) : selectedPhotos.has(photo.id)}
+            isDisabled={tileIsDisabled}
             // First row (visible without scrolling on any device) loads
             // eagerly at high priority; the rest stay lazy so the LCP
             // candidate isn't competing with dozens of below-the-fold requests.
             isAboveFold={index < 4}
             shouldReduceMotion={shouldReduceMotion}
-            onOpen={handlePhotoTileOpen}
-            onKeyDown={handlePhotoTileKeyDown}
+            onOpen={handleTileActivate}
+            onKeyDown={handleTileActivateKeyDown}
+            onDownloadClick={isDelivered ? downloadSinglePhoto : undefined}
           />
         ))}
       </m.div>
+      )}
+
+      {isDelivered && isDownloadSelectMode && selectedForDownload.size > 0 && (
+        <div className="gallery-selection-bar download-selection-bar">
+          <span className="selection-count">{selectedForDownload.size} foto dipilih</span>
+          <button
+            type="button"
+            className="submit-btn"
+            onClick={handleDownloadSelected}
+            disabled={isDownloading}
+          >
+            Download {selectedForDownload.size} Foto Terpilih
+          </button>
+        </div>
       )}
 
       <AnimatePresence>

@@ -113,6 +113,13 @@ export default defineType({
       type: "datetime",
       readOnly: true,
     }),
+    defineField({
+      name: "showOriginalAfterDelivery",
+      title: "Show Original Photos After Delivery",
+      description: "Set at delivery time via the deliver dialog. When on, the client can still view/download the original proofing photos alongside the final edited photos.",
+      type: "boolean",
+      initialValue: true,
+    }),
   ],
   preview: {
     select: {

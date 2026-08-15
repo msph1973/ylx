@@ -17,7 +17,7 @@ interface AlbumRaw {
   customSlug?: string;
 }
 
-export const POST: APIRoute = async ({ params, cookies }) => {
+export const POST: APIRoute = async ({ params, request, cookies }) => {
   const session = await requireAdmin(cookies);
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -32,6 +32,21 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       JSON.stringify({ error: "Album ID is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  // Optional JSON body — `{ includeOriginals?: boolean }`. Missing/empty/
+  // malformed bodies (and any non-boolean `includeOriginals`) default to
+  // `true` rather than 400ing, so this stays backward compatible with the
+  // existing bodyless POST call in FinalPhotosSection.tsx callers that
+  // haven't been updated yet.
+  let includeOriginals = true;
+  try {
+    const body = await request.json();
+    if (body && typeof body === "object" && typeof (body as Record<string, unknown>).includeOriginals === "boolean") {
+      includeOriginals = (body as Record<string, unknown>).includeOriginals as boolean;
+    }
+  } catch {
+    // No body, empty body, or invalid JSON — keep the default of true.
   }
 
   try {
@@ -61,7 +76,10 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       );
     }
 
-    await sanityWriteClient.patch(albumId).set({ status: "delivered" }).commit();
+    await sanityWriteClient
+      .patch(albumId)
+      .set({ status: "delivered", showOriginalAfterDelivery: includeOriginals })
+      .commit();
 
     // Invalidate before publishing so the realtime event is a reliable
     // "refetch now" signal against already-fresh cache (matches lock.ts/
