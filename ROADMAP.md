@@ -11,7 +11,7 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 | # | Fitur | Tingkat | Status |
 |---|-------|---------|--------|
 | 1 | Notifikasi email (submit + konfirmasi klien) | 1 | **MERGED** — PR #95, live & terverifikasi di produksi (user menerima email) |
-| 2 | Pengiriman hasil akhir (final delivery) | 1 | PR pending — feature/final-delivery |
+| 2 | Pengiriman hasil akhir (final delivery) | 1 | **MERGED** — PR #96 (merge commit `2178cc5`, 2026-08-15) |
 | 3 | Backup/export otomatis data Sanity | 1 | Belum dikerjakan — dipilih user sebagai item berikutnya |
 | 4 | Watermark preview + proteksi klik-kanan/drag-save | 2 | Belum dikerjakan |
 | 5 | Tingkatan pilihan foto (mis. "wajib" vs "kandidat") | 2 | Belum dikerjakan |
@@ -20,7 +20,7 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 | 8 | Branding kustom per album/fotografer | 3 | Belum dikerjakan |
 | 9 | Dashboard analitik ringan untuk fotografer | 3 | Belum dikerjakan |
 | 10 | Dukungan multi-bahasa (i18n) sisi klien | 3 | Belum dikerjakan |
-| 11 | Download foto asli (per-foto + download-all ZIP) — klien & admin | 2 | **SUDAH DIKERJAKAN** (PR #96, commit `41b7478`, klien-side, digabung dengan #2 final delivery) — lihat catatan supersede di bawah |
+| 11 | Download foto asli (per-foto + download-all ZIP) — klien & admin | 2 | **MERGED** (bagian dari PR #96, merge commit `2178cc5`, klien-side, digabung dengan #2 final delivery) — lihat catatan supersede di bawah |
 
 > Catatan: "Catatan per foto dari klien" **sudah ada** (field `notes` + `photographerReply` di schema `selection`, lihat `packages/sanity/schemas/selection.ts`) — sengaja dicoret dari daftar usulan awal supaya tidak dikerjakan ulang.
 
