@@ -72,10 +72,11 @@
 
   /* Overlays / scrims (backdrops behind modals & lightbox) */
   --overlay-scrim: rgba(0, 0, 0, 0.5);
-  /* Near-opaque rather than a lower alpha: at 0.92 the lightbox backdrop let
-     bright page content behind it (e.g. the "Your Final Photos" heading)
-     bleed through faintly over photos, which read as a rendering glitch. */
-  --overlay-lightbox: rgba(0, 0, 0, 0.98);
+  /* Fully opaque, not just near-opaque: at 0.92 (and still faintly at 0.98)
+     the lightbox backdrop let bright page content behind it (e.g. the
+     "Your Final Photos" heading) bleed through over photos, reading as a
+     rendering glitch. Any alpha < 1 blends with whatever sits behind it. */
+  --overlay-lightbox: #050505;
   --overlay-shadow-modal: rgba(0, 0, 0, 0.3);
   --overlay-shadow-dialog: rgba(0, 0, 0, 0.4);
 
