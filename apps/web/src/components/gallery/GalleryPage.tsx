@@ -395,7 +395,8 @@ const GALLERY_VIEW_STYLES = `
           font-size: var(--text-xs);
         }
 
-        .lightbox-close {
+        .lightbox-close,
+        .lightbox-download {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -412,9 +413,15 @@ const GALLERY_VIEW_STYLES = `
         }
 
         @media (hover: hover) {
-          .lightbox-close:hover {
+          .lightbox-close:hover,
+          .lightbox-download:hover:not(:disabled) {
             color: #fff;
           }
+        }
+
+        .lightbox-download:disabled {
+          opacity: 0.4;
+          cursor: default;
         }
 
         .lightbox-img {
@@ -639,6 +646,118 @@ const GALLERY_VIEW_STYLES = `
 
         .final-photos-error {
           color: var(--color-error);
+        }
+
+        .delivered-controls {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+          margin-bottom: var(--space-4);
+        }
+
+        .delivered-tabs {
+          display: flex;
+          gap: var(--space-2);
+        }
+
+        .delivered-tab-btn {
+          flex: 1;
+          min-height: var(--tap-target-min);
+          padding: var(--space-2) var(--space-4);
+          background: none;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          color: var(--color-text-muted);
+          font-weight: var(--font-medium);
+          font-size: var(--text-sm);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .delivered-tab-btn.active {
+          background-color: var(--color-accent);
+          border-color: var(--color-accent);
+          color: var(--color-bg);
+        }
+
+        @media (hover: hover) {
+          .delivered-tab-btn:hover:not(.active) {
+            border-color: var(--color-accent);
+            color: var(--color-text);
+          }
+        }
+
+        .delivered-download-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-2);
+        }
+
+        .download-select-toggle-btn,
+        .download-all-btn {
+          min-height: var(--tap-target-min);
+          padding: var(--space-2) var(--space-4);
+          background: none;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          color: var(--color-text);
+          font-weight: var(--font-medium);
+          font-size: var(--text-sm);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .download-select-toggle-btn.active {
+          background-color: var(--color-accent);
+          border-color: var(--color-accent);
+          color: var(--color-bg);
+        }
+
+        @media (hover: hover) {
+          .download-select-toggle-btn:hover:not(.active),
+          .download-all-btn:hover:not(:disabled) {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
+        }
+
+        .download-all-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .inline-error {
+          color: var(--color-error);
+          font-size: var(--text-sm);
+          margin: 0;
+        }
+
+        /* Per-tile download icon — bottom-right corner so it never overlaps
+           the selection-badge checkmark (top-right). */
+        .photo-download-btn {
+          position: absolute;
+          bottom: var(--space-2);
+          right: var(--space-2);
+          width: 28px;
+          height: 28px;
+          min-width: 28px;
+          min-height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: rgba(0, 0, 0, 0.55);
+          color: #fff;
+          border: none;
+          border-radius: var(--radius-full);
+          font-size: var(--text-sm);
+          cursor: pointer;
+          transition: background-color var(--transition-fast);
+        }
+
+        @media (hover: hover) {
+          .photo-download-btn:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+          }
         }
 
         .lightbox-error {
@@ -1598,11 +1717,26 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 key="lightbox"
                 photos={displayPhotos}
                 currentIndex={lightboxIndex}
-                isSelected={selectedPhotos.has(displayPhotos[lightboxIndex]?.id ?? '')}
+                // Delivered + download-select mode: reflects the same
+                // "queued for batch download" set as the grid tile, not the
+                // (locked, no-longer-meaningful) submission selection.
+                isSelected={
+                  isDelivered
+                    ? isDownloadSelectMode && selectedForDownload.has(displayPhotos[lightboxIndex]?.id ?? '')
+                    : selectedPhotos.has(displayPhotos[lightboxIndex]?.id ?? '')
+                }
                 // Same exception as the grid tile above: delivered final
                 // photos are fully viewable, not dimmed/disabled like a
                 // locked-awaiting-action photo.
                 isDisabled={!isDelivered && isAlbumLocked(album)}
+                // Once delivered, only show the toggle while the caller's own
+                // "Pilih untuk Download" mode is active — otherwise the old
+                // submission-select button would keep appearing (isDisabled
+                // is false post-delivery) even though submission is locked.
+                canSelect={isDelivered ? isDownloadSelectMode : true}
+                showDownload={isDelivered}
+                onDownload={downloadSinglePhoto}
+                downloadDisabled={isDownloading}
                 note={photoNotes.get(displayPhotos[lightboxIndex]?.id ?? '')}
                 onNoteChange={
                   !isAlbumLocked(album)
@@ -1611,7 +1745,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 }
                 onClose={closeLightbox}
                 onNavigate={setLightboxIndex}
-                onToggleSelect={togglePhoto}
+                onToggleSelect={isDelivered ? toggleDownloadSelection : togglePhoto}
               />
             </Suspense>
           </LightboxErrorBoundary>

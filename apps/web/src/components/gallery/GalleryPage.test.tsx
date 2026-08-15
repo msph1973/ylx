@@ -81,6 +81,14 @@ describe('GalleryPage — delivered gallery lightbox indexing', () => {
     // Not yet selected.
     expect(lightbox.dataset.selected).toBe('false');
 
+    // The lightbox's select toggle only reflects/affects the download-select
+    // set once "Pilih untuk Download" mode is active (matching the grid's
+    // own tap-to-toggle gating) — enter that mode first, mirroring how a
+    // real user would before the toggle has any effect.
+    await act(async () => {
+      screen.getByText('Pilih untuk Download').click();
+    });
+
     // Simulate selecting the currently-shown (final) photo from the lightbox.
     await act(async () => {
       screen.getByText('toggle-select').click();
