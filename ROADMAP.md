@@ -20,7 +20,7 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 | 8 | Branding kustom per album/fotografer | 3 | Belum dikerjakan |
 | 9 | Dashboard analitik ringan untuk fotografer | 3 | Belum dikerjakan |
 | 10 | Dukungan multi-bahasa (i18n) sisi klien | 3 | Belum dikerjakan |
-| 11 | Download foto asli (per-foto + download-all ZIP), ADMIN saja untuk sekarang | 2 | Belum dikerjakan — keputusan desain final, dikerjakan setelah #3 |
+| 11 | Download foto asli (per-foto + download-all ZIP) — klien & admin | 2 | **SUDAH DIKERJAKAN** (PR #96, commit `41b7478`, klien-side, digabung dengan #2 final delivery) — lihat catatan supersede di bawah |
 
 > Catatan: "Catatan per foto dari klien" **sudah ada** (field `notes` + `photographerReply` di schema `selection`, lihat `packages/sanity/schemas/selection.ts`) — sengaja dicoret dari daftar usulan awal supaya tidak dikerjakan ulang.
 
@@ -205,6 +205,8 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 - Test: mock `fetch`/`jszip` di vitest, pastikan tombol disabled saat proses berjalan, error handling kalau salah satu fetch foto gagal (jangan gagal total diam-diam — beri tahu foto mana yang gagal).
 
 **Kriteria selesai**: admin bisa download 1 foto resolusi asli langsung dari `AlbumDetail.tsx`; admin bisa download semua foto aktif dalam 1 album sebagai satu file `.zip` resolusi asli, dengan indikator progress dan penanganan error yang jelas kalau ada foto yang gagal di-fetch.
+
+**⚠️ SUPERSEDE (2026-08-15, dikonfirmasi user)**: keputusan "final" 2026-08-10 di atas (poin 2: sisi klien DITUNDA, admin-only) **sudah tidak berlaku** — user mengonfirmasi secara eksplisit bahwa implementasi sisi **klien** (tab galeri "Cetak"/"Original" + tombol download di `GalleryPage.tsx`/`PhotoLightbox.tsx`, digabung ke branch `feature/final-delivery`/PR #96, commit `41b7478`) memang **disengaja/fokus yang diinginkan**, bukan penyimpangan. Poin 1 (resolusi asli/original), 3 (client-side ZIP via `jszip`), dan semangat 4 (terkait erat dengan #2 final delivery, bukan dikerjakan terpisah setelah #3) tetap sejalan dengan implementasi aktual. Field kontrol admin `showOriginalAfterDelivery` di schema `album` dipakai untuk tetap memberi admin kendali on/off. Detail teknis lengkap: `~/.junie/tasks/FEATURE-final-delivery.md`.
 
 ---
 
