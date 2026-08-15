@@ -16,6 +16,7 @@ export interface ResumedAlbum {
     thumbnailUrl: string;
     thumbnailSrcSet?: string | null;
     url: string;
+    downloadUrl?: string;
     lqip?: string | null;
   }>;
 }

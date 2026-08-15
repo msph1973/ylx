@@ -4,25 +4,23 @@ import { BlurImage } from '@/components/gallery/BlurImage';
 import { ConfirmDialog } from './ConfirmDialog';
 import { runWithConcurrency } from '@/lib/concurrency';
 import type { AlbumStatusVariant } from '@/lib/albumStatus';
-
-// `Photo` already covers every field this section reads (id/filename/url/
-// thumbnailUrl/thumbnailSrcSet/lqip) plus optional extras it doesn't use —
-// reusing it avoids a second, drifting copy of the same shape.
-export type FinalPhoto = Photo;
+import {
+  type UploadCredentials,
+  type RetryableError,
+  RETRY_BASE_DELAY_MS,
+  MAX_RETRY_DELAY_MS,
+  delay,
+  makeError,
+  isRetryableStatus,
+  putAssetToSanity,
+} from '@/lib/sanityUpload';
 
 interface FinalPhotosSectionProps {
   albumId: string;
   status: AlbumStatusVariant;
-  finalPhotos: FinalPhoto[];
+  finalPhotos: Photo[];
   /** Re-fetches the parent album so `status`/`finalPhotos` reflect the latest state. */
   onRefresh: () => void | Promise<void>;
-}
-
-interface UploadCredentials {
-  projectId: string;
-  dataset: string;
-  apiVersion: string;
-  token: string;
 }
 
 interface FinalUploadFile {
@@ -31,11 +29,6 @@ interface FinalUploadFile {
   status: 'pending' | 'uploading' | 'done' | 'error';
   progress: number;
   error?: string;
-}
-
-interface RetryableError extends Error {
-  retryable?: boolean;
-  status?: number;
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — mirrors the main upload flow.
@@ -48,76 +41,6 @@ const VALID_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif'];
 const UPLOAD_CONCURRENCY = 3;
 // 1 initial attempt + up to 2 retries for transient failures.
 const MAX_UPLOAD_ATTEMPTS = 3;
-const RETRY_BASE_DELAY_MS = 800;
-const MAX_RETRY_DELAY_MS = 30_000;
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function makeError(message: string, opts: { retryable: boolean; status?: number }): RetryableError {
-  const err = new Error(message) as RetryableError;
-  err.retryable = opts.retryable;
-  err.status = opts.status;
-  return err;
-}
-
-function isRetryableStatus(status: number): boolean {
-  return status === 0 || status === 408 || status === 429 || status >= 500;
-}
-
-// Direct-to-Sanity binary upload, same approach as UploadPage.tsx: bypasses
-// Vercel's ~4.5MB serverless body limit by uploading straight to Sanity's
-// asset API from the browser, with XHR so we get real progress events.
-function putAssetToSanity(
-  creds: UploadCredentials,
-  file: File,
-  onProgress: (pct: number) => void,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const url =
-      `https://${creds.projectId}.api.sanity.io/v${creds.apiVersion}` +
-      `/assets/images/${creds.dataset}?filename=${encodeURIComponent(file.name)}`;
-
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    });
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const assetId = JSON.parse(xhr.responseText)?.document?._id;
-          if (typeof assetId === 'string' && assetId) {
-            resolve(assetId);
-            return;
-          }
-        } catch {
-          /* fall through to reject */
-        }
-        reject(makeError('Malformed upload response from Sanity', { retryable: true }));
-      } else {
-        reject(
-          makeError(`Sanity upload failed (${xhr.status})`, {
-            retryable: isRetryableStatus(xhr.status),
-            status: xhr.status,
-          }),
-        );
-      }
-    });
-    xhr.addEventListener('error', () =>
-      reject(makeError('Network error during upload', { retryable: true, status: 0 })),
-    );
-    xhr.addEventListener('timeout', () =>
-      reject(makeError('Upload timed out', { retryable: true, status: 0 })),
-    );
-    xhr.open('POST', url);
-    // No xhr.timeout: matches UploadPage.tsx, which deliberately doesn't cap
-    // this request either — large files on a slow connection can legitimately
-    // take longer than any fixed timeout, and aborting them mid-upload is
-    // worse than just letting them run.
-    xhr.setRequestHeader('Authorization', `Bearer ${creds.token}`);
-    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-    xhr.send(file);
-  });
-}
 
 // Wires the uploaded asset into the album's `finalPhotos` array, server-side.
 async function finalizeFinalPhoto(assetId: string, albumId: string, filename: string): Promise<void> {
@@ -159,13 +82,17 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const [photoToDelete, setPhotoToDelete] = useState<FinalPhoto | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<Photo | null>(null);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
   const [photoDeleteError, setPhotoDeleteError] = useState<string | null>(null);
 
   const [isDelivering, setIsDelivering] = useState(false);
   const [deliverError, setDeliverError] = useState<string | null>(null);
   const [includeOriginals, setIncludeOriginals] = useState(true);
+  // Delivering is final and immediately changes what the client sees, so it
+  // gets the same confirm-before-destructive-action treatment as deleting a
+  // final photo below, instead of firing straight off a single button tap.
+  const [confirmingDeliver, setConfirmingDeliver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const credsRef = useRef<UploadCredentials | null>(null);
@@ -384,6 +311,7 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
         const data = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(data.error ?? 'Failed to deliver to client');
       }
+      setConfirmingDeliver(false);
       await onRefresh();
     } catch (err) {
       setDeliverError(err instanceof Error ? err.message : 'Failed to deliver to client');
@@ -443,7 +371,7 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
             <button
               type="button"
               className="lock-btn deliver-btn"
-              onClick={() => { void handleDeliver(); }}
+              onClick={() => { setDeliverError(null); setConfirmingDeliver(true); }}
               // Also disabled while an upload is in flight — delivering
               // mid-upload could hand off before a newly selected photo has
               // finished attaching to the album.
@@ -456,7 +384,7 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
       </div>
 
       {uploadError && <p className="inline-error" role="alert">{uploadError}</p>}
-      {deliverError && <p className="inline-error" role="alert">{deliverError}</p>}
+      {!confirmingDeliver && deliverError && <p className="inline-error" role="alert">{deliverError}</p>}
 
       {files.length > 0 && (
         <div className="final-upload-list">
@@ -529,6 +457,20 @@ export function FinalPhotosSection({ albumId, status, finalPhotos, onRefresh }: 
         onCancel={() => setPhotoToDelete(null)}
       >
         Remove <strong>{photoToDelete?.filename}</strong> from final delivery? This cannot be undone.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        isOpen={confirmingDeliver}
+        title="Deliver to client?"
+        confirmLabel="Deliver to Client"
+        busyLabel="Delivering…"
+        isBusy={isDelivering}
+        error={deliverError}
+        onConfirm={() => { void handleDeliver(); }}
+        onCancel={() => setConfirmingDeliver(false)}
+      >
+        This immediately gives the client access to their final gallery
+        {includeOriginals ? ' (including the original photos)' : ''}. This cannot be undone.
       </ConfirmDialog>
 
       <style>{`

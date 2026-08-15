@@ -119,6 +119,13 @@ export default defineType({
       description: "Set at delivery time via the deliver dialog. When on, the client can still view/download the original proofing photos alongside the final edited photos.",
       type: "boolean",
       initialValue: true,
+      // Studio-UI-only guard: editing this directly here would skip
+      // deliver.ts's cache invalidation + realtime `album:delivered` event,
+      // leaving an already-open client gallery with a stale value (same
+      // class of bug as lastUnlockedAt/shareCount above). sanityWriteClient
+      // in deliver.ts bypasses this (readOnly only affects the Studio UI,
+      // not API writes), so it remains the only practical writer.
+      readOnly: true,
     }),
   ],
   preview: {

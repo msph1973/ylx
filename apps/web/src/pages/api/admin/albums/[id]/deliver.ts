@@ -90,8 +90,8 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("album:delivered", { albumId }),
-      publishAlbumEvent(albumId, "album:delivered", { albumId }),
+      publishAdminEvent("album:delivered", { albumId, showOriginalAfterDelivery: includeOriginals }),
+      publishAlbumEvent(albumId, "album:delivered", { albumId, showOriginalAfterDelivery: includeOriginals }),
     ]);
 
     return new Response(JSON.stringify({ success: true, id: albumId }), {

@@ -40,6 +40,11 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
     thumbnailUrl: thumbnailUrl(photo.image),
     thumbnailSrcSet: thumbnailSrcSet(photo.image),
     url: urlFor(photo.image).width(1200).auto("format").quality(80).url(),
+    // Full-original-quality URL for download — `url` above is a resized/
+    // compressed derivative meant for on-screen viewing only, matching the
+    // same `urlFor(photo.image).url()` pattern already used for downloads
+    // in galleryFinalPhotosResponse.ts.
+    downloadUrl: urlFor(photo.image).url(),
     lqip: photo.lqip ?? null,
   }));
 

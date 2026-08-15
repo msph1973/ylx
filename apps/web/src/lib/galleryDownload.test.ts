@@ -33,6 +33,21 @@ describe('dedupeFilenames', () => {
   it('handles a leading-dot filename (no real extension) without producing an empty base name', () => {
     expect(dedupeFilenames(['.hidden', '.hidden'])).toEqual(['.hidden', '.hidden-2']);
   });
+
+  it('never produces two identical output names, even when a candidate suffix collides with another file\'s original name', () => {
+    // Naively counting only by the original name would turn the third
+    // "a.jpg" into "a-2.jpg" (its 2nd occurrence) — but "a-2.jpg" is already
+    // taken by the second entry, silently overwriting it inside the zip.
+    const result = dedupeFilenames(['a.jpg', 'a-2.jpg', 'a.jpg']);
+    expect(new Set(result).size).toBe(result.length);
+    expect(result).toEqual(['a.jpg', 'a-2.jpg', 'a-3.jpg']);
+  });
+
+  it('keeps resolving further collisions if even the next candidate is also already taken', () => {
+    const result = dedupeFilenames(['a.jpg', 'a-2.jpg', 'a-3.jpg', 'a.jpg']);
+    expect(new Set(result).size).toBe(result.length);
+    expect(result).toEqual(['a.jpg', 'a-2.jpg', 'a-3.jpg', 'a-4.jpg']);
+  });
 });
 
 describe('buildDownloadManifest', () => {

@@ -38,6 +38,7 @@ export interface AlbumUnlockedData {
 
 export interface AlbumDeliveredData {
   albumId: string;
+  showOriginalAfterDelivery: boolean;
 }
 
 export interface FinalPhotoUploadedData {

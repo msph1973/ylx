@@ -7,7 +7,8 @@ import { useRealtime } from '@/hooks/useRealtime';
 import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
 import { fetchResumeSession } from '@/lib/gallerySessionClient';
 import { buildDownloadManifest, type DownloadFolder, type DownloadManifestEntry } from '@/lib/galleryDownload';
-import type { Photo } from '@ylx/shared';
+import { runWithConcurrency } from '@/lib/concurrency';
+import type { Photo, AlbumDeliveredData } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
 
@@ -693,6 +694,11 @@ function sanitizeZipFilename(name: string): string {
   return name.replace(/[^a-z0-9 _-]/gi, '_').trim() || 'gallery';
 }
 
+// Bounds how many blob fetches run in parallel while building a ZIP —
+// matches the same 3-4 concurrency convention already used by the admin
+// upload flows (see UPLOAD_CONCURRENCY in FinalPhotosSection.tsx/UploadPage.tsx).
+const DOWNLOAD_CONCURRENCY = 4;
+
 export function GalleryPage({ slug }: GalleryPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -806,8 +812,13 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     },
     // Flip an already-open gallery straight to the delivered view — the
     // final-photos fetch effect (keyed on album.status) picks up from here.
-    onAlbumDelivered: () => {
-      setAlbum((prev) => prev ? { ...prev, status: 'delivered' } : prev);
+    // The event also carries the admin's fresh includeOriginals choice —
+    // without applying it here, a gallery already open at delivery time
+    // would keep whatever (possibly stale/default) showOriginalAfterDelivery
+    // value it loaded with, letting the originals tab/downloads stay visible
+    // even when the admin just delivered with originals turned OFF.
+    onAlbumDelivered: (data: AlbumDeliveredData) => {
+      setAlbum((prev) => prev ? { ...prev, status: 'delivered', showOriginalAfterDelivery: data.showOriginalAfterDelivery } : prev);
       setFinalPhotos(null);
       setFinalPhotosError(null);
     },
@@ -1111,7 +1122,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     setDownloadError(null);
     setIsDownloading(true);
     try {
-      const blob = await fetchAsBlob(photo.url);
+      // `downloadUrl` (full original resolution) when present — the "Semua
+      // Foto" tab's `url` is a resized/compressed on-screen derivative, not
+      // the file the client is meant to actually receive. Final photos don't
+      // set `downloadUrl` (their `url` is already full-resolution), so this
+      // falls back to `url` for them.
+      const blob = await fetchAsBlob(photo.downloadUrl ?? photo.url);
       saveBlob(blob, photo.filename);
     } catch {
       setDownloadError(`Gagal mengunduh ${photo.filename}. Silakan coba lagi.`);
@@ -1123,6 +1139,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // Fetches every entry's blob (best-effort — a single failed fetch is
   // skipped, not fatal to the whole batch) and bundles them into one zip
   // with the entry's folder as the path prefix (e.g. "Cetak/edit_1.jpg").
+  // Bounded via runWithConcurrency (same helper/convention as the admin
+  // upload flows) instead of a fully-parallel Promise.allSettled, so a large
+  // gallery's ZIP doesn't fire dozens of simultaneous blob fetches at once.
   const downloadManifestAsZip = useCallback(async (entries: DownloadManifestEntry[], zipFilename: string) => {
     if (entries.length === 0) {
       setDownloadError('Tidak ada foto untuk diunduh.');
@@ -1132,16 +1151,24 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     setIsDownloading(true);
     try {
       const zip = new JSZip();
-      const results = await Promise.allSettled(entries.map((entry) => fetchAsBlob(entry.photo.url)));
-      let failedCount = 0;
-      results.forEach((result, index) => {
-        const entry = entries[index];
-        if (result.status === 'fulfilled') {
-          zip.folder(entry.folder)?.file(entry.filename, result.value);
-        } else {
-          failedCount += 1;
-        }
-      });
+      const failedFlags = new Array<boolean>(entries.length).fill(false);
+      await runWithConcurrency(
+        entries.map((entry, index) => ({ entry, index })),
+        async ({ entry, index }) => {
+          try {
+            // See downloadSinglePhoto: prefer the full-original-resolution
+            // URL for the actual downloaded bytes.
+            const blob = await fetchAsBlob(entry.photo.downloadUrl ?? entry.photo.url);
+            zip.folder(entry.folder)?.file(entry.filename, blob);
+          } catch {
+            // A single failed fetch is skipped, not fatal — runWithConcurrency
+            // would otherwise abort the whole batch on the first rejection.
+            failedFlags[index] = true;
+          }
+        },
+        DOWNLOAD_CONCURRENCY,
+      );
+      const failedCount = failedFlags.filter(Boolean).length;
       if (failedCount === entries.length) {
         setDownloadError('Semua unduhan gagal. Silakan coba lagi.');
         return;
@@ -1415,7 +1442,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
               type="button"
               className="download-all-btn"
               onClick={handleDownloadAll}
-              disabled={isDownloading}
+              // Also disabled while the "cetak" final photos are still
+              // loading, so a tap can't zip an incomplete/empty set before
+              // the fetch that populates it has finished.
+              disabled={isDownloading || finalPhotosLoading}
             >
               Download Semua
             </button>
