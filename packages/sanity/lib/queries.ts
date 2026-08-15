@@ -11,6 +11,7 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
   maxSelections,
   status,
   lastUnlockedAt,
+  showOriginalAfterDelivery,
   photos[]-> {
     _id,
     filename,
@@ -77,7 +78,14 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   lastAccessedAt,
   maxSelections,
   status,
+  showOriginalAfterDelivery,
   photos[]-> {
+    _id,
+    filename,
+    image,
+    "lqip": image.asset->metadata.lqip
+  },
+  "finalPhotos": finalPhotos[]->{
     _id,
     filename,
     image,
@@ -91,3 +99,17 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
 // notified of every submission (over-notify > miss). Projects only `email`
 // so the admin's name/role/password never rides along on this read.
 export const adminEmailsQuery = `*[_type == "admin"].email`;
+
+// Fetches only the delivered final photos for an album, by slug. Used by the
+// client-facing final-gallery download flow (delivered status only).
+export const albumFinalPhotosQuery = `*[_type == "album" && (slug.current == $slug || customSlug == $slug) && status == "delivered"][0]{
+  _id,
+  title,
+  status,
+  "finalPhotos": finalPhotos[]->{
+    _id,
+    filename,
+    image,
+    "lqip": image.asset->metadata.lqip
+  }
+}`;

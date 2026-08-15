@@ -2,6 +2,17 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
 import { resizeImageInWorker } from '../../lib/imageResizeClient';
+import { runWithConcurrency } from '../../lib/concurrency';
+import {
+  type UploadCredentials,
+  type RetryableError,
+  RETRY_BASE_DELAY_MS,
+  MAX_RETRY_DELAY_MS,
+  delay,
+  makeError,
+  isRetryableStatus,
+  putAssetToSanity,
+} from '../../lib/sanityUpload';
 
 interface Album {
   // The admin albums API (/api/admin/albums) returns each album keyed as `id`
@@ -26,21 +37,6 @@ interface UploadFile {
   albumId?: string;
 }
 
-// Credentials the browser uses to upload the binary straight to Sanity, bypassing
-// Vercel's ~4.5MB serverless body limit. Fetched at runtime from an admin-only
-// endpoint — never bundled into client JS.
-interface UploadCredentials {
-  projectId: string;
-  dataset: string;
-  apiVersion: string;
-  token: string;
-}
-
-interface RetryableError extends Error {
-  retryable?: boolean;
-  status?: number;
-}
-
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB (now genuinely supported — the
 // binary goes direct to Sanity, so the old ~4.5MB Vercel cap no longer applies).
 const VALID_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif'];
@@ -51,75 +47,6 @@ const VALID_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif'];
 const UPLOAD_CONCURRENCY = 3;
 // 1 initial attempt + up to 2 retries for transient failures.
 const MAX_UPLOAD_ATTEMPTS = 3;
-const RETRY_BASE_DELAY_MS = 800;
-const MAX_RETRY_DELAY_MS = 30_000; // hard ceiling even if MAX_UPLOAD_ATTEMPTS grows later
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Network-layer failures (status 0) and transient server/rate-limit responses are
-// worth retrying; 4xx (auth, payload too large, validation) are permanent — a retry
-// would only fail again the same way.
-function isRetryableStatus(status: number): boolean {
-  return status === 0 || status === 408 || status === 429 || status >= 500;
-}
-
-function makeError(message: string, opts: { retryable: boolean; status?: number }): RetryableError {
-  const err = new Error(message) as RetryableError;
-  err.retryable = opts.retryable;
-  err.status = opts.status;
-  return err;
-}
-
-// One direct upload attempt of the raw file to Sanity's asset API. Resolves the
-// created asset id (`image-...`), or rejects with a RetryableError. XHR is used
-// (over fetch) so we get real upload-progress events for the large binary.
-function putAssetToSanity(
-  creds: UploadCredentials,
-  file: File,
-  onProgress: (pct: number) => void,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const url =
-      `https://${creds.projectId}.api.sanity.io/v${creds.apiVersion}` +
-      `/assets/images/${creds.dataset}?filename=${encodeURIComponent(file.name)}`;
-
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    });
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const assetId = JSON.parse(xhr.responseText)?.document?._id;
-          if (typeof assetId === 'string' && assetId) {
-            resolve(assetId);
-            return;
-          }
-        } catch {
-          /* fall through to reject */
-        }
-        reject(makeError('Malformed upload response from Sanity', { retryable: true }));
-      } else {
-        reject(
-          makeError(`Sanity upload failed (${xhr.status})`, {
-            retryable: isRetryableStatus(xhr.status),
-            status: xhr.status,
-          }),
-        );
-      }
-    });
-    xhr.addEventListener('error', () =>
-      reject(makeError('Network error during upload', { retryable: true, status: 0 })),
-    );
-    xhr.addEventListener('timeout', () =>
-      reject(makeError('Upload timed out', { retryable: true, status: 0 })),
-    );
-    xhr.open('POST', url);
-    xhr.setRequestHeader('Authorization', `Bearer ${creds.token}`);
-    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-    xhr.send(file);
-  });
-}
 
 // Small JSON call (well under 4.5MB) that wires the uploaded asset into a photo
 // document + the album's ordered `photos` array, server-side.
@@ -135,22 +62,6 @@ async function finalizePhoto(assetId: string, albumId: string, filename: string)
       status: res.status,
     });
   }
-}
-
-// Run `worker` over `items` with at most `concurrency` in flight at once.
-async function runWithConcurrency<T>(
-  items: T[],
-  worker: (item: T) => Promise<void>,
-  concurrency: number,
-): Promise<void> {
-  let cursor = 0;
-  const run = async () => {
-    while (cursor < items.length) {
-      const item = items[cursor++];
-      await worker(item);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
 }
 
 export default function UploadPage() {

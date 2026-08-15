@@ -10,6 +10,22 @@ interface PhotoLightboxProps {
   currentIndex: number;
   isSelected: boolean;
   isDisabled: boolean;
+  // Whether the "Select"/"✓ Selected" toggle renders at all — separate from
+  // `isDisabled` (which pre-delivery already gates it via isAlbumLocked).
+  // Once delivered, the old submission-selection button must not appear
+  // just because isDisabled happens to be false; the caller only sets this
+  // true while its own "Pilih untuk Download" mode is active, so the toggle
+  // here stays in sync with the grid's download-select mode instead of
+  // silently operating on the (locked, meaningless) submission selection.
+  canSelect?: boolean;
+  // Per-photo download, shown only once the album is delivered — mirrors
+  // the grid tile's own per-photo download button.
+  showDownload?: boolean;
+  onDownload?: (photo: Photo) => void;
+  // Disables the download button while a download (this one, a batch, or
+  // "download all") is already in flight, matching the other download
+  // controls on the page.
+  downloadDisabled?: boolean;
   note?: string;
   onNoteChange?: (note: string) => void;
   onClose: () => void;
@@ -22,6 +38,10 @@ export function PhotoLightbox({
   currentIndex,
   isSelected,
   isDisabled,
+  canSelect = true,
+  showDownload = false,
+  onDownload,
+  downloadDisabled = false,
   note,
   onNoteChange,
   onClose,
@@ -173,6 +193,16 @@ export function PhotoLightbox({
               since navigating doesn't remount the dialog (no fresh aria-label read). */}
           <span className="lightbox-counter" aria-live="polite" aria-atomic="true">{currentIndex + 1} / {photos.length}</span>
           <span className="lightbox-filename">{photo.filename}</span>
+          {showDownload && onDownload && (
+            <button
+              className="lightbox-download"
+              onClick={() => onDownload(photo)}
+              disabled={downloadDisabled}
+              aria-label={`Download photo ${photo.filename}`}
+            >
+              ⬇
+            </button>
+          )}
           <button className="lightbox-close" onClick={onClose} aria-label="Close lightbox">✕</button>
         </div>
 
@@ -210,7 +240,7 @@ export function PhotoLightbox({
               maxLength={MAX_TEXT_LENGTH}
             />
           )}
-          {!isDisabled && (
+          {!isDisabled && canSelect && (
             <button
               className={`lightbox-select ${isSelected ? 'selected' : ''}`}
               onClick={() => onToggleSelect(photo.id)}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import type { AlbumWithSelections } from '@ylx/shared';
+import type { AlbumWithSelections, Photo } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 import { SelectionTable } from './SelectionTable';
 import { CopyFilenamesButton } from './CopyFilenamesButton';
@@ -8,7 +8,8 @@ import { AlbumFormModal } from './AlbumFormModal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { BlurImage } from '@/components/gallery/BlurImage';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
-import { getAlbumStatusMeta } from '@/lib/albumStatus';
+import { getAlbumStatusMeta, type AlbumStatusVariant } from '@/lib/albumStatus';
+import { FinalPhotosSection } from './FinalPhotosSection';
 
 interface AlbumDetailProps {
   albumId: string;
@@ -334,6 +335,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
   const selectedPhotoCount = selectedPhotoIds.size;
   const photos = (album?.photos ?? []) as AlbumPhoto[];
+  const finalPhotos = (album?.finalPhotos ?? []) as Photo[];
   const allPhotosSelected = photos.length > 0 && photos.every((photo) => selectedPhotoIds.has(photo.id));
 
   const exitPhotoSelectionMode = useCallback(() => {
@@ -819,6 +821,18 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
         )}
 
+        <FinalPhotosSection
+          albumId={albumId}
+          // `AlbumWithSelections.status` (packages/shared) is a bare `string`
+          // (kept broad there since it's read by many response builders) —
+          // narrow to the canonical variant here, since in practice it's
+          // always one of these four and this component's own comparisons
+          // benefit from the compile-time safety.
+          status={album.status as AlbumStatusVariant}
+          finalPhotos={finalPhotos}
+          onRefresh={fetchAlbum}
+        />
+
         <AlbumFormModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
@@ -975,6 +989,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .status-badge--active { background-color: color-mix(in srgb, var(--color-success) 15%, transparent); color: var(--color-success); }
           .status-badge--submitted { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent); }
           .status-badge--locked { background-color: color-mix(in srgb, var(--color-error) 15%, transparent); color: var(--color-error); }
+.status-badge--delivered { background-color: color-mix(in srgb, var(--color-success) 18%, transparent); color: var(--color-success); }
 
           .metadata-grid {
             display: grid;

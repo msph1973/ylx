@@ -62,6 +62,7 @@ export default defineType({
           { title: "Active", value: "active" },
           { title: "Submitted", value: "submitted" },
           { title: "Locked", value: "locked" },
+          { title: "Delivered", value: "delivered" },
         ],
       },
       initialValue: "active",
@@ -70,6 +71,13 @@ export default defineType({
     defineField({
       name: "photos",
       title: "Photos",
+      type: "array",
+      of: [{ type: "reference", to: [{ type: "photo" }] }],
+    }),
+    defineField({
+      name: "finalPhotos",
+      title: "Final Photos",
+      description: "Photos delivered to client after editing",
       type: "array",
       of: [{ type: "reference", to: [{ type: "photo" }] }],
     }),
@@ -103,6 +111,20 @@ export default defineType({
       title: "Last Unlocked",
       description: "Set on every unlock; client drafts saved before this moment are discarded.",
       type: "datetime",
+      readOnly: true,
+    }),
+    defineField({
+      name: "showOriginalAfterDelivery",
+      title: "Show Original Photos After Delivery",
+      description: "Set at delivery time via the deliver dialog. When on, the client can still view/download the original proofing photos alongside the final edited photos.",
+      type: "boolean",
+      initialValue: true,
+      // Studio-UI-only guard: editing this directly here would skip
+      // deliver.ts's cache invalidation + realtime `album:delivered` event,
+      // leaving an already-open client gallery with a stale value (same
+      // class of bug as lastUnlockedAt/shareCount above). sanityWriteClient
+      // in deliver.ts bypasses this (readOnly only affects the Studio UI,
+      // not API writes), so it remains the only practical writer.
       readOnly: true,
     }),
   ],

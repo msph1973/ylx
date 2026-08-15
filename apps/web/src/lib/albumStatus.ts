@@ -1,4 +1,4 @@
-export type AlbumStatusVariant = "active" | "submitted" | "locked";
+export type AlbumStatusVariant = "active" | "submitted" | "locked" | "delivered";
 
 export interface AlbumStatusMeta {
   /** Human-readable badge label. */
@@ -28,6 +28,12 @@ export function getAlbumStatusMeta(status: string | undefined | null): AlbumStat
         variant: "submitted",
         hint: "The client submitted their selection — ready to export.",
       };
+    case "delivered":
+      return {
+        label: "Delivered",
+        variant: "delivered",
+        hint: "Final photos have been delivered to the client.",
+      };
     case "locked":
     default:
       return {
@@ -43,4 +49,5 @@ export const ALBUM_STATUS_FILTERS: readonly AlbumStatusVariant[] = [
   "active",
   "submitted",
   "locked",
+  "delivered",
 ] as const;

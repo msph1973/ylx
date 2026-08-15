@@ -11,7 +11,7 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 | # | Fitur | Tingkat | Status |
 |---|-------|---------|--------|
 | 1 | Notifikasi email (submit + konfirmasi klien) | 1 | **MERGED** — PR #95, live & terverifikasi di produksi (user menerima email) |
-| 2 | Pengiriman hasil akhir (final delivery) | 1 | Belum dikerjakan |
+| 2 | Pengiriman hasil akhir (final delivery) | 1 | PR pending — feature/final-delivery |
 | 3 | Backup/export otomatis data Sanity | 1 | Belum dikerjakan — dipilih user sebagai item berikutnya |
 | 4 | Watermark preview + proteksi klik-kanan/drag-save | 2 | Belum dikerjakan |
 | 5 | Tingkatan pilihan foto (mis. "wajib" vs "kandidat") | 2 | Belum dikerjakan |

@@ -9,12 +9,14 @@ export interface ResumedAlbum {
   status: string;
   maxSelections: number;
   lastUnlockedAt?: string | null;
+  showOriginalAfterDelivery: boolean;
   photos: Array<{
     id: string;
     filename: string;
     thumbnailUrl: string;
     thumbnailSrcSet?: string | null;
     url: string;
+    downloadUrl?: string;
     lqip?: string | null;
   }>;
 }

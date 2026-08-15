@@ -51,4 +51,6 @@ export interface AlbumWithSelections {
   selections: Selection[];
   shareCount?: number;
   lastAccessedAt?: string;
+  /** Final delivery photos — present once the photographer uploads final edits. */
+  finalPhotos?: Photo[];
 }

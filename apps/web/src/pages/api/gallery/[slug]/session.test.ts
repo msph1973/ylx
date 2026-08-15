@@ -10,6 +10,7 @@ vi.mock("@ylx/sanity/client", () => ({
   sanityClient: { fetch: (...args: unknown[]) => sanityFetchMock(...args) },
   urlFor: () => ({
     width: () => ({ auto: () => ({ quality: () => ({ url: () => "https://img.test/full" }) }) }),
+    url: () => "https://img.test/original",
   }),
 }));
 vi.mock("@ylx/sanity/lib/thumbnails", () => ({

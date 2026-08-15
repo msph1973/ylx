@@ -90,7 +90,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
   }, [albums]);
 
   const statusCounts = useMemo(() => {
-    const counts: Record<AlbumStatusVariant, number> = { active: 0, submitted: 0, locked: 0 };
+    const counts: Record<AlbumStatusVariant, number> = { active: 0, submitted: 0, locked: 0, delivered: 0 };
     for (const album of albums) counts[getAlbumStatusMeta(album.status).variant] += 1;
     return counts;
   }, [albums]);
