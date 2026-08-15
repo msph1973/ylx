@@ -687,22 +687,27 @@ const GALLERY_VIEW_STYLES = `
           }
         }
 
+        /* Split the two actions evenly across one row instead of letting
+           them wrap onto separate full-width rows — on a phone, that stack
+           pushed the first photo well below the fold before this fix. */
         .delivered-download-actions {
           display: flex;
-          flex-wrap: wrap;
           gap: var(--space-2);
         }
 
         .download-select-toggle-btn,
         .download-all-btn {
+          flex: 1 1 0;
+          min-width: 0;
           min-height: var(--tap-target-min);
-          padding: var(--space-2) var(--space-4);
+          padding: var(--space-2) var(--space-3);
           background: none;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
           color: var(--color-text);
           font-weight: var(--font-medium);
           font-size: var(--text-sm);
+          text-align: center;
           cursor: pointer;
           transition: all var(--transition-fast);
         }
@@ -733,15 +738,17 @@ const GALLERY_VIEW_STYLES = `
         }
 
         /* Per-tile download icon — bottom-right corner so it never overlaps
-           the selection-badge checkmark (top-right). */
+           the selection-badge checkmark (top-right). Sized to the shared
+           minimum tappable target (44x44) rather than a smaller decorative
+           icon size, so it's reliably tappable on a phone. */
         .photo-download-btn {
           position: absolute;
-          bottom: var(--space-2);
-          right: var(--space-2);
-          width: 28px;
-          height: 28px;
-          min-width: 28px;
-          min-height: 28px;
+          bottom: var(--space-1);
+          right: var(--space-1);
+          width: var(--tap-target-min);
+          height: var(--tap-target-min);
+          min-width: var(--tap-target-min);
+          min-height: var(--tap-target-min);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -749,7 +756,7 @@ const GALLERY_VIEW_STYLES = `
           color: #fff;
           border: none;
           border-radius: var(--radius-full);
-          font-size: var(--text-sm);
+          font-size: var(--text-base);
           cursor: pointer;
           transition: background-color var(--transition-fast);
         }
@@ -1517,9 +1524,13 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       {isDelivered && (
         <div className="final-delivery-banner">
-          <h2 className="final-delivery-title">Your Final Photos</h2>
+          <h2 className="final-delivery-title">
+            {effectiveDeliveredTab === 'original' ? 'Your Original Photos' : 'Your Final Photos'}
+          </h2>
           <p className="final-delivery-subtitle">
-            Your photographer has delivered your edited photos. Tap any photo to view it full-size.
+            {effectiveDeliveredTab === 'original'
+              ? 'The original photos you had access to before delivery. Tap any photo to view it full-size.'
+              : 'Your photographer has delivered your edited photos. Tap any photo to view it full-size.'}
           </p>
         </div>
       )}
