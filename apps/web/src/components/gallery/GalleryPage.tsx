@@ -1442,10 +1442,14 @@ export function GalleryPage({ slug }: GalleryPageProps) {
               type="button"
               className="download-all-btn"
               onClick={handleDownloadAll}
-              // Also disabled while the "cetak" final photos are still
-              // loading, so a tap can't zip an incomplete/empty set before
-              // the fetch that populates it has finished.
-              disabled={isDownloading || finalPhotosLoading}
+              // `finalPhotosLoading` alone isn't enough here: it's only true
+              // while the "cetak" tab is the active one, so viewing the
+              // "original" tab (or a failed fetch) would otherwise leave this
+              // enabled even though `finalPhotos` isn't a loaded array yet —
+              // `handleDownloadAll` would then silently zip an incomplete/
+              // empty "Cetak" folder. Require finalPhotos to have actually
+              // loaded (non-null) and be error-free instead.
+              disabled={isDownloading || finalPhotos === null || finalPhotosError !== null}
             >
               Download Semua
             </button>
