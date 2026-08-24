@@ -59,3 +59,6 @@ memory/
 # via a broad `git add` when these are sitting untracked in the working tree.
 .bob/
 .mimocode/
+
+# graphify knowledge-graph output (regenerated on demand via `graphify .`)
+graphify-out/
