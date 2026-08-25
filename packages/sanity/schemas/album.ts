@@ -51,6 +51,32 @@ export default defineType({
       validation: (Rule) => Rule.required().integer().min(1).max(500),
     }),
     defineField({
+      name: "storageType",
+      title: "Storage Type",
+      type: "string",
+      description:
+        "Where the album's photo binaries live. 'sanity' = uploaded to Sanity assets; " +
+        "'drive' = photos stay in the photographer's Google Drive folder (photo docs " +
+        "carry driveFileId instead of an image asset). Locked after creation — " +
+        "switching mid-life would orphan selections.",
+      options: {
+        list: [
+          { title: "Sanity (upload)", value: "sanity" },
+          { title: "Google Drive (link)", value: "drive" },
+        ],
+      },
+      initialValue: "sanity",
+      readOnly: true,
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: "driveFolderId",
+      title: "Google Drive Folder ID",
+      type: "string",
+      description: "Opaque Drive folder id — set at creation when storageType is 'drive'.",
+      hidden: ({ parent }) => parent?.storageType !== "drive",
+    }),
+    defineField({
       name: "status",
       title: "Status",
       type: "string",

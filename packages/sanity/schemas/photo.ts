@@ -12,6 +12,15 @@ export default defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
+      name: "driveFileId",
+      title: "Google Drive File ID",
+      type: "string",
+      description:
+        "Set for Drive-sourced photos, which have no Sanity image asset. " +
+        "Exactly one of image/driveFileId is present per photo (enforced at the API layer).",
+      hidden: ({ parent }) => Boolean(parent?.image),
+    }),
+    defineField({
       name: "image",
       title: "Image",
       type: "image",

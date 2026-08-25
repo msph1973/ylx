@@ -336,6 +336,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const selectedPhotoCount = selectedPhotoIds.size;
   const photos = (album?.photos ?? []) as AlbumPhoto[];
   const finalPhotos = (album?.finalPhotos ?? []) as Photo[];
+  // Drive-storage albums hide upload/final-delivery affordances — their
+  // photo binaries never enter Sanity.
+  const isDriveAlbum = album?.storageType === 'drive';
   const allPhotosSelected = photos.length > 0 && photos.every((photo) => selectedPhotoIds.has(photo.id));
 
   const exitPhotoSelectionMode = useCallback(() => {
@@ -787,8 +790,18 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
 
         {photos.length === 0 ? (
           <div className="photos-empty">
-            <p className="empty-message">No photos uploaded yet</p>
-            <a className="upload-link" href="/admin/upload">Go to upload</a>
+            {isDriveAlbum ? (
+              <>
+                <p className="empty-message">
+                  No photos scanned yet. Re-create the scan from the Drive folder link.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="empty-message">No photos uploaded yet</p>
+                <a className="upload-link" href="/admin/upload">Go to upload</a>
+              </>
+            )}
           </div>
         ) : (
           <div className="photo-grid">
@@ -821,17 +834,21 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
         )}
 
-        <FinalPhotosSection
-          albumId={albumId}
-          // `AlbumWithSelections.status` (packages/shared) is a bare `string`
-          // (kept broad there since it's read by many response builders) —
-          // narrow to the canonical variant here, since in practice it's
-          // always one of these four and this component's own comparisons
-          // benefit from the compile-time safety.
-          status={album.status as AlbumStatusVariant}
-          finalPhotos={finalPhotos}
-          onRefresh={fetchAlbum}
-        />
+        {/* Drive albums skip the final-delivery flow entirely — their
+            originals already live in the photographer's own Drive folder. */}
+        {!isDriveAlbum && (
+          <FinalPhotosSection
+            albumId={albumId}
+            // `AlbumWithSelections.status` (packages/shared) is a bare `string`
+            // (kept broad there since it's read by many response builders) —
+            // narrow to the canonical variant here, since in practice it's
+            // always one of these four and this component's own comparisons
+            // benefit from the compile-time safety.
+            status={album.status as AlbumStatusVariant}
+            finalPhotos={finalPhotos}
+            onRefresh={fetchAlbum}
+          />
+        )}
 
         <AlbumFormModal
           isOpen={isEditModalOpen}

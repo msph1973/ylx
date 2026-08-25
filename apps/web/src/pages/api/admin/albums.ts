@@ -7,7 +7,8 @@ import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../..
 import { publishAdminEvent } from "../../../lib/ably";
 import { getCached, invalidateCache, cacheGetRaw, CACHE_KEYS } from "../../../lib/cache";
 import { parseJsonBody } from "../../../lib/requestBody";
-import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, isValidCalendarDate } from "../../../lib/albumValidation";
+import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, MAX_DRIVE_PHOTOS, isValidCalendarDate } from "../../../lib/albumValidation";
+import { FOLDER_ID_PATTERN } from "../../../lib/gdrive";
 import { captureError } from "../../../lib/errorTracking";
 import type { GalleryDraftProgress } from "../gallery/[slug]/draft";
 
@@ -20,6 +21,7 @@ interface SanityAlbumRaw {
   photoCount: number;
   maxSelections: number;
   selectionCount: number;
+  storageType?: string;
 }
 
 interface AlbumPinRecord {
@@ -63,8 +65,8 @@ export const GET: APIRoute = async ({ cookies }) => {
       title: album.title,
       clientName: album.clientName,
       eventDate: album.eventDate,
-      pin: pinsById.get(album._id) ?? "",
       status: album.status,
+      storageType: album.storageType === "drive" ? "drive" : "sanity",
       photoCount: album.photoCount,
       maxSelections: album.maxSelections,
       selectionCount: album.selectionCount,
@@ -93,6 +95,12 @@ export const GET: APIRoute = async ({ cookies }) => {
   }
 };
 
+/** One scanned Drive image, passed through from the scan-drive preview. */
+interface DrivePhotoInput {
+  id: string;
+  name: string;
+}
+
 interface CreateAlbumBody {
   title: string;
   clientName: string;
@@ -100,6 +108,9 @@ interface CreateAlbumBody {
   pin: string;
   maxSelections: number;
   customSlug?: string;
+  storageType: "sanity" | "drive";
+  driveFolderId?: string;
+  photos?: DrivePhotoInput[];
 }
 
 /** Validates a raw parsed body and narrows it into a `CreateAlbumBody` on
@@ -135,12 +146,50 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
       return { error: `customSlug must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
     }
   }
+  // Drive-backed albums carry their scanned photo list inline. Legacy
+  // clients (and existing tests) omit storageType entirely → sanity.
+  const storageType = body.storageType === undefined ? "sanity" : body.storageType;
+  if (storageType !== "sanity" && storageType !== "drive") {
+    return { error: "storageType must be 'sanity' or 'drive'" };
+  }
+
+  let driveFolderId: string | undefined;
+  let photos: DrivePhotoInput[] | undefined;
+  if (storageType === "drive") {
+    if (typeof body.driveFolderId !== "string" || !FOLDER_ID_PATTERN.test(body.driveFolderId)) {
+      return { error: "driveFolderId is required for Google Drive albums" };
+    }
+    driveFolderId = body.driveFolderId;
+
+    if (body.photos !== undefined) {
+      if (!Array.isArray(body.photos) || body.photos.length > MAX_DRIVE_PHOTOS) {
+        return { error: `photos must be an array of at most ${MAX_DRIVE_PHOTOS} Drive file references` };
+      }
+      photos = [];
+      for (const item of body.photos) {
+        if (typeof item !== "object" || item === null) {
+          return { error: "photos must be an array of { id, name } Drive file references" };
+        }
+        const { id, name } = item as Record<string, unknown>;
+        if (typeof id !== "string" || !FOLDER_ID_PATTERN.test(id)) {
+          return { error: "Each photo needs a valid Google Drive file id" };
+        }
+        if (typeof name !== "string" || name.trim().length === 0 || name.length > MAX_TEXT_FIELD_LENGTH) {
+          return { error: "Each photo needs a filename of 1-200 characters" };
+        }
+        photos.push({ id, name: name.trim() });
+      }
+    }
+  } else if (body.driveFolderId !== undefined || body.photos !== undefined) {
+    return { error: "driveFolderId/photos are only allowed when storageType is 'drive'" };
+  }
+
   // Compare in local timezone.
   const today = new Date().toLocaleDateString("en-CA");
   if (eventDate < today) {
     return { error: "Event date cannot be in the past" };
   }
-  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug } };
+  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug, storageType, driveFolderId, photos } };
 }
 
 export const POST: APIRoute = async ({ cookies, request }) => {
@@ -174,7 +223,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
-    const { title, clientName, eventDate, pin, maxSelections, customSlug } = validation.value;
+    const { title, clientName, eventDate, pin, maxSelections, customSlug, storageType, driveFolderId, photos } = validation.value;
 
     // Pre-generated so the slug/customSlug reservation locks (created before
     // the album document itself) can record which album owns each one.
@@ -209,9 +258,32 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         pin,
         maxSelections,
         status: "active",
+        storageType,
+        ...(driveFolderId ? { driveFolderId } : {}),
         photos: [],
       });
 
+      // Drive ingestion: one lightweight `photo` doc per scanned image, wired
+      // into album.photos inside a single transaction so docs-without-refs or
+      // refs-without-docs can never exist. Binaries stay in Drive — these
+      // documents are metadata only (filename + driveFileId).
+      if (storageType === "drive" && photos && photos.length > 0) {
+        const photoDocs = photos.map((photo) => ({
+          _type: "photo",
+          _id: randomUUID(),
+          filename: photo.name,
+          driveFileId: photo.id,
+          album: { _type: "reference", _ref: albumId },
+        }));
+        const transaction = sanityWriteClient.transaction();
+        for (const photoDoc of photoDocs) {
+          transaction.create(photoDoc);
+        }
+        transaction.patch(albumId, {
+          set: { photos: photoDocs.map((photoDoc) => ({ _type: "reference", _ref: photoDoc._id })) },
+        });
+        await transaction.commit();
+      }
       await invalidateCache(CACHE_KEYS.albumsList());
       await publishAdminEvent("album:created", { albumId: doc._id });
 

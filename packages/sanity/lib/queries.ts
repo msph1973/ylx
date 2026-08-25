@@ -10,12 +10,14 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
   eventDate,
   maxSelections,
   status,
+  storageType,
   lastUnlockedAt,
   showOriginalAfterDelivery,
   photos[]-> {
     _id,
     filename,
     image,
+    driveFileId,
     "lqip": image.asset->metadata.lqip
   }
 }`;
@@ -38,6 +40,7 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   clientName,
   eventDate,
   status,
+  storageType,
   customSlug,
   shareCount,
   lastAccessedAt,
@@ -59,6 +62,7 @@ export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $
     _id,
     filename,
     image,
+    driveFileId,
     "lqip": image.asset->metadata.lqip
   },
   selectedAt,
@@ -78,17 +82,20 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   lastAccessedAt,
   maxSelections,
   status,
+  storageType,
   showOriginalAfterDelivery,
   photos[]-> {
     _id,
     filename,
     image,
+    driveFileId,
     "lqip": image.asset->metadata.lqip
   },
   "finalPhotos": finalPhotos[]->{
     _id,
     filename,
     image,
+    driveFileId,
     "lqip": image.asset->metadata.lqip
   }
 }`;

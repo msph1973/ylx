@@ -6,6 +6,7 @@ import {
 } from "@ylx/sanity/lib/queries";
 import { thumbnailUrl, thumbnailSrcSet } from "@ylx/sanity/lib/thumbnails";
 import { requireAdmin } from "../../../../../lib/auth";
+import { driveThumbUrl } from "../../../../../lib/gdrive";
 import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../../../lib/slug";
 import { publishAdminEvent } from "../../../../../lib/ably";
 import { cascadeDeleteAlbums } from "../../../../../lib/albumDeletion";
@@ -22,7 +23,8 @@ interface SanityImageRef {
 interface SanityPhotoRaw {
   _id: string;
   filename: string;
-  image: SanityImageRef;
+  image?: SanityImageRef;
+  driveFileId?: string | null;
   lqip?: string | null;
 }
 
@@ -48,8 +50,35 @@ interface SanityAlbumDetailRaw {
   lastAccessedAt?: string;
   maxSelections: number;
   status: string;
+  storageType?: "sanity" | "drive";
   photos: SanityPhotoRaw[];
   finalPhotos?: SanityPhotoRaw[] | null;
+}
+
+/** URL trio for a photo in either storage backend. Drive photos carry no
+ *  Sanity image ref — their URLs derive from driveFileId, with no srcSet
+ *  (fixed thumbnail sizes only) and no LQIP (BlurImage fades in instead). */
+function buildPhotoUrls(photo: SanityPhotoRaw) {
+  if (photo.driveFileId) {
+    return {
+      url: driveThumbUrl(photo.driveFileId, 1600),
+      thumbnailUrl: driveThumbUrl(photo.driveFileId, 400),
+      thumbnailSrcSet: undefined as string | undefined,
+      lqip: null as string | null,
+    };
+  }
+  // image-XOR-driveFileId is enforced at the API layer; a hand-edited Studio
+  // doc could still violate it — render-safe placeholder over a hard crash.
+  if (!photo.image) {
+    return { url: "", thumbnailUrl: "", thumbnailSrcSet: undefined as string | undefined, lqip: null as string | null };
+  }
+  const { image } = photo;
+  return {
+    url: urlFor(image).auto("format").quality(80).url(),
+    thumbnailUrl: thumbnailUrl(image),
+    thumbnailSrcSet: thumbnailSrcSet(image),
+    lqip: photo.lqip ?? null,
+  };
 }
 
 interface SanityAlbumSlugsRaw {
@@ -106,14 +135,12 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       lastAccessedAt: album.lastAccessedAt,
       maxSelections: album.maxSelections,
       status: album.status,
+      storageType: album.storageType === "drive" ? "drive" : "sanity",
       isLocked: album.status !== 'active',
       photos: (album.photos ?? []).map((p) => ({
         id: p._id,
         filename: p.filename,
-        url: urlFor(p.image).auto("format").quality(80).url(),
-        thumbnailUrl: thumbnailUrl(p.image),
-        thumbnailSrcSet: thumbnailSrcSet(p.image),
-        lqip: p.lqip ?? null,
+        ...buildPhotoUrls(p),
       })),
       selections: selections.map((s) => ({
         id: s._id,
@@ -122,9 +149,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
         photo: {
           id: s.photo._id,
           filename: s.photo.filename,
-          url: urlFor(s.photo.image).auto("format").quality(80).url(),
-          thumbnailUrl: thumbnailUrl(s.photo.image),
-          lqip: s.photo.lqip ?? null,
+          ...buildPhotoUrls(s.photo),
         },
         selectedAt: s.selectedAt,
         notes: s.notes,
@@ -133,10 +158,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       finalPhotos: (album.finalPhotos ?? []).map((p) => ({
         id: p._id,
         filename: p.filename,
-        url: urlFor(p.image).auto("format").quality(80).url(),
-        thumbnailUrl: thumbnailUrl(p.image),
-        thumbnailSrcSet: thumbnailSrcSet(p.image),
-        lqip: p.lqip ?? null,
+        ...buildPhotoUrls(p),
       })),
     };
 

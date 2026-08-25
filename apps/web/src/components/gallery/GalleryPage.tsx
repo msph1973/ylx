@@ -45,6 +45,10 @@ interface AlbumData {
   eventDate: string;
   maxSelections: number;
   status: string;
+  /** Storage backend — 'drive' albums expose per-photo direct download
+   *  links during proofing (their files are public-by-link anyway), while
+   *  sanity originals stay delivery-gated. */
+  storageType?: 'sanity' | 'drive';
   lastUnlockedAt?: string | null;
   showOriginalAfterDelivery: boolean;
   photos: Photo[];
@@ -1245,6 +1249,13 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   const downloadSinglePhoto = useCallback(async (photo: Photo) => {
     setDownloadError(null);
+    // Drive photos: the direct link must be opened as a navigation, not
+    // fetch()ed — Drive sends no CORS headers, so a blob fetch would always
+    // fail. Top-level open hands the file to the browser's own downloader.
+    if (album?.storageType === 'drive') {
+      window.open(photo.downloadUrl ?? photo.url, '_blank', 'noopener');
+      return;
+    }
     setIsDownloading(true);
     try {
       // `downloadUrl` (full original resolution) when present — the "Semua
@@ -1259,7 +1270,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     } finally {
       setIsDownloading(false);
     }
-  }, []);
+  }, [album?.storageType]);
 
   // Fetches every entry's blob (best-effort — a single failed fetch is
   // skipped, not fatal to the whole batch) and bundles them into one zip
@@ -1478,6 +1489,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }
 
   const isDelivered = album?.status === 'delivered';
+  // Drive-storage albums surface per-photo download links during proofing —
+  // their files are public-by-link regardless, so hiding the button would
+  // protect nothing (unlike sanity originals, which are delivery-gated).
+  const isDriveAlbum = album?.storageType === 'drive';
   // The "Semua Foto" (originals) tab only exists when the admin opted in at
   // delivery time — falls back to the "cetak" (final photos) tab otherwise,
   // even if `activeDeliveredTab` state was somehow left at 'original' (e.g.
@@ -1643,7 +1658,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             shouldReduceMotion={shouldReduceMotion}
             onOpen={handleTileActivate}
             onKeyDown={handleTileActivateKeyDown}
-            onDownloadClick={isDelivered ? downloadSinglePhoto : undefined}
+            onDownloadClick={isDelivered || isDriveAlbum ? downloadSinglePhoto : undefined}
           />
         ))}
       </m.div>
@@ -1748,8 +1763,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 // submission-select button would keep appearing (isDisabled
                 // is false post-delivery) even though submission is locked.
                 canSelect={isDelivered ? isDownloadSelectMode : true}
-                showDownload={isDelivered}
-                onDownload={downloadSinglePhoto}
+                showDownload={isDelivered || isDriveAlbum}
                 downloadDisabled={isDownloading}
                 note={photoNotes.get(displayPhotos[lightboxIndex]?.id ?? '')}
                 onNoteChange={
