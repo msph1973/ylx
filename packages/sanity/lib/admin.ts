@@ -2,8 +2,6 @@ import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { sanityClient, sanityWriteClient } from "../client";
 
-const BCRYPT_ROUNDS = 12;
-
 const ADMIN_ROLES = ["admin", "photographer"] as const;
 type AdminRole = (typeof ADMIN_ROLES)[number];
 
@@ -146,7 +144,10 @@ export async function createAdmin(data: {
     return null;
   }
 
-  const hashedPassword = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+  // 12 rounds inline — CodeQL js/insufficient-password-hash must see the
+  // literal cost to recognise it as sufficient (a named constant is opaque
+  // to the query). Keep ≥ 12 per OWASP bcrypt baseline.
+  const hashedPassword = await bcrypt.hash(data.password, 12);
 
   try {
     // `.create()` (unlike `.createIfNotExists()`) atomically fails with a 409
