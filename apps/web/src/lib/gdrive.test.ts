@@ -59,10 +59,6 @@ function stubDriveFetch(opts: {
 }
 
 beforeEach(() => {
-  // Module-level token cache would leak a minted token between tests and
-  // break the "one OAuth call" assertion — reset via reimport is heavy, so
-  // instead every test runs with fresh env and the cache only ever warms
-  // within a single test (assertions account for it).
   vi.stubEnv("GDRIVE_CLIENT_EMAIL", "sa@test.iam.gserviceaccount.com");
   vi.stubEnv("GDRIVE_PRIVATE_KEY", TEST_PRIVATE_KEY_PEM);
 });
@@ -71,6 +67,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
+
+/** Fresh module instance with a COLD token cache — for tests whose assertions
+ *  depend on cache state (env-guard ordering, OAuth-call counting). Static
+ *  imports stay bound to whatever instance earlier tests already warmed. */
+async function freshModule() {
+  vi.resetModules();
+  return await import("./gdrive");
+}
 
 // ── extractFolderId ────────────────────────────────────────────────
 
@@ -100,14 +104,17 @@ describe("scanDriveFolder", () => {
     await expect(scanDriveFolder("short")).rejects.toThrow(/Invalid Google Drive folder id/i);
   });
 
-  it("throws a clear error when credentials are not configured", async () => {
+  it("throws a clear error when credentials are not configured — even with a warm token cache", async () => {
+    // Cubic round-1: getAccessToken() consults the module-level cache BEFORE
+    // env vars, so this test is only honest against a cold module.
+    const { scanDriveFolder: freshScan } = await freshModule();
     vi.stubEnv("GDRIVE_CLIENT_EMAIL", "");
     const calls = stubDriveFetch({ routes: {} });
-    await expect(scanDriveFolder(FOLDER_ID)).rejects.toThrow(/not configured/i);
+    await expect(freshScan(FOLDER_ID)).rejects.toThrow(/not configured/i);
     expect(calls).toHaveLength(0); // fails before any network traffic
   });
 
-  it("returns folder name and normalized photo list", async () => {
+  it("returns folder name and normalized photo list (resourceKey preserved)", async () => {
     const calls = stubDriveFetch({
       routes: {
         [`files/${FOLDER_ID}`]: { body: { id: FOLDER_ID, name: "Doe Wedding" } },
@@ -116,7 +123,7 @@ describe("scanDriveFolder", () => {
             files: [
               { id: "f1", name: "HFI_1323.JPG", mimeType: "image/jpeg", size: "4521984",
                 imageMediaMetadata: { width: 6000, height: 4000 } },
-              { id: "f2", name: "HFI_1324.JPG", mimeType: "image/jpeg" }, // no size / dims
+              { id: "f2", name: "HFI_1324.JPG", mimeType: "image/jpeg", resourceKey: "rk_abc" }, // no size / dims
             ],
           },
         },
@@ -129,9 +136,10 @@ describe("scanDriveFolder", () => {
       folderId: FOLDER_ID,
       folderName: "Doe Wedding",
       photoCount: 2,
+      truncated: false,
       photos: [
-        { id: "f1", name: "HFI_1323.JPG", size: 4521984, width: 6000, height: 4000 },
-        { id: "f2", name: "HFI_1324.JPG", size: null, width: null, height: null },
+        { id: "f1", name: "HFI_1323.JPG", size: 4521984, width: 6000, height: 4000, resourceKey: null },
+        { id: "f2", name: "HFI_1324.JPG", size: null, width: null, height: null, resourceKey: "rk_abc" },
       ],
     });
     // Drive calls carry the minted bearer token; the OAuth call itself does not.
@@ -142,21 +150,17 @@ describe("scanDriveFolder", () => {
 
   it("follows nextPageToken until exhausted and merges pages", async () => {
     let filesCall = 0;
-    const calls = stubDriveFetch({
+    stubDriveFetch({
       routes: {
         [`files/${FOLDER_ID}`]: { body: { id: FOLDER_ID, name: "Big Album" } },
       },
     });
-    const fetchMock = vi.mocked(globalThis.fetch);
-    // The files route needs stateful paging, layered over the route table above.
-    fetchMock.mockImplementation(async (input: RequestInfo | URL): Promise<Response> => {
+    vi.mocked(globalThis.fetch).mockImplementation(async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input);
       if (url.startsWith("https://oauth2.googleapis.com/token")) {
-        calls.push({ url, auth: null });
         return jsonResponse({ access_token: "test-token", expires_in: 3600 });
       }
       if (url.endsWith("/drive/v3/files") || url.includes("/drive/v3/files?")) {
-        calls.push({ url, auth: "" });
         filesCall += 1;
         if (filesCall === 1) {
           return jsonResponse({ nextPageToken: "PAGE2", files: [{ id: "a1", name: "a.jpg", mimeType: "image/jpeg" }] });
@@ -164,7 +168,6 @@ describe("scanDriveFolder", () => {
         expect(url).toContain("pageToken=PAGE2");
         return jsonResponse({ files: [{ id: "b1", name: "b.jpg", mimeType: "image/jpeg" }] });
       }
-      calls.push({ url, auth: "" });
       return jsonResponse({ id: FOLDER_ID, name: "Big Album" });
     });
 
@@ -172,6 +175,41 @@ describe("scanDriveFolder", () => {
 
     expect(result.photos.map((p) => p.id)).toEqual(["a1", "b1"]);
     expect(result.photoCount).toBe(2);
+    expect(result.truncated).toBe(false);
+  });
+
+  it("stops at MAX_DRIVE_PHOTOS and flags truncation", async () => {
+    // Every page offers yet another token — only the client-side cap ends
+    // paging. 2000-per-page keeps the fixture small while still crossing
+    // the 5000 cap mid-page.
+    let page = 0;
+    stubDriveFetch({
+      routes: { [`files/${FOLDER_ID}`]: { body: { id: FOLDER_ID, name: "Huge" } } },
+    });
+    vi.mocked(globalThis.fetch).mockImplementation(async (input: RequestInfo | URL): Promise<Response> => {
+      const url = String(input);
+      if (url.startsWith("https://oauth2.googleapis.com/token")) {
+        return jsonResponse({ access_token: "t", expires_in: 3600 });
+      }
+      if (url.includes("/drive/v3/files")) {
+        page += 1;
+        const files = Array.from({ length: 2000 }, (_, i) => ({
+          id: `p${page}_${i}`, name: `f${i}.jpg`, mimeType: "image/jpeg",
+        }));
+        // NOTE: always an object shape ({ files }) — a bare array would make
+        // `page.files` undefined and silently drop the whole page.
+        return jsonResponse({ nextPageToken: `tok${page}`, files });
+      }
+      return jsonResponse({ id: FOLDER_ID, name: "Huge" });
+    });
+
+    const result = await scanDriveFolder(FOLDER_ID);
+
+    expect(result.photoCount).toBe(5000);
+    expect(result.truncated).toBe(true);
+    // The folder-metadata lookup also matches /files, consuming counter slot
+    // 1; list pages 2 and 3 carry 4000 photos and the third crosses the cap.
+    expect(page).toBeGreaterThanOrEqual(3);
   });
 
   it("maps Drive 404 to a folder-not-found message", async () => {
@@ -202,12 +240,7 @@ describe("scanDriveFolder", () => {
   });
 
   it("caches the access token between consecutive scans (one OAuth call)", async () => {
-    // Dynamic import is deliberate here: the module-level token cache must be
-    // cold for this assertion to mean anything, and vi.resetModules() only
-    // affects subsequent dynamic imports — a static top-level import would
-    // stay bound to the instance earlier tests already warmed.
-    vi.resetModules();
-    const { scanDriveFolder: freshScan } = await import("./gdrive");
+    const { scanDriveFolder: freshScan } = await freshModule();
 
     const routes = {
       [`files/${FOLDER_ID}`]: { body: { id: FOLDER_ID, name: "X" } },

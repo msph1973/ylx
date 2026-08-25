@@ -95,10 +95,13 @@ export const GET: APIRoute = async ({ cookies }) => {
   }
 };
 
-/** One scanned Drive image, passed through from the scan-drive preview. */
+/** One scanned Drive image, passed through from the scan-drive preview.
+ *  `resourceKey` rides along because some link-shared files 403 their
+ *  thumbnail/download URLs without it. */
 interface DrivePhotoInput {
   id: string;
   name: string;
+  resourceKey?: string | null;
 }
 
 interface CreateAlbumBody {
@@ -170,14 +173,17 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
         if (typeof item !== "object" || item === null) {
           return { error: "photos must be an array of { id, name } Drive file references" };
         }
-        const { id, name } = item as Record<string, unknown>;
+        const { id, name, resourceKey } = item as Record<string, unknown>;
         if (typeof id !== "string" || !FOLDER_ID_PATTERN.test(id)) {
           return { error: "Each photo needs a valid Google Drive file id" };
         }
         if (typeof name !== "string" || name.trim().length === 0 || name.length > MAX_TEXT_FIELD_LENGTH) {
           return { error: "Each photo needs a filename of 1-200 characters" };
         }
-        photos.push({ id, name: name.trim() });
+        if (resourceKey !== undefined && resourceKey !== null && typeof resourceKey !== "string") {
+          return { error: "photo resourceKey must be a string when present" };
+        }
+        photos.push({ id, name: name.trim(), resourceKey: resourceKey ?? null });
       }
     }
   } else if (body.driveFolderId !== undefined || body.photos !== undefined) {
@@ -273,6 +279,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
           _id: randomUUID(),
           filename: photo.name,
           driveFileId: photo.id,
+          ...(photo.resourceKey ? { driveResourceKey: photo.resourceKey } : {}),
           album: { _type: "reference", _ref: albumId },
         }));
         const transaction = sanityWriteClient.transaction();
@@ -282,7 +289,19 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         transaction.patch(albumId, {
           set: { photos: photoDocs.map((photoDoc) => ({ _type: "reference", _ref: photoDoc._id })) },
         });
-        await transaction.commit();
+        try {
+          await transaction.commit();
+        } catch (ingestError) {
+          // Compensate: a Drive album without its photo docs is a misleading
+          // empty shell (unlike sanity albums, where 0 photos is a valid
+          // pre-upload state). Remove the half-created album; the outer
+          // handler then releases the slug locks and reports the failure.
+          await sanityWriteClient.delete(albumId).catch((cleanupError) => {
+            console.error("[Albums] ingest-compensation delete failed:", cleanupError);
+            captureError(cleanupError, { route: "admin/albums POST", albumId });
+          });
+          throw ingestError;
+        }
       }
       await invalidateCache(CACHE_KEYS.albumsList());
       await publishAdminEvent("album:created", { albumId: doc._id });

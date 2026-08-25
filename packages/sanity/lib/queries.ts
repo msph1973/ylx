@@ -18,6 +18,7 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
     filename,
     image,
     driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   }
 }`;
@@ -63,6 +64,7 @@ export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $
     filename,
     image,
     driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   },
   selectedAt,
@@ -89,6 +91,7 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
     filename,
     image,
     driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   },
   "finalPhotos": finalPhotos[]->{
@@ -96,6 +99,7 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
     filename,
     image,
     driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   }
 }`;

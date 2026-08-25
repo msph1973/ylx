@@ -83,6 +83,16 @@ describe("buildGalleryAlbumResponse — Google Drive albums", () => {
     expect(album.photos[0].lqip).toBeNull();
   });
 
+  it("appends resourceKey to every Drive URL when the file carries one", () => {
+    const album = driveAlbum();
+    album.photos[0].driveResourceKey = "rk_secret";
+    const { album: built } = buildGalleryAlbumResponse(album);
+    const photo = built.photos[0];
+    expect(photo.thumbnailUrl).toContain("&resourcekey=rk_secret");
+    expect(photo.url).toContain("&resourcekey=rk_secret");
+    expect(photo.downloadUrl).toContain("&resourcekey=rk_secret");
+  });
+
   it("treats a missing storageType as the legacy sanity path", () => {
     const album = { ...BASE_ALBUM } as SanityAlbumRaw;
     delete (album as unknown as Record<string, unknown>).storageType;

@@ -27,7 +27,18 @@ export default defineType({
       options: {
         hotspot: true,
       },
-      validation: (Rule) => Rule.required(),
+      // NOT required at schema level: Drive-sourced photos carry
+      // driveFileId instead. Exactly-one-of is enforced in the API layer,
+      // which is the only writer of photo documents.
+    }),
+    defineField({
+      name: "driveResourceKey",
+      title: "Google Drive Resource Key",
+      type: "string",
+      description:
+        "Link-sharing resource key for the Drive file — must ride along on " +
+        "thumbnail/download URLs or they 403. Null when the file has none.",
+      hidden: ({ parent }) => !parent?.driveFileId,
     }),
     defineField({
       name: "album",

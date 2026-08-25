@@ -25,6 +25,7 @@ interface SanityPhotoRaw {
   filename: string;
   image?: SanityImageRef;
   driveFileId?: string | null;
+  driveResourceKey?: string | null;
   lqip?: string | null;
 }
 
@@ -61,8 +62,8 @@ interface SanityAlbumDetailRaw {
 function buildPhotoUrls(photo: SanityPhotoRaw) {
   if (photo.driveFileId) {
     return {
-      url: driveThumbUrl(photo.driveFileId, 1600),
-      thumbnailUrl: driveThumbUrl(photo.driveFileId, 400),
+      url: driveThumbUrl(photo.driveFileId, 1600, photo.driveResourceKey),
+      thumbnailUrl: driveThumbUrl(photo.driveFileId, 400, photo.driveResourceKey),
       thumbnailSrcSet: undefined as string | undefined,
       lqip: null as string | null,
     };

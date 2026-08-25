@@ -67,7 +67,9 @@ export default defineType({
       },
       initialValue: "sanity",
       readOnly: true,
-      validation: (Rule) => Rule.required(),
+      // Deliberately NOT Rule.required(): albums created before this field
+      // existed have no storageType, and a required rule would block Studio
+      // publishes for them. Absent === "sanity" everywhere in code.
     }),
     defineField({
       name: "driveFolderId",
@@ -75,6 +77,7 @@ export default defineType({
       type: "string",
       description: "Opaque Drive folder id — set at creation when storageType is 'drive'.",
       hidden: ({ parent }) => parent?.storageType !== "drive",
+      readOnly: true, // drift here would orphan the ingested photos
     }),
     defineField({
       name: "status",

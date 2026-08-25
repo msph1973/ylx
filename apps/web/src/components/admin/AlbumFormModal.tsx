@@ -90,6 +90,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     folderId: string;
     folderName: string;
     photoCount: number;
+    truncated: boolean;
     photos: { id: string; name: string }[];
   } | null>(null);
 
@@ -151,6 +152,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         folderId?: string;
         folderName?: string;
         photoCount?: number;
+        truncated?: boolean;
         photos?: { id: string; name: string }[];
       };
       if (!response.ok || !data.folderId || !Array.isArray(data.photos)) {
@@ -161,6 +163,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         folderId: data.folderId,
         folderName: data.folderName ?? '',
         photoCount: data.photoCount ?? data.photos.length,
+        truncated: data.truncated === true,
         photos: data.photos.map((photo) => ({ id: photo.id, name: photo.name })),
       });
     } catch {
@@ -334,7 +337,15 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                           className="form-input"
                           type="url"
                           value={driveUrl}
-                          onChange={(e) => setDriveUrl(e.target.value)}
+                          onChange={(e) => {
+                            // Cubic round-1: a stale scan must never ride
+                            // along with a different folder link — clear
+                            // the previous result the moment the link is
+                            // edited so submit can't reuse it.
+                            setDriveUrl(e.target.value);
+                            setScannedFolder(null);
+                            setScanError(null);
+                          }}
                           placeholder="https://drive.google.com/drive/folders/…"
                           aria-label="Google Drive folder link"
                           style={{ flex: 1 }}
@@ -354,6 +365,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                       {scannedFolder && (
                         <p className="form-hint">
                           ✓ {scannedFolder.folderName} — {scannedFolder.photoCount} foto ditemukan
+                          {scannedFolder.truncated ? ' (dipotong pada batas 5000)' : ''}
                         </p>
                       )}
                     </div>

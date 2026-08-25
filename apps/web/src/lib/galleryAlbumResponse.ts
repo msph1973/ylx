@@ -26,6 +26,7 @@ export interface SanityPhotoRaw {
   filename: string;
   image?: SanityImageRef;
   driveFileId?: string | null;
+  driveResourceKey?: string | null;
   lqip?: string | null;
 }
 
@@ -65,13 +66,13 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
       return {
         id: photo._id,
         filename: photo.filename,
-        thumbnailUrl: driveThumbUrl(photo.driveFileId, 400),
+        thumbnailUrl: driveThumbUrl(photo.driveFileId, 400, photo.driveResourceKey),
         // Drive thumbnails only expose a few fixed sizes — no srcSet.
         thumbnailSrcSet: undefined,
-        url: driveThumbUrl(photo.driveFileId, 1600),
+        url: driveThumbUrl(photo.driveFileId, 1600, photo.driveResourceKey),
         // Direct navigation link (never fetch()ed by the client — Drive
         // sends no CORS headers). See GalleryPage's download handler.
-        downloadUrl: driveDownloadUrl(photo.driveFileId),
+        downloadUrl: driveDownloadUrl(photo.driveFileId, photo.driveResourceKey),
         // Drive serves no LQIP placeholders; BlurImage falls back to a
         // plain fade-in when lqip is null.
         lqip: null as string | null,
