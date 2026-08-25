@@ -9,6 +9,7 @@ import { getCached, invalidateCache, cacheGetRaw, CACHE_KEYS } from "../../../li
 import { parseJsonBody } from "../../../lib/requestBody";
 import { MAX_TEXT_FIELD_LENGTH, MAX_SELECTIONS_UPPER_BOUND, MAX_DRIVE_PHOTOS, isValidCalendarDate } from "../../../lib/albumValidation";
 import { FOLDER_ID_PATTERN } from "../../../lib/gdrive";
+import { cascadeDeleteAlbums } from "../../../lib/albumDeletion";
 import { captureError } from "../../../lib/errorTracking";
 import type { GalleryDraftProgress } from "../gallery/[slug]/draft";
 
@@ -296,7 +297,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
           // empty shell (unlike sanity albums, where 0 photos is a valid
           // pre-upload state). Remove the half-created album; the outer
           // handler then releases the slug locks and reports the failure.
-          await sanityWriteClient.delete(albumId).catch((cleanupError) => {
+          await cascadeDeleteAlbums([albumId]).catch((cleanupError) => {
             console.error("[Albums] ingest-compensation delete failed:", cleanupError);
             captureError(cleanupError, { route: "admin/albums POST", albumId });
           });
@@ -305,7 +306,6 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       }
       await invalidateCache(CACHE_KEYS.albumsList());
       await publishAdminEvent("album:created", { albumId: doc._id });
-
       return new Response(
         JSON.stringify({
           album: {

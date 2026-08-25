@@ -17,8 +17,18 @@ export default defineType({
       type: "string",
       description:
         "Set for Drive-sourced photos, which have no Sanity image asset. " +
-        "Exactly one of image/driveFileId is present per photo (enforced at the API layer).",
+        "Exactly one of image/driveFileId must be present per photo.",
       hidden: ({ parent }) => Boolean(parent?.image),
+      // Studio-enforced XOR (cubic round-2): the API layer is the primary
+      // writer, but Studio can publish photos too — without these checks an
+      // editor could save a photo with neither field and break rendering.
+      validation: (Rule) =>
+        Rule.custom((value, context) => {
+          const parent = context.parent as { image?: unknown } | undefined;
+          return value && parent?.image
+            ? "Cannot set both a Sanity image and a Google Drive file id"
+            : true;
+        }),
     }),
     defineField({
       name: "image",
@@ -27,9 +37,15 @@ export default defineType({
       options: {
         hotspot: true,
       },
-      // NOT required at schema level: Drive-sourced photos carry
-      // driveFileId instead. Exactly-one-of is enforced in the API layer,
-      // which is the only writer of photo documents.
+      validation: (Rule) =>
+        Rule.custom((value, context) => {
+          const parent = context.parent as { driveFileId?: string } | undefined;
+          return !value && parent?.driveFileId
+            ? true
+            : value
+              ? true
+              : "Photo needs either a Sanity image or a Google Drive file id";
+        }),
     }),
     defineField({
       name: "driveResourceKey",

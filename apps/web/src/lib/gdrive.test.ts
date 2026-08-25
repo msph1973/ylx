@@ -42,7 +42,9 @@ function stubDriveFetch(opts: {
   const calls: { url: string; auth: string | null }[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = String(input);
-    if (url.startsWith("https://oauth2.googleapis.com/token")) {
+    // Origin-exact (not substring) — CodeQL js/incomplete-url-substring-sanitization.
+    const origin = new URL(url).origin;
+    if (origin === "https://oauth2.googleapis.com") {
       calls.push({ url, auth: null });
       return opts.tokenOk === false
         ? jsonResponse({ error: "bad" }, 400)
@@ -157,10 +159,10 @@ describe("scanDriveFolder", () => {
     });
     vi.mocked(globalThis.fetch).mockImplementation(async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input);
-      if (url.startsWith("https://oauth2.googleapis.com/token")) {
+      if (new URL(url).origin === "https://oauth2.googleapis.com") {
         return jsonResponse({ access_token: "test-token", expires_in: 3600 });
       }
-      if (url.endsWith("/drive/v3/files") || url.includes("/drive/v3/files?")) {
+      if (new URL(url).pathname === "/drive/v3/files") {
         filesCall += 1;
         if (filesCall === 1) {
           return jsonResponse({ nextPageToken: "PAGE2", files: [{ id: "a1", name: "a.jpg", mimeType: "image/jpeg" }] });
@@ -179,37 +181,45 @@ describe("scanDriveFolder", () => {
   });
 
   it("stops at MAX_DRIVE_PHOTOS and flags truncation", async () => {
+    // Cold module: the OAuth-call count below is only meaningful with an
+    // empty token cache.
+    const { scanDriveFolder: freshScan } = await freshModule();
     // Every page offers yet another token — only the client-side cap ends
     // paging. 2000-per-page keeps the fixture small while still crossing
-    // the 5000 cap mid-page.
-    let page = 0;
-    stubDriveFetch({
-      routes: { [`files/${FOLDER_ID}`]: { body: { id: FOLDER_ID, name: "Huge" } } },
-    });
-    vi.mocked(globalThis.fetch).mockImplementation(async (input: RequestInfo | URL): Promise<Response> => {
-      const url = String(input);
-      if (url.startsWith("https://oauth2.googleapis.com/token")) {
+    // the 5000 cap mid-page. Routing is origin/pathname-exact (CodeQL
+    // js/incomplete-url-substring-sanitization) so the folder-metadata call
+    // falls through to its own branch and is asserted too.
+    let oauthCalls = 0;
+    let listPages = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+      const parsed = new URL(String(input));
+      if (parsed.origin === "https://oauth2.googleapis.com") {
+        oauthCalls += 1;
         return jsonResponse({ access_token: "t", expires_in: 3600 });
       }
-      if (url.includes("/drive/v3/files")) {
-        page += 1;
+      if (parsed.pathname === "/drive/v3/files") {
+        listPages += 1;
         const files = Array.from({ length: 2000 }, (_, i) => ({
-          id: `p${page}_${i}`, name: `f${i}.jpg`, mimeType: "image/jpeg",
+          id: `p${listPages}_${i}`, name: `f${i}.jpg`, mimeType: "image/jpeg",
         }));
         // NOTE: always an object shape ({ files }) — a bare array would make
         // `page.files` undefined and silently drop the whole page.
-        return jsonResponse({ nextPageToken: `tok${page}`, files });
+        return jsonResponse({ nextPageToken: `tok${listPages}`, files });
       }
-      return jsonResponse({ id: FOLDER_ID, name: "Huge" });
-    });
+      if (parsed.pathname === `/drive/v3/files/${FOLDER_ID}`) {
+        return jsonResponse({ id: FOLDER_ID, name: "Huge" });
+      }
+      return jsonResponse({ error: "unmatched" }, 500);
+    }));
 
-    const result = await scanDriveFolder(FOLDER_ID);
-
+    const result = await freshScan(FOLDER_ID);
+    expect(oauthCalls).toBe(1);
+    // Page 1 → 2000, page 2 → 4000, page 3 crosses the cap at photo 5000.
+    expect(listPages).toBe(3);
     expect(result.photoCount).toBe(5000);
     expect(result.truncated).toBe(true);
-    // The folder-metadata lookup also matches /files, consuming counter slot
-    // 1; list pages 2 and 3 carry 4000 photos and the third crosses the cap.
-    expect(page).toBeGreaterThanOrEqual(3);
+    expect(result.folderId).toBe(FOLDER_ID);
+    expect(result.folderName).toBe("Huge");
   });
 
   it("maps Drive 404 to a folder-not-found message", async () => {

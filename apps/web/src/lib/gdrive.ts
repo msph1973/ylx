@@ -233,6 +233,11 @@ export async function scanDriveFolder(folderId: string): Promise<DriveScanResult
         resourceKey: file.resourceKey ?? null,
       });
     }
+    // Cap hit exactly at a page boundary: the next token exists but must
+    // not trigger another Drive request — the result is already truncated.
+    if (page.nextPageToken && photos.length >= MAX_DRIVE_PHOTOS) {
+      truncated = true;
+    }
     pageToken = truncated ? undefined : page.nextPageToken;
   } while (pageToken);
   return {

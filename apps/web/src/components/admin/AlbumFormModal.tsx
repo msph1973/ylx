@@ -91,7 +91,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     folderName: string;
     photoCount: number;
     truncated: boolean;
-    photos: { id: string; name: string }[];
+    photos: { id: string; name: string; resourceKey: string | null }[];
   } | null>(null);
 
   const resetForm = useCallback(() => {
@@ -153,7 +153,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         folderName?: string;
         photoCount?: number;
         truncated?: boolean;
-        photos?: { id: string; name: string }[];
+        photos?: { id: string; name: string; resourceKey?: string | null }[];
       };
       if (!response.ok || !data.folderId || !Array.isArray(data.photos)) {
         setScanError(data.error ?? 'Gagal memindai folder. Coba lagi.');
@@ -164,7 +164,13 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         folderName: data.folderName ?? '',
         photoCount: data.photoCount ?? data.photos.length,
         truncated: data.truncated === true,
-        photos: data.photos.map((photo) => ({ id: photo.id, name: photo.name })),
+        photos: data.photos.map((photo) => ({
+          id: photo.id,
+          name: photo.name,
+          // Must ride along to create — resource-key-gated files 403 their
+          // URLs without it (cubic round-2, P1).
+          resourceKey: photo.resourceKey ?? null,
+        })),
       });
     } catch {
       setScanError('Network error — please try again');
