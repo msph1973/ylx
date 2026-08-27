@@ -176,4 +176,19 @@ describe("POST /api/admin/albums/[id]/deliver", () => {
     expect(res.status).toBe(200);
     expect(setMock).toHaveBeenCalledWith({ status: "delivered", showOriginalAfterDelivery: true });
   });
+
+  it("409s and does not deliver a Drive album", async () => {
+    sanityFetchMock.mockResolvedValue({
+      _id: "album-1",
+      status: "locked",
+      storageType: "drive",
+      finalPhotos: [{ _ref: "p1" }],
+    });
+    const res = await call();
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Google Drive albums do not support final delivery; keep the album in proofing mode",
+    });
+    expect(commitMock).not.toHaveBeenCalled();
+  });
 });

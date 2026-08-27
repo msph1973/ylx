@@ -1,6 +1,6 @@
 import { defineType, defineField } from "sanity";
+import { DRIVE_STORAGE, SANITY_STORAGE } from "@ylx/shared";
 import { CUSTOM_SLUG_PATTERN } from "../lib/constants";
-
 export default defineType({
   name: "album",
   title: "Album",
@@ -49,6 +49,35 @@ export default defineType({
       title: "Maximum Selections",
       type: "number",
       validation: (Rule) => Rule.required().integer().min(1).max(500),
+    }),
+    defineField({
+      name: "storageType",
+      title: "Storage Type",
+      type: "string",
+      description:
+        "Where the album's photo binaries live. 'sanity' = uploaded to Sanity assets; " +
+        "'drive' = photos stay in the photographer's Google Drive folder (photo docs " +
+        "carry driveFileId instead of an image asset). Locked after creation — " +
+        "switching mid-life would orphan selections.",
+      options: {
+        list: [
+          { title: "Sanity (upload)", value: SANITY_STORAGE },
+          { title: "Google Drive (link)", value: DRIVE_STORAGE },
+        ],
+      },
+      initialValue: SANITY_STORAGE,
+      readOnly: true,
+      // Deliberately NOT Rule.required(): albums created before this field
+      // existed have no storageType, and a required rule would block Studio
+      // publishes for them. Absent === SANITY_STORAGE everywhere in code.
+    }),
+    defineField({
+      name: "driveFolderId",
+      title: "Google Drive Folder ID",
+      type: "string",
+      description: "Opaque Drive folder id — set at creation when storageType is DRIVE_STORAGE.",
+      hidden: ({ parent }) => parent?.storageType !== DRIVE_STORAGE,
+      readOnly: true, // drift here would orphan the ingested photos
     }),
     defineField({
       name: "status",

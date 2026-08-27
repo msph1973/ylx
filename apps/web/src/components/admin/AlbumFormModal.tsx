@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { DRIVE_STORAGE, SANITY_STORAGE } from '@ylx/shared';
+import type { StorageType } from '@ylx/shared';
 import type { AlbumCardData } from './AlbumCard';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { CUSTOM_SLUG_PATTERN } from '@ylx/sanity/lib/constants';
@@ -80,6 +82,19 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Google Drive option (create mode only): scan a shared folder link and
+  const [storageType, setStorageType] = useState<StorageType>(SANITY_STORAGE);
+  const [driveUrl, setDriveUrl] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scannedFolder, setScannedFolder] = useState<{
+    folderId: string;
+    folderName: string;
+    photoCount: number;
+    truncated: boolean;
+    photos: { id: string; name: string; resourceKey: string | null }[];
+  } | null>(null);
+
   const resetForm = useCallback(() => {
     if (album) {
       setForm({
@@ -92,6 +107,10 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       });
     } else {
       setForm(DEFAULT_FORM);
+      setStorageType('sanity');
+      setDriveUrl('');
+      setScanError(null);
+      setScannedFolder(null);
     }
     setError(null);
   }, [album]);
@@ -115,6 +134,51 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       [name]: value,
     }));
   };
+  const handleScanDrive = useCallback(async () => {
+    setScanError(null);
+    const trimmed = driveUrl.trim();
+    if (!trimmed) {
+      setScanError('Paste your Drive folder link first');
+      return;
+    }
+    setIsScanning(true);
+    try {
+      const response = await fetch('/api/admin/albums/scan-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driveUrl: trimmed }),
+      });
+      const data = await response.json() as {
+        error?: string;
+        folderId?: string;
+        folderName?: string;
+        photoCount?: number;
+        truncated?: boolean;
+        photos?: { id: string; name: string; resourceKey?: string | null }[];
+      };
+      if (!response.ok || !data.folderId || !Array.isArray(data.photos)) {
+        setScanError(data.error ?? 'Gagal memindai folder. Coba lagi.');
+        return;
+      }
+      setScannedFolder({
+        folderId: data.folderId,
+        folderName: data.folderName ?? '',
+        photoCount: data.photoCount ?? data.photos.length,
+        truncated: data.truncated === true,
+        photos: data.photos.map((photo) => ({
+          id: photo.id,
+          name: photo.name,
+          // Must ride along to create — resource-key-gated files 403 their
+          // URLs without it (cubic round-2, P1).
+          resourceKey: photo.resourceKey ?? null,
+        })),
+      });
+    } catch {
+      setScanError('Network error — please try again');
+    } finally {
+      setIsScanning(false);
+    }
+  }, [driveUrl]);
 
   const handleCustomSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Normalize as the admin types so the preview always matches what the
@@ -134,6 +198,19 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     e.preventDefault();
     setError(null);
 
+    // Drive create flow requires a completed scan — the server ingests the
+    // scanned photo list from the create payload itself.
+    if (!isEdit && storageType === DRIVE_STORAGE) {
+      if (!scannedFolder) {
+        setError('Scan the Google Drive folder link first');
+        return;
+      }
+      if (scannedFolder.photoCount === 0) {
+        setError('That Drive folder has no images in it');
+        return;
+      }
+    }
+
     const validationError = validateAlbumForm(form, isEdit, todayString);
     if (validationError) {
       setError(validationError);
@@ -142,7 +219,6 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
     const maxSelectionsNum = Number(form.maxSelections);
 
     setIsSubmitting(true);
-
     try {
       const url = isEdit && album
         ? `/api/admin/albums/${album.id}`
@@ -151,7 +227,19 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, maxSelections: maxSelectionsNum }),
+        body: JSON.stringify({
+          ...form,
+          maxSelections: maxSelectionsNum,
+          // Drive albums attach the scanned folder + photo list; sanity keeps
+          // the legacy payload shape (no storageType → defaults server-side).
+          ...(storageType === DRIVE_STORAGE && scannedFolder
+            ? {
+                storageType: DRIVE_STORAGE,
+                driveFolderId: scannedFolder.folderId,
+                photos: scannedFolder.photos,
+              }
+            : {}),
+        }),
       });
 
       const data = await response.json() as { error?: string };
@@ -224,6 +312,72 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
             <form className="modal-form" onSubmit={handleSubmit} noValidate>
               {error && (
                 <div className="form-error" role="alert">{error}</div>
+              )}
+
+              {!isEdit && (
+                <div className="form-group">
+                  <span className="form-label">Storage Foto</span>
+                  <div role="radiogroup" aria-label="Photo storage" style={{ display: 'flex', gap: 'var(--space-4)' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="storageType"
+                        checked={storageType === SANITY_STORAGE}
+                        onChange={() => setStorageType('sanity')}
+                      />
+                      Sanity upload
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="storageType"
+                        checked={storageType === DRIVE_STORAGE}
+                        onChange={() => setStorageType('drive')}
+                      />
+                      Google Drive
+                    </label>
+                  </div>
+                  {storageType === DRIVE_STORAGE && (
+                    <div style={{ marginTop: 'var(--space-2)' }}>
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <input
+                          className="form-input"
+                          type="url"
+                          value={driveUrl}
+                          onChange={(e) => {
+                            // Cubic round-1: a stale scan must never ride
+                            // along with a different folder link — clear
+                            // the previous result the moment the link is
+                            // edited so submit can't reuse it.
+                            setDriveUrl(e.target.value);
+                            setScannedFolder(null);
+                            setScanError(null);
+                          }}
+                          placeholder="https://drive.google.com/drive/folders/…"
+                          aria-label="Google Drive folder link"
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => void handleScanDrive()}
+                          disabled={isScanning || driveUrl.trim().length === 0}
+                        >
+                          {isScanning ? 'Scanning…' : 'Scan'}
+                        </button>
+                      </div>
+                      {scanError && (
+                        <div className="form-error" role="alert">{scanError}</div>
+                      )}
+                      {scannedFolder && (
+                        <p className="form-hint">
+                          ✓ {scannedFolder.folderName} — {scannedFolder.photoCount} foto ditemukan
+                          {scannedFolder.truncated ? ' (dipotong pada batas 5000)' : ''}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
 
               <div className="form-group">

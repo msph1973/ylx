@@ -5,6 +5,10 @@
 
 export const MAX_TEXT_FIELD_LENGTH = 200;
 export const MAX_SELECTIONS_UPPER_BOUND = 500;
+/** Upper bound for photos ingested from one Drive folder scan — keeps the
+ *  create-album payload and the resulting Sanity transaction well inside
+ *  serverless limits even for huge wedding folders. */
+export const MAX_DRIVE_PHOTOS = 5000;
 
 /** Rejects a YYYY-MM-DD string whose components don't round-trip through
  *  `Date` unchanged (e.g. "2026-02-31" silently normalizes to March 3) — a

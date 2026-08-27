@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { DRIVE_STORAGE } from "@ylx/shared";
+import type { StorageType } from "@ylx/shared";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
@@ -12,7 +14,8 @@ import { captureError } from "../../../../../lib/errorTracking";
 interface AlbumRaw {
   _id: string;
   status?: string;
-  finalPhotos?: unknown[];
+  storageType?: StorageType;
+  finalPhotos?: { _ref: string }[];
   slug?: { current: string };
   customSlug?: string;
 }
@@ -51,9 +54,16 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
 
   try {
     const album = await sanityClient.fetch<AlbumRaw | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, status, finalPhotos, slug, customSlug }`,
+      `*[_type == "album" && _id == $albumId][0]{ _id, status, storageType, finalPhotos, slug, customSlug }`,
       { albumId }
     );
+
+    if (album?.storageType === DRIVE_STORAGE) {
+      return new Response(
+        JSON.stringify({ error: "Google Drive albums do not support final delivery; keep the album in proofing mode" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     if (!album) {
       return new Response(

@@ -120,6 +120,9 @@ importers:
       '@sanity/image-url':
         specifier: ^1.0.2
         version: 1.2.0
+      '@ylx/shared':
+        specifier: workspace:*
+        version: link:../shared
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3

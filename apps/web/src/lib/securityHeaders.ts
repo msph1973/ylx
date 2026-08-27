@@ -30,7 +30,12 @@
 //   Firefox console: CSP connect-src violation on main.realtime.ably.net).
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "img-src 'self' https://cdn.sanity.io data:",
+  // drive.google.com + googleusercontent.com: Drive-storage album photos.
+  // The thumbnail endpoint redirects to *.googleusercontent.com for the
+  // actual bytes, so both hosts must be allowed. connect-src stays untouched
+  // — clients never fetch() Drive URLs (no CORS headers); downloads are
+  // top-level navigations.
+  "img-src 'self' https://cdn.sanity.io https://drive.google.com https://*.googleusercontent.com data:",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",

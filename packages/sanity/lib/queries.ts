@@ -10,12 +10,15 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
   eventDate,
   maxSelections,
   status,
+  storageType,
   lastUnlockedAt,
   showOriginalAfterDelivery,
   photos[]-> {
     _id,
     filename,
     image,
+    driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   }
 }`;
@@ -38,6 +41,7 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   clientName,
   eventDate,
   status,
+  storageType,
   customSlug,
   shareCount,
   lastAccessedAt,
@@ -59,6 +63,8 @@ export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $
     _id,
     filename,
     image,
+    driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   },
   selectedAt,
@@ -78,38 +84,48 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   lastAccessedAt,
   maxSelections,
   status,
+  storageType,
   showOriginalAfterDelivery,
   photos[]-> {
     _id,
     filename,
     image,
+    driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   },
   "finalPhotos": finalPhotos[]->{
     _id,
     filename,
     image,
+    driveFileId,
+    driveResourceKey,
     "lqip": image.asset->metadata.lqip
   }
 }`;
 
+
+// Fetches only the delivered final photos for an album, by slug. Used by the
+// client-facing final-gallery download flow (delivered status only). Drive
+// fields are projected so a driveFileId photo that ever lands in finalPhotos
+// renders correctly instead of producing broken image URLs.
+export const albumFinalPhotosQuery = `*[_type == "album" && (slug.current == $slug || customSlug == $slug) && status == "delivered"][0]{
+  _id,
+  title,
+  status,
+  storageType,
+  "finalPhotos": finalPhotos[]->{
+    _id,
+    filename,
+    image,
+    driveFileId,
+    driveResourceKey,
+    "lqip": image.asset->metadata.lqip
+  }
+}`;
 // Every admin document's email — used by the email-notification path after a
 // client submits selections (ROADMAP item #1). Intentionally unfiltered by
 // `role`: until multi-admin ownership (ROADMAP #7) lands, every admin is
 // notified of every submission (over-notify > miss). Projects only `email`
 // so the admin's name/role/password never rides along on this read.
 export const adminEmailsQuery = `*[_type == "admin"].email`;
-
-// Fetches only the delivered final photos for an album, by slug. Used by the
-// client-facing final-gallery download flow (delivered status only).
-export const albumFinalPhotosQuery = `*[_type == "album" && (slug.current == $slug || customSlug == $slug) && status == "delivered"][0]{
-  _id,
-  title,
-  status,
-  "finalPhotos": finalPhotos[]->{
-    _id,
-    filename,
-    image,
-    "lqip": image.asset->metadata.lqip
-  }
-}`;
