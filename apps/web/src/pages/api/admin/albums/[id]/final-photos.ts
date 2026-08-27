@@ -27,6 +27,7 @@ interface AlbumRaw {
   _id: string;
   _type: string;
   status?: string;
+  storageType?: "sanity" | "drive";
   slug?: { current: string };
   customSlug?: string;
   finalPhotos?: { _ref: string }[];
@@ -183,7 +184,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
     // own ids, so fetch them concurrently to cut serverless latency.
     const [album, asset] = await Promise.all([
       sanityClient.fetch<AlbumRaw | null>(
-        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, slug, customSlug, "finalPhotos": finalPhotos[]{ _ref } }`,
+        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, storageType, slug, customSlug, "finalPhotos": finalPhotos[]{ _ref } }`,
         { albumId }
       ),
       // Fetch asset metadata to validate MIME type and file size server-side.
@@ -200,6 +201,13 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
       });
     }
 
+    if (album.storageType === "drive") {
+      await deleteOrphanedAsset(assetId);
+      return new Response(
+        JSON.stringify({ error: "Google Drive albums do not support final photo delivery" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
     if (!album.status || !DELIVERABLE_STATUSES.has(album.status)) {
       await deleteOrphanedAsset(assetId);
       return new Response(
@@ -410,7 +418,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   try {
     const [album, photo] = await Promise.all([
       sanityClient.fetch<AlbumRaw | null>(
-        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, slug, customSlug, finalPhotos[]{_ref} }`,
+        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, storageType, slug, customSlug, finalPhotos[]{_ref} }`,
         { albumId }
       ),
       sanityClient.fetch<PhotoRaw | null>(
@@ -426,6 +434,12 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
       });
     }
 
+    if (album.storageType === "drive") {
+      return new Response(
+        JSON.stringify({ error: "Google Drive albums do not support final photo delivery" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
     if (!album.status || !DELIVERABLE_STATUSES.has(album.status)) {
       return new Response(
         JSON.stringify({ error: "Album must be submitted, locked, or delivered to remove final photos" }),

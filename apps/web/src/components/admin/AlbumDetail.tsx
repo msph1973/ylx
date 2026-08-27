@@ -212,6 +212,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDriveWarningDismissed, setIsDriveWarningDismissed] = useState(false);
 
   const [photoToDelete, setPhotoToDelete] = useState<AlbumPhoto | null>(null);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
@@ -647,6 +648,26 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           </div>
           <p className="status-hint">{status.hint}</p>
 
+          {isDriveAlbum && !isDriveWarningDismissed && (
+            <div className="drive-storage-warning" role="alert">
+              <div>
+                <strong>Google Drive storage active</strong>
+                <p>
+                  Photos stay in Google Drive. Final delivery and ZIP download are unavailable for this album;
+                  clients receive direct per-photo Drive links. The Drive folder must remain shared for thumbnails to work.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="drive-storage-warning-dismiss"
+                onClick={() => setIsDriveWarningDismissed(true)}
+                aria-label="Dismiss Google Drive storage warning"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div className="share-actions">
             <button className="share-btn" onClick={() => { void handleCopyLink(); }} disabled={!album.slug} aria-label="Copy gallery link to clipboard">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -992,6 +1013,29 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             font-size: var(--text-sm);
             color: var(--color-text-muted);
             margin: 0 0 var(--space-6);
+          }
+          .drive-storage-warning {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: var(--space-4);
+            margin: 0 0 var(--space-5);
+            padding: var(--space-3) var(--space-4);
+            border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+            border-radius: var(--radius-md);
+            background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+            color: var(--color-text);
+          }
+          .drive-storage-warning p {
+            margin: var(--space-1) 0 0;
+            color: var(--color-text-muted);
+            font-size: var(--text-sm);
+            line-height: var(--leading-relaxed);
+          }
+          .drive-storage-warning-dismiss {
+            flex-shrink: 0;
+            color: var(--color-text-muted);
+            font-size: var(--text-xs);
           }
 
           .status-badge {

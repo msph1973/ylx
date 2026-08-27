@@ -12,6 +12,7 @@ import { captureError } from "../../../../../lib/errorTracking";
 interface AlbumRaw {
   _id: string;
   status?: string;
+  storageType?: "sanity" | "drive";
   finalPhotos?: unknown[];
   slug?: { current: string };
   customSlug?: string;
@@ -51,9 +52,16 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
 
   try {
     const album = await sanityClient.fetch<AlbumRaw | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, status, finalPhotos, slug, customSlug }`,
+      `*[_type == "album" && _id == $albumId][0]{ _id, status, storageType, finalPhotos, slug, customSlug }`,
       { albumId }
     );
+
+    if (album?.storageType === "drive") {
+      return new Response(
+        JSON.stringify({ error: "Google Drive albums do not support final delivery; keep the album in proofing mode" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     if (!album) {
       return new Response(

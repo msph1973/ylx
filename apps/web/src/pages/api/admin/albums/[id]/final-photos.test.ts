@@ -253,3 +253,20 @@ describe("POST /api/admin/albums/[id]/final-photos", () => {
     expect(transactionCommitMock).toHaveBeenCalledTimes(1);
   });
 });
+
+  it("rejects final-photo upload for a Drive album", async () => {
+    sanityFetchMock.mockResolvedValueOnce({
+      _id: "album-1",
+      _type: "album",
+      status: "locked",
+      storageType: "drive",
+      finalPhotos: [],
+    });
+    getDocumentMock.mockResolvedValueOnce(ASSET);
+    const res = await callPost({ assetId: ASSET_ID, filename: "edit-01.jpg" });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Google Drive albums do not support final photo delivery",
+    });
+    expect(transactionCommitMock).not.toHaveBeenCalled();
+  });
