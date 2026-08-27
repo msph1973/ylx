@@ -1,6 +1,6 @@
 import { defineType, defineField } from "sanity";
+import { DRIVE_STORAGE, SANITY_STORAGE } from "@ylx/shared";
 import { CUSTOM_SLUG_PATTERN } from "../lib/constants";
-
 export default defineType({
   name: "album",
   title: "Album",
@@ -61,8 +61,8 @@ export default defineType({
         "switching mid-life would orphan selections.",
       options: {
         list: [
-          { title: "Sanity (upload)", value: "sanity" },
-          { title: "Google Drive (link)", value: "drive" },
+          { title: "Sanity (upload)", value: SANITY_STORAGE },
+          { title: "Google Drive (link)", value: DRIVE_STORAGE },
         ],
       },
       initialValue: "sanity",

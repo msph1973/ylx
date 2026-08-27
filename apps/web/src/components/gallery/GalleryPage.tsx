@@ -7,7 +7,8 @@ import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
 import { fetchResumeSession } from '@/lib/gallerySessionClient';
 import { buildDownloadManifest, type DownloadFolder, type DownloadManifestEntry } from '@/lib/galleryDownload';
 import { runWithConcurrency } from '@/lib/concurrency';
-import type { Photo, AlbumDeliveredData } from '@ylx/shared';
+import type { Photo, AlbumDeliveredData, StorageType } from '@ylx/shared';
+import { DRIVE_STORAGE } from '@ylx/shared';
 
 const PhotoLightbox = lazy(() => import('@/components/gallery/PhotoLightbox').then(m => ({ default: m.PhotoLightbox })));
 
@@ -48,7 +49,7 @@ interface AlbumData {
   /** Storage backend — 'drive' albums expose per-photo direct download
    *  links during proofing (their files are public-by-link anyway), while
    *  sanity originals stay delivery-gated. */
-  storageType?: 'sanity' | 'drive';
+  storageType?: StorageType;
   lastUnlockedAt?: string | null;
   showOriginalAfterDelivery: boolean;
   photos: Photo[];
@@ -1252,7 +1253,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     // Drive photos: the direct link must be opened as a navigation, not
     // fetch()ed — Drive sends no CORS headers, so a blob fetch would always
     // fail. Top-level open hands the file to the browser's own downloader.
-    if (album?.storageType === 'drive') {
+    if (album?.storageType === DRIVE_STORAGE) {
       window.open(photo.downloadUrl ?? photo.url, '_blank', 'noopener');
       return;
     }
@@ -1492,7 +1493,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // Drive-storage albums surface per-photo download links during proofing —
   // their files are public-by-link regardless, so hiding the button would
   // protect nothing (unlike sanity originals, which are delivery-gated).
-  const isDriveAlbum = album?.storageType === 'drive';
+  const isDriveAlbum = album?.storageType === DRIVE_STORAGE;
   // The "Semua Foto" (originals) tab only exists when the admin opted in at
   // delivery time — falls back to the "cetak" (final photos) tab otherwise,
   // even if `activeDeliveredTab` state was somehow left at 'original' (e.g.

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { DRIVE_STORAGE, SANITY_STORAGE } from '@ylx/shared';
+import type { StorageType } from '@ylx/shared';
 import type { AlbumCardData } from './AlbumCard';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { CUSTOM_SLUG_PATTERN } from '@ylx/sanity/lib/constants';
@@ -81,8 +83,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
   const [error, setError] = useState<string | null>(null);
 
   // Google Drive option (create mode only): scan a shared folder link and
-  // ingest its photo list at creation time instead of uploading to Sanity.
-  const [storageType, setStorageType] = useState<'sanity' | 'drive'>('sanity');
+  const [storageType, setStorageType] = useState<StorageType>(SANITY_STORAGE);
   const [driveUrl, setDriveUrl] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -199,7 +200,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
 
     // Drive create flow requires a completed scan — the server ingests the
     // scanned photo list from the create payload itself.
-    if (!isEdit && storageType === 'drive') {
+    if (!isEdit && storageType === DRIVE_STORAGE) {
       if (!scannedFolder) {
         setError('Scan the Google Drive folder link first');
         return;
@@ -231,9 +232,9 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           maxSelections: maxSelectionsNum,
           // Drive albums attach the scanned folder + photo list; sanity keeps
           // the legacy payload shape (no storageType → defaults server-side).
-          ...(storageType === 'drive' && scannedFolder
+          ...(storageType === DRIVE_STORAGE && scannedFolder
             ? {
-                storageType: 'drive' as const,
+                storageType: DRIVE_STORAGE,
                 driveFolderId: scannedFolder.folderId,
                 photos: scannedFolder.photos,
               }
@@ -321,7 +322,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                       <input
                         type="radio"
                         name="storageType"
-                        checked={storageType === 'sanity'}
+                        checked={storageType === SANITY_STORAGE}
                         onChange={() => setStorageType('sanity')}
                       />
                       Sanity upload
@@ -330,13 +331,13 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                       <input
                         type="radio"
                         name="storageType"
-                        checked={storageType === 'drive'}
+                        checked={storageType === DRIVE_STORAGE}
                         onChange={() => setStorageType('drive')}
                       />
                       Google Drive
                     </label>
                   </div>
-                  {storageType === 'drive' && (
+                  {storageType === DRIVE_STORAGE && (
                     <div style={{ marginTop: 'var(--space-2)' }}>
                       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                         <input

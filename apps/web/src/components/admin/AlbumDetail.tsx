@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumWithSelections, Photo } from '@ylx/shared';
-import { formatDate } from '@ylx/shared';
+import { DRIVE_STORAGE, formatDate } from '@ylx/shared';
 import { SelectionTable } from './SelectionTable';
 import { CopyFilenamesButton } from './CopyFilenamesButton';
 import { AlbumFormModal } from './AlbumFormModal';
@@ -339,7 +339,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const finalPhotos = (album?.finalPhotos ?? []) as Photo[];
   // Drive-storage albums hide upload/final-delivery affordances — their
   // photo binaries never enter Sanity.
-  const isDriveAlbum = album?.storageType === 'drive';
+  const isDriveAlbum = album?.storageType === DRIVE_STORAGE;
   const allPhotosSelected = photos.length > 0 && photos.every((photo) => selectedPhotoIds.has(photo.id));
 
   const exitPhotoSelectionMode = useCallback(() => {

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
+import { DRIVE_STORAGE, isStorageType, SANITY_STORAGE } from "@ylx/shared";
+import type { StorageType } from "@ylx/shared";
 import { allAlbumsQuery, allAlbumPinsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
 import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../lib/slug";
@@ -22,7 +24,7 @@ interface SanityAlbumRaw {
   photoCount: number;
   maxSelections: number;
   selectionCount: number;
-  storageType?: string;
+  storageType?: StorageType;
 }
 
 interface AlbumPinRecord {
@@ -67,7 +69,7 @@ export const GET: APIRoute = async ({ cookies }) => {
       clientName: album.clientName,
       eventDate: album.eventDate,
       status: album.status,
-      storageType: album.storageType === "drive" ? "drive" : "sanity",
+      storageType: album.storageType === DRIVE_STORAGE ? DRIVE_STORAGE : SANITY_STORAGE,
       photoCount: album.photoCount,
       maxSelections: album.maxSelections,
       selectionCount: album.selectionCount,
@@ -112,7 +114,7 @@ interface CreateAlbumBody {
   pin: string;
   maxSelections: number;
   customSlug?: string;
-  storageType: "sanity" | "drive";
+  storageType: StorageType;
   driveFolderId?: string;
   photos?: DrivePhotoInput[];
 }
@@ -151,15 +153,14 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
     }
   }
   // Drive-backed albums carry their scanned photo list inline. Legacy
-  // clients (and existing tests) omit storageType entirely → sanity.
-  const storageType = body.storageType === undefined ? "sanity" : body.storageType;
-  if (storageType !== "sanity" && storageType !== "drive") {
+  const storageType = body.storageType === undefined ? SANITY_STORAGE : body.storageType;
+  if (!isStorageType(storageType)) {
     return { error: "storageType must be 'sanity' or 'drive'" };
   }
 
   let driveFolderId: string | undefined;
   let photos: DrivePhotoInput[] | undefined;
-  if (storageType === "drive") {
+  if (storageType === DRIVE_STORAGE) {
     if (typeof body.driveFolderId !== "string" || !FOLDER_ID_PATTERN.test(body.driveFolderId)) {
       return { error: "driveFolderId is required for Google Drive albums" };
     }
@@ -274,7 +275,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       // into album.photos inside a single transaction so docs-without-refs or
       // refs-without-docs can never exist. Binaries stay in Drive — these
       // documents are metadata only (filename + driveFileId).
-      if (storageType === "drive" && photos && photos.length > 0) {
+      if (storageType === DRIVE_STORAGE && photos && photos.length > 0) {
         const photoDocs = photos.map((photo) => ({
           _type: "photo",
           _id: randomUUID(),

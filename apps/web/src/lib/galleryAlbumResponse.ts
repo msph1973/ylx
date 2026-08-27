@@ -14,8 +14,9 @@
 
 import { urlFor } from "@ylx/sanity/client";
 import { thumbnailUrl as sanityThumbnailUrl, thumbnailSrcSet as sanityThumbnailSrcSet } from "@ylx/sanity/lib/thumbnails";
+import { DRIVE_STORAGE, SANITY_STORAGE } from "@ylx/shared";
+import type { StorageType } from "@ylx/shared";
 import { driveThumbUrl, driveDownloadUrl } from "./gdrive";
-
 interface SanityImageRef {
   _type: string;
   asset: { _ref: string };
@@ -35,18 +36,17 @@ export interface SanityAlbumRaw {
   title: string;
   clientName: string;
   eventDate: string;
-  status: string;
   maxSelections: number;
-  storageType?: "sanity" | "drive";
+  status: string;
   lastUnlockedAt?: string | null;
   showOriginalAfterDelivery?: boolean;
+  storageType?: StorageType;
   photos: SanityPhotoRaw[];
 }
 
 export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
-  const isDrive = album.storageType === "drive";
   // Only ever emit the Sanity full-original-resolution download URL once the
-  // album is actually delivered AND the admin opted in to originals access —
+  const isDrive = album.storageType === DRIVE_STORAGE;
   // otherwise a client with a valid PIN/session (e.g. still in the proofing
   // stage, or delivered with originals turned off) could pull the payload
   // and download full-res originals they were never granted access to, even
@@ -115,7 +115,7 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
       maxSelections: album.maxSelections,
       // Storage backend marker — drives which download affordances the UI
       // offers (per-photo direct links vs gated originals/ZIP).
-      storageType: isDrive ? ("drive" as const) : ("sanity" as const),
+      storageType: isDrive ? DRIVE_STORAGE : SANITY_STORAGE,
       // Draft revision marker — the client discards drafts saved before the
       // most recent unlock (see selectionDraft.loadDraft's notBefore).
       lastUnlockedAt: album.lastUnlockedAt ?? null,

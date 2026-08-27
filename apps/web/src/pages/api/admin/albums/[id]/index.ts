@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { DRIVE_STORAGE, SANITY_STORAGE } from "@ylx/shared";
+import type { StorageType } from "@ylx/shared";
 import { sanityClient, sanityWriteClient, urlFor } from "@ylx/sanity/client";
 import {
   albumWithSelectionsQuery,
@@ -51,7 +53,7 @@ interface SanityAlbumDetailRaw {
   lastAccessedAt?: string;
   maxSelections: number;
   status: string;
-  storageType?: "sanity" | "drive";
+  storageType?: StorageType;
   photos: SanityPhotoRaw[];
   finalPhotos?: SanityPhotoRaw[] | null;
 }
@@ -136,7 +138,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       lastAccessedAt: album.lastAccessedAt,
       maxSelections: album.maxSelections,
       status: album.status,
-      storageType: album.storageType === "drive" ? "drive" : "sanity",
+      storageType: album.storageType === DRIVE_STORAGE ? DRIVE_STORAGE : SANITY_STORAGE,
       isLocked: album.status !== 'active',
       photos: (album.photos ?? []).map((p) => ({
         id: p._id,

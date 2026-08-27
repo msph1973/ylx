@@ -1,4 +1,5 @@
 import type { Photo } from "./photo.js";
+import type { StorageType } from "./storage.js";
 import type { Selection } from "./selection.js";
 
 export interface Album {
@@ -47,7 +48,7 @@ export interface AlbumWithSelections {
   status: string;
   /** Where photo binaries live — 'drive' albums keep originals in Google
    *  Drive (photo docs reference driveFileId) and skip upload/delivery flows. */
-  storageType?: 'sanity' | 'drive';
+  storageType?: StorageType;
   eventDate?: string;
   createdAt?: Date;
   photos: Photo[];

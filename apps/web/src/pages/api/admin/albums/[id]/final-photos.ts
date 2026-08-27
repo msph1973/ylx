@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { DRIVE_STORAGE } from "@ylx/shared";
+import type { StorageType } from "@ylx/shared";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../../lib/auth";
 import { publishAdminEvent, publishAlbumEvent } from "../../../../../lib/ably";
@@ -27,7 +29,7 @@ interface AlbumRaw {
   _id: string;
   _type: string;
   status?: string;
-  storageType?: "sanity" | "drive";
+  storageType?: StorageType;
   slug?: { current: string };
   customSlug?: string;
   finalPhotos?: { _ref: string }[];
@@ -201,7 +203,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
       });
     }
 
-    if (album.storageType === "drive") {
+    if (album.storageType === DRIVE_STORAGE) {
       await deleteOrphanedAsset(assetId);
       return new Response(
         JSON.stringify({ error: "Google Drive albums do not support final photo delivery" }),
@@ -434,7 +436,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
       });
     }
 
-    if (album.storageType === "drive") {
+    if (album.storageType === DRIVE_STORAGE) {
       return new Response(
         JSON.stringify({ error: "Google Drive albums do not support final photo delivery" }),
         { status: 409, headers: { "Content-Type": "application/json" } }
