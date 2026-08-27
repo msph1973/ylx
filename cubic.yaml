@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://cubic.dev/schema/cubic-repository-config.schema.json
-# cubic.yaml — AI review config for YLx (https://docs.cubic.dev/configure/cubic-yaml)
-# See STATUS.md, REVIEW.md, and AGENTS.md for full project context.
+# cubic.yaml — PROPOSED (disimpan di ~/system-prompt, belum diterapkan ke ylx/cubic.yaml)
+# Sumber: STATUS.md + REVIEW.md + apps/web/src/pages/api/gallery/[slug]/verify.ts + submit.ts + lib/auth.ts + ratelimit.ts + schemas/album.ts
+# Tanggal: 2026-08-27 | Trigger: user minta simpan dulu, belum patch ylx/cubic.yaml
 
 version: 1
 
@@ -19,17 +20,20 @@ reviews:
     Key rules:
     - Every API route under /api/admin/ MUST call requireAdmin(cookies) at the
       top and 401 on failure (REVIEW.md §2.1).
-    - Every state-changing gallery action (submit, unlock, lock, delete) MUST
+    - Every state-changing gallery action (submit, unlock, lock, delete, deliver) MUST
       await publishAdminEvent() after the Sanity commit — never before.
-    - Invalidate cache before publishing realtime events so clients refetch
-      against fresh data.
+    - Invalidate cache BEFORE publishing realtime events so clients refetch
+      against fresh data (submit.ts:180 pattern).
+    - Album lifecycle: active -> submitted/locked/delivered are ALL closed. Check !== 'active', never === 'locked' alone.
     - TypeScript strict mode — no `any`, no @ts-ignore without documented
       reason. type-only imports must use `import type`.
-    - GROQ subqueries use `^.` syntax, not `^`. Field names with `_` prefix
-      (_id, _type, _createdAt) are Sanity system fields.
+    - GROQ subqueries use ^._id syntax, not ^. Field names with _ prefix
+      (_id, _type, _createdAt) are Sanity system fields. Use $slug params, never string interpolation.
     - useCopyToClipboard hook for all clipboard interactions. No direct
       navigator.clipboard.writeText in components.
     - useReducedMotion() from framer-motion for all motion components.
+    - Rate limiting: reuse isRateLimited / isLimitReached from lib/ratelimit.ts, dual bucket 5/IP + 30/album, fail-closed half-cap prod (ratelimit.ts:110).
+    - PIN verify: timingSafeEqual + grantAlbumAccess(hash) + hasValidPinSession bound to current PIN (verify.ts:50, submit.ts:95).
     - Never hardcode credentials, API keys, or secrets. Never commit .env files.
     - Ponytail-first: minimal code, YAGNI. Don't add abstractions with one
       caller. stdlib over dependencies.
@@ -47,6 +51,7 @@ reviews:
       - "**/*.snap"
 
   custom_rules:
+    # --- existing 6 rules (dipertahankan) ---
     - name: requireAdmin guard on all admin API routes
       description: |
         Every file under apps/web/src/pages/api/admin/ MUST call
@@ -85,7 +90,7 @@ reviews:
         Flag hardcoded credentials, API keys, tokens, or passwords in source
         files. All secrets must come from environment variables or Sanity
         dashboard. Token names to watch: SANITY_API_TOKEN, ABLY_API_KEY,
-        SESSION_SECRET, UPSTASH_REDIS_REST_TOKEN.
+        SESSION_SECRET, UPSTASH_REDIS_REST_TOKEN, RESEND_API_KEY.
       include:
         - apps/web/src/**
         - packages/**
@@ -107,6 +112,73 @@ reviews:
         accessibility — no hardcoded animations.
       include:
         - apps/web/src/components/**/*.tsx
+
+    # --- 8 rules baru (deep YLx, bikin pass AI review) ---
+    - name: album closed check must be !== active not === locked
+      description: |
+        Album status lifecycle is active -> submitted/locked/delivered (schemas/album.ts:52).
+        All closed checks MUST use status !== 'active' (submit.ts:110), never status === 'locked' alone
+        which misses submitted/delivered. Flag any `=== 'locked'` or `=== 'submitted'` as sole closed gate.
+      include:
+        - apps/web/src/pages/api/gallery/**
+        - apps/web/src/pages/api/admin/albums/**
+
+    - name: cache invalidate BEFORE realtime publish (order)
+      description: |
+        Realtime publish must be AFTER invalidateCache so refetch hits fresh data.
+        Correct order is await invalidateCache([...CACHE_KEYS...]) then await publishAdminEvent(...)
+        as in submit.ts:180 and verify.ts:140. Flag publish before invalidate or fire-and-forget publish without await.
+      include:
+        - apps/web/src/pages/api/gallery/**/*
+        - apps/web/src/pages/api/admin/albums/**
+        - apps/web/src/pages/api/admin/photos/**
+
+    - name: pin-bound session hasValidPinSession for submit
+      description: |
+        Submit/session/draft MUST verify hasValidPinSession(cookies, album._id, pinRecord.pin) bound to CURRENT pin
+        fetched via albumPinBySlugQuery (fresh, never cached), not hasAlbumAccess nor cached album.pin.
+        grantAlbumAccess(cookies, pinRecord._id, pin) stores hash (verify.ts:140). Flag submit that skips this or reads pin from cached album lookup.
+      include:
+        - apps/web/src/pages/api/gallery/[slug]/submit.ts
+        - apps/web/src/pages/api/gallery/[slug]/draft.ts
+        - apps/web/src/pages/api/gallery/[slug]/session.ts
+
+    - name: reuse shared ratelimit — dual bucket, no inline Map
+      description: |
+        PIN verify and login MUST reuse lib/ratelimit.ts: isRateLimited(`${ip}:${slug}`,5) + isLimitReached(`album:${slug}`,30) (verify.ts:40).
+        In production Upstash down degrades to half-cap in-memory (ratelimit.ts:110), not fail-open. Flag any new inline Map/setTimeout limiter or direct Redis INCR without wrapper.
+      include:
+        - apps/web/src/pages/api/gallery/[slug]/verify.ts
+        - apps/web/src/pages/api/auth/login.ts
+
+    - name: photo ownership + maxSelections + deterministic lock
+      description: |
+        Submit MUST verify every photo belongs to album via Set(album.photos) (submit.ts:120), dedup Set, check uniquePhotoIds.length > maxSelections 400, check existingSelections.length>0 409, and use deterministic submission id `submission-${albumId}` as atomic lock (transaction.create). Flag missing dedup or missing ownership filter.
+      include:
+        - apps/web/src/pages/api/gallery/[slug]/submit.ts
+
+    - name: HMAC sessionVersion revocation (auth.ts)
+      description: |
+        Admin cookie is base64url(json).hmac SHA256 via SESSION_SECRET (auth.ts:50), verified with timingSafeEqual, payload validated (id,email,name,role,expiresAt,sessionVersion), expiresAt checked, and sessionVersion re-checked via getCached(sessionVersion,20s) against Sanity (fail-closed on error). invalidateSessionVersionCache on logout. Flag plain JWT without version or secure:false hardcoded.
+      include:
+        - apps/web/src/lib/auth.ts
+        - apps/web/src/pages/api/auth/**
+
+    - name: direct-to-Sanity credentials admin-only, not bundled
+      description: |
+        SANITY_API_TOKEN Editor/write is fetched runtime via /api/admin/upload/credentials.ts (admin-only) and never bundled to client JS. finalize.ts must setIfMissing({shareCount:0}) before inc() and patch album. Flag any import of SANITY_API_TOKEN in client:load components or missing setIfMissing before inc.
+      include:
+        - apps/web/src/pages/api/admin/upload/**
+        - apps/web/src/components/admin/UploadPage.tsx
+
+    - name: Sanity schema hygiene — pin 4-digit, slug pattern, system fields
+      description: |
+        pin must be /^\d{4}$/ (schemas/album.ts:18), customSlug must match CUSTOM_SLUG_PATTERN, status uses string 'active'|'submitted'|'locked'|'delivered' (not boolean isLocked), storageType locked after creation, _id/_type/_createdAt with underscore, useCdn:false for writes, urlFor() for images.
+      include:
+        - packages/sanity/schemas/album.ts
+        - packages/sanity/schemas/photo.ts
+        - packages/sanity/schemas/selection.ts
+        - apps/web/src/lib/slug.ts
 
 pr_descriptions:
   generate: true
