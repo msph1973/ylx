@@ -261,7 +261,7 @@ describe("scanDriveFolder", () => {
     await freshScan(FOLDER_ID);
     await freshScan(FOLDER_ID);
 
-    const oauthCalls = calls.filter((c) => c.url.startsWith("https://oauth2.googleapis.com"));
+    const oauthCalls = calls.filter((c) => new URL(c.url).origin === "https://oauth2.googleapis.com");
     expect(oauthCalls).toHaveLength(1);
   });
 });
