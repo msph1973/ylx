@@ -15,7 +15,7 @@ interface AlbumRaw {
   _id: string;
   status?: string;
   storageType?: StorageType;
-  finalPhotos?: unknown[];
+  finalPhotos?: { _ref: string }[];
   slug?: { current: string };
   customSlug?: string;
 }

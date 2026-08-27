@@ -65,18 +65,18 @@ export default defineType({
           { title: "Google Drive (link)", value: DRIVE_STORAGE },
         ],
       },
-      initialValue: "sanity",
+      initialValue: SANITY_STORAGE,
       readOnly: true,
       // Deliberately NOT Rule.required(): albums created before this field
       // existed have no storageType, and a required rule would block Studio
-      // publishes for them. Absent === "sanity" everywhere in code.
+      // publishes for them. Absent === SANITY_STORAGE everywhere in code.
     }),
     defineField({
       name: "driveFolderId",
       title: "Google Drive Folder ID",
       type: "string",
-      description: "Opaque Drive folder id — set at creation when storageType is 'drive'.",
-      hidden: ({ parent }) => parent?.storageType !== "drive",
+      description: "Opaque Drive folder id — set at creation when storageType is DRIVE_STORAGE.",
+      hidden: ({ parent }) => parent?.storageType !== DRIVE_STORAGE,
       readOnly: true, // drift here would orphan the ingested photos
     }),
     defineField({
