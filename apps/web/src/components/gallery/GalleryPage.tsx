@@ -382,7 +382,7 @@ const GALLERY_VIEW_STYLES = `
           align-items: center;
           gap: var(--space-3);
           padding-bottom: var(--space-3);
-          color: rgba(255,255,255,0.7);
+          color: var(--color-lightbox-text);
           font-size: var(--text-sm);
         }
 
@@ -408,7 +408,7 @@ const GALLERY_VIEW_STYLES = `
           min-height: var(--tap-target-min);
           background: none;
           border: none;
-          color: rgba(255,255,255,0.7);
+          color: var(--color-lightbox-text);
           font-size: var(--text-xl);
           cursor: pointer;
           padding: var(--space-1);
@@ -419,7 +419,7 @@ const GALLERY_VIEW_STYLES = `
         @media (hover: hover) {
           .lightbox-close:hover,
           .lightbox-download:hover:not(:disabled) {
-            color: #fff;
+            color: var(--color-lightbox-text-bright);
           }
         }
 
@@ -467,9 +467,9 @@ const GALLERY_VIEW_STYLES = `
           min-width: var(--tap-target-min);
           min-height: var(--tap-target-min);
           background: none;
-          border: 1px solid rgba(255,255,255,0.25);
+          border: 1px solid var(--color-lightbox-border);
           border-radius: var(--radius-md);
-          color: rgba(255,255,255,0.7);
+          color: var(--color-lightbox-text);
           padding: var(--space-2) var(--space-4);
           font-size: var(--text-base);
           cursor: pointer;
@@ -478,8 +478,8 @@ const GALLERY_VIEW_STYLES = `
 
         @media (hover: hover) {
           .lightbox-nav:hover:not(:disabled) {
-            border-color: rgba(255,255,255,0.6);
-            color: #fff;
+            border-color: var(--color-lightbox-border-hover);
+            color: var(--color-lightbox-text-bright);
           }
         }
 
@@ -497,7 +497,7 @@ const GALLERY_VIEW_STYLES = `
           cursor: pointer;
           transition: all var(--transition-fast);
           background-color: transparent;
-          border: 1px solid rgba(255,255,255,0.4);
+          border: 1px solid var(--color-lightbox-select-border);
           color: rgba(255,255,255,0.8);
         }
 
@@ -518,8 +518,8 @@ const GALLERY_VIEW_STYLES = `
           flex: 1;
           min-height: var(--tap-target-min);
           padding: var(--space-2) var(--space-3);
-          background-color: rgba(255,255,255,0.1);
-          border: 1px solid rgba(255,255,255,0.25);
+          background-color: var(--color-lightbox-input-bg);
+          border: 1px solid var(--color-lightbox-border);
           border-radius: var(--radius-md);
           color: #fff;
           font-size: var(--text-sm);
@@ -756,7 +756,7 @@ const GALLERY_VIEW_STYLES = `
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: rgba(0, 0, 0, 0.55);
+          background-color: var(--color-photo-download-bg);
           color: #fff;
           border: none;
           border-radius: var(--radius-full);
@@ -767,7 +767,7 @@ const GALLERY_VIEW_STYLES = `
 
         @media (hover: hover) {
           .photo-download-btn:hover {
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: var(--color-photo-download-bg-hover);
           }
         }
 
@@ -778,7 +778,7 @@ const GALLERY_VIEW_STYLES = `
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(0, 0, 0, 0.9);
+          background: var(--color-lightbox-error-bg);
           color: #fff;
           font-size: 1rem;
         }
