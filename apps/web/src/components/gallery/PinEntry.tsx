@@ -186,9 +186,17 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
           transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
         }
 
+        @media (max-width: 360px) {
+          .pin-digit {
+            width: 48px;
+            height: 56px;
+            font-size: var(--text-xl);
+          }
+        }
+
         .pin-digit:focus-visible {
           border-color: var(--color-accent);
-          box-shadow: 0 0 0 3px rgba(184, 134, 78, 0.3);
+          box-shadow: 0 0 0 3px var(--color-accent-ring);
           outline: none;
         }
 
