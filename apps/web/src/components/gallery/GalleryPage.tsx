@@ -76,6 +76,7 @@ interface GalleryPhotoTileProps {
   // downloads just that photo, independent of the tap-to-open/tap-to-select
   // behavior above (the button stops propagation so it never triggers those).
   onDownloadClick?: (photo: Photo) => void;
+  onToggleSelect?: (photoId: string) => void;
 }
 
 // Toggling one photo's selection only flips isSelected for that single tile,
@@ -93,7 +94,8 @@ function areGalleryPhotoTilePropsEqual(prev: GalleryPhotoTileProps, next: Galler
     prev.shouldReduceMotion === next.shouldReduceMotion &&
     prev.onOpen === next.onOpen &&
     prev.onKeyDown === next.onKeyDown &&
-    prev.onDownloadClick === next.onDownloadClick
+    prev.onDownloadClick === next.onDownloadClick &&
+    prev.onToggleSelect === next.onToggleSelect
   );
 }
 
@@ -108,6 +110,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
   onOpen,
   onKeyDown,
   onDownloadClick,
+  onToggleSelect,
 }: GalleryPhotoTileProps) {
   return (
     <m.div
@@ -141,6 +144,17 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
         >
           ✓
         </m.div>
+      )}
+      {onToggleSelect && (
+        <button
+          type="button"
+          className={`photo-select-btn ${isSelected ? 'selected' : ''}`}
+          onClick={(event) => { event.stopPropagation(); onToggleSelect(photo.id); }}
+          aria-label={isSelected ? `Deselect photo ${photo.filename}` : `Select photo ${photo.filename}`}
+          aria-pressed={isSelected}
+        >
+          {isSelected ? '✓' : '+'}
+        </button>
       )}
       {onDownloadClick && (
         <button
@@ -741,14 +755,13 @@ const GALLERY_VIEW_STYLES = `
           margin: 0;
         }
 
-        /* Per-tile download icon — bottom-right corner so it never overlaps
-           the selection-badge checkmark (top-right). Sized to the shared
-           minimum tappable target (44x44) rather than a smaller decorative
-           icon size, so it's reliably tappable on a phone. */
-        .photo-download-btn {
+        /* Per-tile actions — bottom corners, aligned. Download bottom-right,
+           select bottom-left. Smaller on mobile so they don't dominate the
+           thumbnail. */
+        .photo-download-btn,
+        .photo-select-btn {
           position: absolute;
-          bottom: var(--space-1);
-          right: var(--space-1);
+          bottom: var(--space-2);
           width: var(--tap-target-min);
           height: var(--tap-target-min);
           min-width: var(--tap-target-min);
@@ -756,18 +769,45 @@ const GALLERY_VIEW_STYLES = `
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: var(--color-photo-download-bg);
-          color: #fff;
           border: none;
           border-radius: var(--radius-full);
           font-size: var(--text-base);
           cursor: pointer;
-          transition: background-color var(--transition-fast);
+          transition: all var(--transition-fast);
         }
-
+        .photo-download-btn {
+          right: var(--space-2);
+          background-color: var(--color-photo-download-bg);
+          color: #fff;
+        }
+        .photo-select-btn {
+          left: var(--space-2);
+          background-color: var(--color-photo-download-bg);
+          color: #fff;
+          border: 1px solid var(--color-lightbox-border);
+        }
+        .photo-select-btn.selected {
+          background-color: var(--color-accent);
+          color: var(--color-bg);
+          border-color: var(--color-accent);
+        }
+        @media (max-width: 640px) {
+          .photo-download-btn,
+          .photo-select-btn {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            min-height: 36px;
+            font-size: var(--text-sm);
+          }
+        }
         @media (hover: hover) {
           .photo-download-btn:hover {
             background-color: var(--color-photo-download-bg-hover);
+          }
+          .photo-select-btn:hover:not(.selected) {
+            background-color: var(--color-photo-download-bg-hover);
+            border-color: var(--color-lightbox-border-hover);
           }
         }
 
@@ -1666,6 +1706,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             onOpen={handleTileActivate}
             onKeyDown={handleTileActivateKeyDown}
             onDownloadClick={isDelivered || isDriveAlbum ? downloadSinglePhoto : undefined}
+            onToggleSelect={!isDelivered && !tileIsDisabled ? togglePhoto : undefined}
           />
         ))}
       </m.div>
