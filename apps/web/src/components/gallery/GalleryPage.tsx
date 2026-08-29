@@ -150,6 +150,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           type="button"
           className={`photo-select-btn ${isSelected ? 'selected' : ''}`}
           onClick={(event) => { event.stopPropagation(); onToggleSelect(photo.id); }}
+          onKeyDown={(event) => event.stopPropagation()}
           aria-label={isSelected ? `Deselect photo ${photo.filename}` : `Select photo ${photo.filename}`}
           aria-pressed={isSelected}
         >
@@ -756,8 +757,8 @@ const GALLERY_VIEW_STYLES = `
         }
 
         /* Per-tile actions — bottom corners, aligned. Download bottom-right,
-           select bottom-left. Smaller on mobile so they don't dominate the
-           thumbnail. */
+           select bottom-left. Keep 44px tap-target on all viewports; reduce
+           only icon size on mobile so controls don't dominate the thumbnail. */
         .photo-download-btn,
         .photo-select-btn {
           position: absolute;
@@ -794,10 +795,10 @@ const GALLERY_VIEW_STYLES = `
         @media (max-width: 640px) {
           .photo-download-btn,
           .photo-select-btn {
-            width: 36px;
-            height: 36px;
-            min-width: 36px;
-            min-height: 36px;
+            width: var(--tap-target-min);
+            height: var(--tap-target-min);
+            min-width: var(--tap-target-min);
+            min-height: var(--tap-target-min);
             font-size: var(--text-sm);
           }
         }
