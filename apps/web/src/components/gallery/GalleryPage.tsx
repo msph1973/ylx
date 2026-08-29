@@ -841,6 +841,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [photoNotes, setPhotoNotes] = useState<Map<string, string>>(new Map());
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [showUnlockToast, setShowUnlockToast] = useState(false);
   const unlockToastTimeoutRef = useRef<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -1152,7 +1153,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     }
   }, [slug, restoreDraft]);
 
-  const openLightbox = useCallback((index: number) => setLightboxIndex(index), []);
+  const openLightbox = useCallback((index: number) => {
+    setLightboxIndex(index);
+    setHasInteracted(true);
+  }, []);
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   // Stable across every tile (reads the index off the event target) so
@@ -1174,6 +1178,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, [handlePhotoTileOpen]);
 
   const togglePhoto = useCallback((photoId: string) => {
+    setHasInteracted(true);
     // The "at selection limit" notice is a side effect (setNotice plus a
     // window.setTimeout to clear it) and must never run inside the updater
     // passed to setSelectedPhotos — React can invoke that function more than
@@ -1211,6 +1216,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // Delivered-view "Pilih untuk Download" mode: same tap-to-toggle shape as
   // togglePhoto above, but with no max-selection limit and no notice side effect.
   const toggleDownloadSelection = useCallback((photoId: string) => {
+    setHasInteracted(true);
     setSelectedForDownload((prev) => {
       const next = new Set(prev);
       if (next.has(photoId)) next.delete(photoId);
@@ -1607,7 +1613,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         </div>
       )}
 
-      {hasPhotos && !isDelivered && (
+      {hasPhotos && !isDelivered && !hasInteracted && (
         <p className="gallery-instructions">
           Tap a photo to preview it, then select up to {album?.maxSelections}.
         </p>
