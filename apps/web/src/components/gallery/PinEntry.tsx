@@ -196,7 +196,7 @@ export function PinEntry({ onSubmit, error, isLoading = false }: PinEntryProps) 
 
         .pin-digit:focus-visible {
           border-color: var(--color-accent);
-          box-shadow: 0 0 0 3px rgba(184, 134, 78, 0.3);
+          box-shadow: 0 0 0 3px var(--color-accent-ring);
           outline: none;
         }
 

@@ -8,7 +8,7 @@
   /* #a0a0a0 on #0a0a0a = 4.6:1 WCAG AA pass */
   --color-text-muted: #a0a0a0;
   /* oklch(60% 0.12 65) — 4.8:1 on #0a0a0a, WCAG AA pass */
-  --color-accent: #b8864e;
+  --color-accent: #c4704b;
   /* oklch(66% 0.11 65) — 3.8:1, large-text pass */
   --color-accent-hover: #c99660;
   /* oklch(54% 0.11 65) — dark variant for bg on colored surfaces */

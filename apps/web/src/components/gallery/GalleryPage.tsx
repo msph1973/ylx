@@ -498,7 +498,7 @@ const GALLERY_VIEW_STYLES = `
           transition: all var(--transition-fast);
           background-color: transparent;
           border: 1px solid var(--color-lightbox-select-border);
-          color: rgba(255,255,255,0.8);
+          color: var(--color-lightbox-text);
         }
 
         .lightbox-select.selected {
