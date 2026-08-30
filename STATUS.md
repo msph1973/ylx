@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-08-27 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79–#99 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. **PR #98 (Google Drive storage) MERGED** (squash `2948009`, 2026-08-27) — opsi storage album Google Drive dengan metadata-only Sanity, scan folder via Vercel service-account JWT, 325-foto live E2E, per-photo direct links, backend final-delivery guards. **PR #99 (CodeQL cleanup) MERGED** (squash `005a86b`, 2026-08-27).
+> Last updated: 2026-08-30 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79–#99, #100–#103 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. **PR #103 (UI/UX audit) MERGED** (squash `40db4ed`, 2026-08-30) — safe area `env(safe-area-inset-bottom)` + `100dvh`, hide gallery instructions after first tap, gallery tile select outside lightbox sejajar download (44px, `photo-tile-wrap`).
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -285,5 +285,9 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #96 | Feat: final delivery flow (ROADMAP #2) — admin upload foto final ke album, status `delivered`, galeri klien tampil foto final otomatis, realtime sync, idempotent upload; +2026-08-15: opsi admin `showOriginalAfterDelivery` + download per-foto & download-all `.zip` (client-side `jszip`) di galeri klien setelah delivered — sekaligus menuntaskan ROADMAP #11 (✅ dikonfirmasi user 2026-08-15: scope klien memang disengaja, menggantikan keputusan admin-only lama); 2 ronde bot-review terakhir pasca push: dedupe `delay()`, guard `deleteOrphanedAsset` (cek referensi sebelum hapus asset dedup-by-hash), `jszip` jadi dynamic import | **MERGED** (`2178cc5`, 2026-08-15) | `~/.junie/tasks/FEATURE-final-delivery.md` |
 | #98 | Fitur Google Drive storage album — metadata-only Sanity, Vercel Drive scan, 325-photo live E2E, per-photo links, delivery guards | MERGED (`2948009`) | `~/.junie/tasks/PR-98-gdrive-storage.md` |
 | #99 | CodeQL cleanup — bcrypt cost literal visibility | MERGED (`005a86b`) | `~/.junie/tasks/PR-99-codeql-alerts.md` |
+| #100 | chore: strengthen Cubic review rules | MERGED (`43d6fbb`) | `~/.junie/tasks/PR-100-cubic-review-rules.md` |
+| #101 | fix: allow Sentry envelopes and blob workers in CSP | MERGED (`48bc7a2`) | `~/.junie/tasks/PR-101-csp-sentry-worker.md` |
+| #102 | polish: tokenize lightbox colors & make PIN responsive | MERGED (`6f041bd`) | — (other agent) |
+| #103 | fix: safe area, dvh, hide gallery instructions, gallery tile actions | MERGED (`40db4ed`) | `~/.junie/tasks/PR-103-ui-ux-audit-fixes.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
