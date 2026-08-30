@@ -157,7 +157,6 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
-              onToggleSelect(photo.id);
             }
             event.stopPropagation();
           }}
@@ -284,8 +283,8 @@ const GALLERY_VIEW_STYLES = `
         .photo-tile-wrap {
           position: relative;
           display: grid;
+          aspect-ratio: 1;
         }
-
         .photo-tile-wrap.disabled {
           opacity: 0.7;
         }
