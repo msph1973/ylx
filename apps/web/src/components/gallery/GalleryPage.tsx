@@ -113,38 +113,40 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
   onToggleSelect,
 }: GalleryPhotoTileProps) {
   return (
-    <m.div
-      data-index={index}
-      data-photo-id={photo.id}
-      role="button"
-      tabIndex={0}
-      aria-label={`View photo ${photo.filename}${isSelected ? ' (selected)' : ''}`}
-      className={`photo-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-      initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: shouldReduceMotion ? 0 : Math.min(index * 0.04, 0.4) }}
-      onClick={onOpen}
-      onKeyDown={onKeyDown}
-    >
-      <BlurImage
-        src={photo.thumbnailUrl}
-        srcSet={photo.thumbnailSrcSet ?? undefined}
-        sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-        lqip={photo.lqip}
-        loading={isAboveFold ? 'eager' : 'lazy'}
-        alt={`Photo ${index + 1} of ${totalPhotos}`}
-      />
-      {isSelected && (
-        <m.div
-          className="selection-badge"
-          aria-hidden="true"
-          initial={{ scale: shouldReduceMotion ? 1 : 0 }}
-          animate={{ scale: 1 }}
-          exit={{ scale: shouldReduceMotion ? 1 : 0 }}
-        >
-          ✓
-        </m.div>
-      )}
+    <div className="photo-tile-wrap">
+      <m.div
+        data-index={index}
+        data-photo-id={photo.id}
+        role="button"
+        tabIndex={0}
+        aria-label={`View photo ${photo.filename}${isSelected ? ' (selected)' : ''}`}
+        className={`photo-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: shouldReduceMotion ? 0 : Math.min(index * 0.04, 0.4) }}
+        onClick={onOpen}
+        onKeyDown={onKeyDown}
+      >
+        <BlurImage
+          src={photo.thumbnailUrl}
+          srcSet={photo.thumbnailSrcSet ?? undefined}
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          lqip={photo.lqip}
+          loading={isAboveFold ? 'eager' : 'lazy'}
+          alt={`Photo ${index + 1} of ${totalPhotos}`}
+        />
+        {isSelected && (
+          <m.div
+            className="selection-badge"
+            aria-hidden="true"
+            initial={{ scale: shouldReduceMotion ? 1 : 0 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: shouldReduceMotion ? 1 : 0 }}
+          >
+            ✓
+          </m.div>
+        )}
+      </m.div>
       {onToggleSelect && (
         <button
           type="button"
@@ -167,7 +169,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           ⬇
         </button>
       )}
-    </m.div>
+    </div>
   );
 }, areGalleryPhotoTilePropsEqual);
 GalleryPhotoTile.displayName = 'GalleryPhotoTile';
@@ -269,6 +271,10 @@ const GALLERY_VIEW_STYLES = `
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: var(--space-2);
+        }
+
+        .photo-tile-wrap {
+          position: relative;
         }
 
         .photo-item {
