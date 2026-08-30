@@ -1,0 +1,16 @@
+apps/web/src/lib/galleryAlbumResponse.test.ts
+  h_45c23cf41d175e 39-53
+apps/web/src/lib/galleryAlbumResponse.ts
+  h_45c23cf41d175e 43,46,127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4f6926e75b393a9b709f202b2177bfe0a31bb7b4",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
