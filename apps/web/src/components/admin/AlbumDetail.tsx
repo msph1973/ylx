@@ -885,6 +885,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             pin: album.pin,
             maxSelections: album.maxSelections,
             customSlug: album.customSlug,
+          vendorName: album.vendorName,
           }}
         />
 

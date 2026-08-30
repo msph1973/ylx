@@ -14,6 +14,7 @@ interface AlbumFormData {
   pin: string;
   maxSelections: number | '';
   customSlug: string;
+  vendorName: string;
 }
 
 interface AlbumFormModalProps {
@@ -31,6 +32,7 @@ const DEFAULT_FORM: AlbumFormData = {
   pin: '',
   maxSelections: 20 as number | '',
   customSlug: '',
+  vendorName: '',
 };
 
 /** Get today as YYYY-MM-DD in local timezone (avoids UTC offset issues) */
@@ -47,6 +49,9 @@ export function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayStr
   }
   if (!form.clientName.trim()) {
     return 'Client name is required';
+  }
+  if (!form.vendorName.trim()) {
+    return 'Vendor name is required';
   }
   if (!form.eventDate) {
     return 'Event date is required';
@@ -104,6 +109,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         pin: album.pin ?? '',
         maxSelections: album.maxSelections ?? (20 as number | ''),
         customSlug: album.customSlug ?? '',
+        vendorName: album.vendorName ?? '',
       });
     } else {
       setForm(DEFAULT_FORM);
@@ -406,6 +412,24 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   onChange={handleChange}
                   placeholder="e.g. Sarah Johnson"
                   required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="album-vendorName">
+                  Vendor Name
+                  <span className="form-hint">photographer / studio brand shown to client</span>
+                </label>
+                <input
+                  id="album-vendorName"
+                  className="form-input"
+                  type="text"
+                  name="vendorName"
+                  value={form.vendorName}
+                  onChange={handleChange}
+                  placeholder="e.g. Aurora Studios"
+                  required
+                  maxLength={80}
                 />
               </div>
 

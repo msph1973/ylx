@@ -46,6 +46,7 @@ export interface AlbumWithSelections {
   maxSelections: number;
   isLocked: boolean;
   status: string;
+  vendorName?: string;
   /** Where photo binaries live — 'drive' albums keep originals in Google
    *  Drive (photo docs reference driveFileId) and skip upload/delivery flows. */
   storageType?: StorageType;

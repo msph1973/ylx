@@ -25,6 +25,7 @@ interface SanityAlbumRaw {
   maxSelections: number;
   selectionCount: number;
   storageType?: StorageType;
+  vendorName?: string;
 }
 
 interface AlbumPinRecord {
@@ -73,6 +74,7 @@ export const GET: APIRoute = async ({ cookies }) => {
       photoCount: album.photoCount,
       maxSelections: album.maxSelections,
       selectionCount: album.selectionCount,
+      vendorName: album.vendorName ?? 'YLx',
       draftCount: drafts[i]?.count ?? null,
       draftUpdatedAt: drafts[i]?.updatedAt ?? null,
     }));
@@ -114,6 +116,7 @@ interface CreateAlbumBody {
   pin: string;
   maxSelections: number;
   customSlug?: string;
+  vendorName: string;
   storageType: StorageType;
   driveFolderId?: string;
   photos?: DrivePhotoInput[];
@@ -122,13 +125,16 @@ interface CreateAlbumBody {
 /** Validates a raw parsed body and narrows it into a `CreateAlbumBody` on
  *  success, or returns an error message for the first invalid field. */
 function validateCreateAlbumBody(body: Record<string, unknown>): { error: string } | { value: CreateAlbumBody } {
-  const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
+  const { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName } = body;
 
-  if (!title || !clientName || !eventDate || !pin || !maxSelections) {
-    return { error: "All fields are required: title, clientName, eventDate, pin, maxSelections" };
+  if (!title || !clientName || !eventDate || !pin || !maxSelections || !vendorName) {
+    return { error: "All fields are required: title, clientName, eventDate, pin, maxSelections, vendorName" };
   }
   if (typeof title !== "string" || title.length > MAX_TEXT_FIELD_LENGTH) {
     return { error: `title must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
+  }
+  if (typeof vendorName !== "string" || vendorName.trim().length === 0 || vendorName.length > MAX_TEXT_FIELD_LENGTH) {
+    return { error: `vendorName must be a non-empty string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
   }
   if (typeof clientName !== "string" || clientName.length > MAX_TEXT_FIELD_LENGTH) {
     return { error: `clientName must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
@@ -197,7 +203,7 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
   if (eventDate < today) {
     return { error: "Event date cannot be in the past" };
   }
-  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug, storageType, driveFolderId, photos } };
+  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName: vendorName.trim(), storageType, driveFolderId, photos } };
 }
 
 export const POST: APIRoute = async ({ cookies, request }) => {
@@ -231,7 +237,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
-    const { title, clientName, eventDate, pin, maxSelections, customSlug, storageType, driveFolderId, photos } = validation.value;
+    const { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName, storageType, driveFolderId, photos } = validation.value;
 
     // Pre-generated so the slug/customSlug reservation locks (created before
     // the album document itself) can record which album owns each one.
@@ -265,6 +271,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         eventDate,
         pin,
         maxSelections,
+        vendorName,
         status: "active",
         storageType,
         ...(driveFolderId ? { driveFolderId } : {}),

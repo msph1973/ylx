@@ -1,10 +1,22 @@
 ---
 import GalleryLayout from '../../layouts/GalleryLayout.astro';
 import { GalleryPage } from '../../components/gallery/GalleryPage';
+import { sanityClient } from '@ylx/sanity/client';
+import { albumBySlugQuery } from '@ylx/sanity/lib/queries';
+import { getCached, CACHE_KEYS } from '../../lib/cache';
 
 const { slug } = Astro.params;
+
+// Branding-only lookup (title/vendorName), pre-PIN. Never project `pin` here
+// - same cached, non-sensitive album read already used by draft.ts/session.ts.
+const album = await getCached(
+  CACHE_KEYS.albumBySlug(slug!),
+  120,
+  () => sanityClient.fetch<{ title: string; vendorName?: string | null } | null>(albumBySlugQuery, { slug })
+);
+const vendorName = album?.vendorName ?? 'YLx';
 ---
 
-<GalleryLayout title="Gallery" clientName="">
+<GalleryLayout title={album?.title ?? 'Gallery'} vendorName={vendorName} clientName="">
   <GalleryPage slug={slug!} client:load />
 </GalleryLayout>

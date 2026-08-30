@@ -4,20 +4,21 @@ import BaseLayout from './BaseLayout.astro';
 export interface Props {
   title: string;
   clientName?: string;
+  vendorName?: string;
 }
 
-const { title, clientName } = Astro.props;
+const { title, clientName, vendorName } = Astro.props;
 // A default parameter only triggers on `undefined` — callers that pass an
 // empty string (e.g. before the client name is known) would otherwise
 // render a permanently-blank element, so fall back on any falsy value.
 const displayClientName = clientName || 'Client';
 ---
 
-<BaseLayout title={title}>
+<BaseLayout title={title} vendorName={vendorName}>
   <link slot="head" rel="preconnect" href="https://cdn.sanity.io" />
   <div class="gallery-layout">
     <header class="gallery-header">
-      <div class="gallery-brand">YLx</div>
+      <div class="gallery-brand">{vendorName ?? 'YLx'}</div>
       <div class="gallery-client">{displayClientName}</div>
     </header>
     <main class="gallery-content">

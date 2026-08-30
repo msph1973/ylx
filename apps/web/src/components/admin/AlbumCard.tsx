@@ -16,6 +16,7 @@ export interface AlbumCardData {
   selectionCount?: number;
   draftCount?: number | null;
   draftUpdatedAt?: number | null;
+  vendorName?: string;
 }
 
 // A draft older than this is likely an abandoned session — showing it as
