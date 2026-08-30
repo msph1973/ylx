@@ -19,11 +19,13 @@ html {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Typography */

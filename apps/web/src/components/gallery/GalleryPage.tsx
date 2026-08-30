@@ -73,9 +73,10 @@ interface GalleryPhotoTileProps {
   onOpen: (event: React.MouseEvent<HTMLDivElement> | React.KeyboardEvent<HTMLDivElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
   // Only set once delivered — renders a small per-tile download icon that
-  // downloads just that photo, independent of the tap-to-open/tap-to-select
-  // behavior above (the button stops propagation so it never triggers those).
+  // downloads just that photo, rendered as sibling to the tile (not nested)
+  // so it doesn't trigger tap-to-open; stopPropagation is defensive.
   onDownloadClick?: (photo: Photo) => void;
+  onToggleSelect?: (photoId: string) => void;
 }
 
 // Toggling one photo's selection only flips isSelected for that single tile,
@@ -93,7 +94,8 @@ function areGalleryPhotoTilePropsEqual(prev: GalleryPhotoTileProps, next: Galler
     prev.shouldReduceMotion === next.shouldReduceMotion &&
     prev.onOpen === next.onOpen &&
     prev.onKeyDown === next.onKeyDown &&
-    prev.onDownloadClick === next.onDownloadClick
+    prev.onDownloadClick === next.onDownloadClick &&
+    prev.onToggleSelect === next.onToggleSelect
   );
 }
 
@@ -108,39 +110,55 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
   onOpen,
   onKeyDown,
   onDownloadClick,
+  onToggleSelect,
 }: GalleryPhotoTileProps) {
   return (
     <m.div
-      data-index={index}
-      data-photo-id={photo.id}
-      role="button"
-      tabIndex={0}
-      aria-label={`View photo ${photo.filename}${isSelected ? ' (selected)' : ''}`}
-      className={`photo-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+      className={`photo-tile-wrap ${isDisabled ? 'disabled' : ''}`}
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: shouldReduceMotion ? 0 : Math.min(index * 0.04, 0.4) }}
-      onClick={onOpen}
-      onKeyDown={onKeyDown}
     >
-      <BlurImage
-        src={photo.thumbnailUrl}
-        srcSet={photo.thumbnailSrcSet ?? undefined}
-        sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-        lqip={photo.lqip}
-        loading={isAboveFold ? 'eager' : 'lazy'}
-        alt={`Photo ${index + 1} of ${totalPhotos}`}
-      />
-      {isSelected && (
-        <m.div
-          className="selection-badge"
-          aria-hidden="true"
-          initial={{ scale: shouldReduceMotion ? 1 : 0 }}
-          animate={{ scale: 1 }}
-          exit={{ scale: shouldReduceMotion ? 1 : 0 }}
+      <div
+        data-index={index}
+        data-photo-id={photo.id}
+        role="button"
+        tabIndex={0}
+        aria-label={`View photo ${photo.filename}${isSelected ? ' (selected)' : ''}`}
+        className={`photo-item ${isSelected ? 'selected' : ''}`}
+        onClick={onOpen}
+        onKeyDown={onKeyDown}
+      >
+        <BlurImage
+          src={photo.thumbnailUrl}
+          srcSet={photo.thumbnailSrcSet ?? undefined}
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          lqip={photo.lqip}
+          loading={isAboveFold ? 'eager' : 'lazy'}
+          alt={`Photo ${index + 1} of ${totalPhotos}`}
+        />
+        {isSelected && (
+          <m.div
+            className="selection-badge"
+            aria-hidden="true"
+            initial={{ scale: shouldReduceMotion ? 1 : 0 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: shouldReduceMotion ? 1 : 0 }}
+          >
+            ✓
+          </m.div>
+        )}
+      </div>
+      {onToggleSelect && (
+        <button
+          type="button"
+          className={`photo-select-btn ${isSelected ? 'selected' : ''}`}
+          onClick={(event) => { event.stopPropagation(); onToggleSelect(photo.id); }}
+          aria-label={isSelected ? `Deselect photo ${photo.filename}` : `Select photo ${photo.filename}`}
+          aria-pressed={isSelected}
         >
-          ✓
-        </m.div>
+          {isSelected ? '✓' : '+'}
+        </button>
       )}
       {onDownloadClick && (
         <button
@@ -254,6 +272,19 @@ const GALLERY_VIEW_STYLES = `
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: var(--space-2);
+        }
+
+        .photo-tile-wrap {
+          position: relative;
+          display: grid;
+          aspect-ratio: 1;
+        }
+        .photo-tile-wrap.disabled {
+          opacity: 0.7;
+        }
+
+        .photo-tile-wrap.disabled .photo-item {
+          cursor: not-allowed;
         }
 
         .photo-item {
@@ -741,14 +772,13 @@ const GALLERY_VIEW_STYLES = `
           margin: 0;
         }
 
-        /* Per-tile download icon — bottom-right corner so it never overlaps
-           the selection-badge checkmark (top-right). Sized to the shared
-           minimum tappable target (44x44) rather than a smaller decorative
-           icon size, so it's reliably tappable on a phone. */
-        .photo-download-btn {
+        /* Per-tile actions — bottom corners, aligned. Download bottom-right,
+           select bottom-left. Keep 44px tap-target on all viewports; reduce
+           only icon size on mobile so controls don't dominate the thumbnail. */
+        .photo-download-btn,
+        .photo-select-btn {
           position: absolute;
-          bottom: var(--space-1);
-          right: var(--space-1);
+          bottom: var(--space-2);
           width: var(--tap-target-min);
           height: var(--tap-target-min);
           min-width: var(--tap-target-min);
@@ -756,18 +786,41 @@ const GALLERY_VIEW_STYLES = `
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: var(--color-photo-download-bg);
-          color: #fff;
           border: none;
           border-radius: var(--radius-full);
           font-size: var(--text-base);
           cursor: pointer;
-          transition: background-color var(--transition-fast);
+          transition: all var(--transition-fast);
         }
-
+        .photo-download-btn {
+          right: var(--space-2);
+          background-color: var(--color-photo-download-bg);
+          color: #fff;
+        }
+        .photo-select-btn {
+          left: var(--space-2);
+          background-color: var(--color-photo-download-bg);
+          color: #fff;
+          border: 1px solid var(--color-lightbox-border);
+        }
+        .photo-select-btn.selected {
+          background-color: var(--color-accent);
+          color: var(--color-bg);
+          border-color: var(--color-accent);
+        }
+        @media (max-width: 640px) {
+          .photo-download-btn,
+          .photo-select-btn {
+            font-size: var(--text-sm);
+          }
+        }
         @media (hover: hover) {
           .photo-download-btn:hover {
             background-color: var(--color-photo-download-bg-hover);
+          }
+          .photo-select-btn:hover:not(.selected) {
+            background-color: var(--color-photo-download-bg-hover);
+            border-color: var(--color-lightbox-border-hover);
           }
         }
 
@@ -841,6 +894,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [photoNotes, setPhotoNotes] = useState<Map<string, string>>(new Map());
+  // Hides the "Tap a photo to preview it" hint after the first tap/select
+  // within this mount. Intentionally per-mount (resets on reload or slug
+  // change) — not persisted, so returning visitors see it again.
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [showUnlockToast, setShowUnlockToast] = useState(false);
   const unlockToastTimeoutRef = useRef<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -862,6 +919,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   const [selectedForDownload, setSelectedForDownload] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  useEffect(() => {
+    setHasInteracted(false);
+  }, [slug]);
   const albumIdRef = useRef<string | null>(null);
   // realtimeCallbacks below is memoized on [fetchFinalPhotos] (stable across
   // most renders), so its closures would otherwise capture a stale `album`
@@ -1020,17 +1080,22 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const resumed = await fetchResumeSession(slug);
-      if (cancelled) return;
-      if (resumed) {
-        setAlbum(resumed);
-        setIsAuthenticated(true);
-        restoreDraft(resumed);
-        if (resumed.status === 'delivered') {
-          setFinalPhotos(null); // trigger fetch below
+      try {
+        const resumed = await fetchResumeSession(slug);
+        if (cancelled) return;
+        if (resumed) {
+          setAlbum(resumed);
+          setIsAuthenticated(true);
+          restoreDraft(resumed);
+          if (resumed.status === 'delivered') {
+            setFinalPhotos(null); // trigger fetch below
+          }
         }
+      } catch {
+        // fetchResumeSession already handles timeout and returns null on
+        // failure; this catch is defensive for unexpected rejections.
       }
-      setSessionChecked(true);
+      if (!cancelled) setSessionChecked(true);
     })();
     return () => {
       cancelled = true;
@@ -1152,7 +1217,10 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     }
   }, [slug, restoreDraft]);
 
-  const openLightbox = useCallback((index: number) => setLightboxIndex(index), []);
+  const openLightbox = useCallback((index: number) => {
+    setLightboxIndex(index);
+    setHasInteracted(true);
+  }, []);
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   // Stable across every tile (reads the index off the event target) so
@@ -1174,6 +1242,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, [handlePhotoTileOpen]);
 
   const togglePhoto = useCallback((photoId: string) => {
+    setHasInteracted(true);
     // The "at selection limit" notice is a side effect (setNotice plus a
     // window.setTimeout to clear it) and must never run inside the updater
     // passed to setSelectedPhotos — React can invoke that function more than
@@ -1211,6 +1280,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // Delivered-view "Pilih untuk Download" mode: same tap-to-toggle shape as
   // togglePhoto above, but with no max-selection limit and no notice side effect.
   const toggleDownloadSelection = useCallback((photoId: string) => {
+    setHasInteracted(true);
     setSelectedForDownload((prev) => {
       const next = new Set(prev);
       if (next.has(photoId)) next.delete(photoId);
@@ -1607,7 +1677,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         </div>
       )}
 
-      {hasPhotos && !isDelivered && (
+      {hasPhotos && !isDelivered && !hasInteracted && (
         <p className="gallery-instructions">
           Tap a photo to preview it, then select up to {album?.maxSelections}.
         </p>
@@ -1660,6 +1730,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             onOpen={handleTileActivate}
             onKeyDown={handleTileActivateKeyDown}
             onDownloadClick={isDelivered || isDriveAlbum ? downloadSinglePhoto : undefined}
+            onToggleSelect={!isDelivered && !tileIsDisabled ? togglePhoto : undefined}
           />
         ))}
       </m.div>
