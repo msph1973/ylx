@@ -125,7 +125,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
         role="button"
         tabIndex={0}
         aria-label={`View photo ${photo.filename}${isSelected ? ' (selected)' : ''}`}
-        className={`photo-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+        className={`photo-item ${isSelected ? 'selected' : ''}`}
         onClick={onOpen}
         onKeyDown={onKeyDown}
       >
@@ -288,6 +288,10 @@ const GALLERY_VIEW_STYLES = `
 
         .photo-tile-wrap.disabled {
           opacity: 0.7;
+        }
+
+        .photo-tile-wrap.disabled .photo-item {
+          cursor: not-allowed;
         }
 
         .photo-item {
