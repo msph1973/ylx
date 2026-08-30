@@ -154,12 +154,6 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           type="button"
           className={`photo-select-btn ${isSelected ? 'selected' : ''}`}
           onClick={(event) => { event.stopPropagation(); onToggleSelect(photo.id); }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-            }
-            event.stopPropagation();
-          }}
           aria-label={isSelected ? `Deselect photo ${photo.filename}` : `Select photo ${photo.filename}`}
           aria-pressed={isSelected}
         >
