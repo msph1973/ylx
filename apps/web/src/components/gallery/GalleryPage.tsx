@@ -265,7 +265,7 @@ const GALLERY_VIEW_STYLES = `
           color: var(--color-bg);
           border-radius: var(--radius-md);
           font-weight: var(--font-medium);
-          /* Not `all`: framer owns transform on this element via whileTap,
+          /* Not "all": framer owns transform on this element via whileTap,
              and a CSS transition on it fights the JS-driven press. */
           transition: background-color var(--transition-fast), color var(--transition-fast);
         }
