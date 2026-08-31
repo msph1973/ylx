@@ -29,8 +29,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
-    const album = await sanityClient.fetch<{ slug?: { current: string }; customSlug?: string } | null>(
-      `*[_type == "album" && _id == $albumId][0]{ slug, customSlug }`,
+    const album = await sanityClient.fetch<{ status: string; slug?: { current: string }; customSlug?: string } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ status, slug, customSlug }`,
       { albumId }
     );
 
@@ -38,6 +38,18 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Delivery is a terminal state (final photos already handed to the
+    // client) — reopening it as `active` here would let the client submit
+    // new proofing selections against an album that's already past that
+    // stage. If a delivered album genuinely needs its picks cleared, that's
+    // a distinct, not-yet-built "undo delivery" action, not this endpoint.
+    if (album.status === "delivered") {
+      return new Response(
+        JSON.stringify({ error: "Cannot reset a delivered album" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
       );
     }
 

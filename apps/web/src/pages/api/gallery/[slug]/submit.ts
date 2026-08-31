@@ -14,6 +14,7 @@ import { captureError } from "../../../../lib/errorTracking";
 
 interface SubmitAlbum {
   _id: string;
+  _rev: string;
   title: string;
   clientName: string;
   status: string;
@@ -219,7 +220,14 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     },
   });
 
-  mutations.push({ patch: { id: album._id, set: { status: "submitted" } } });
+  // ifRevisionID ties this patch to the exact album revision read above: if
+  // the admin's reset.ts (or anything else) modifies the album in between —
+  // e.g. wiping this same round's selections — this patch is rejected
+  // instead of silently resurrecting a `submitted` status the admin just
+  // reset, which would otherwise let an in-flight submit undo a reset.
+  mutations.push({
+    patch: { id: album._id, set: { status: "submitted" }, ifRevisionID: album._rev },
+  });
 
   try {
     await sanityWriteClient.mutate(mutations);
@@ -229,8 +237,13 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
         ? (err as { statusCode?: number }).statusCode
         : undefined;
     if (statusCode === 409) {
+      // Covers both the submission-doc create conflict (a concurrent
+      // first-time submit already claimed it) and the ifRevisionID mismatch
+      // above (the admin unlocked/reset the gallery while this request was
+      // in flight) — either way the client's view is stale, so ask it to
+      // reload rather than claiming a specific (possibly wrong) cause.
       return new Response(
-        JSON.stringify({ error: "Selections already submitted" }),
+        JSON.stringify({ error: "This gallery changed while submitting — please reload and try again" }),
         { status: 409, headers: { "Content-Type": "application/json" } }
       );
     }

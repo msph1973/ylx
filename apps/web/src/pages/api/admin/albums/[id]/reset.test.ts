@@ -15,12 +15,15 @@ vi.mock("../../../../../lib/ably", () => ({
   publishAdminEvent: (...args: unknown[]) => publishAdminEventMock(...args),
   publishAlbumEvent: (...args: unknown[]) => publishAlbumEventMock(...args),
 }));
+// Mirrors the real formats in lib/cache.ts's CACHE_KEYS — asserting against
+// these lets the invalidation test below actually catch a regression there,
+// instead of only checking wiring against made-up strings.
 vi.mock("../../../../../lib/cache", () => ({
   invalidateCache: (...args: unknown[]) => invalidateCacheMock(...args),
   CACHE_KEYS: {
     albumsList: () => "cache:admin:albums:list",
-    albumSelections: (albumId: string) => `cache:admin:albums:${albumId}:selections`,
-    galleryDraft: (albumId: string) => `cache:gallery:draft:${albumId}`,
+    albumSelections: (albumId: string) => `cache:admin:selections:${albumId}`,
+    galleryDraft: (albumId: string) => `draft:gallery:${albumId}`,
     albumBySlug: (slug: string) => `cache:gallery:album:${slug}`,
   },
 }));
@@ -68,8 +71,15 @@ describe("POST /api/admin/albums/[id]/reset", () => {
     expect(mutateMock).not.toHaveBeenCalled();
   });
 
+  it("409s instead of reopening an already-delivered album", async () => {
+    sanityFetchMock.mockResolvedValue({ status: "delivered", slug: { current: "doe-wedding" } });
+    const res = await call();
+    expect(res.status).toBe(409);
+    expect(mutateMock).not.toHaveBeenCalled();
+  });
+
   it("deletes selections and submissions, then reopens the gallery", async () => {
-    sanityFetchMock.mockResolvedValue({ slug: { current: "doe-wedding" } });
+    sanityFetchMock.mockResolvedValue({ status: "submitted", slug: { current: "doe-wedding" } });
     const res = await call();
 
     expect(res.status).toBe(200);
@@ -90,19 +100,19 @@ describe("POST /api/admin/albums/[id]/reset", () => {
   });
 
   it("invalidates the selections and draft caches (unlike a plain unlock)", async () => {
-    sanityFetchMock.mockResolvedValue({ slug: { current: "doe-wedding" } });
+    sanityFetchMock.mockResolvedValue({ status: "submitted", slug: { current: "doe-wedding" } });
     await call();
 
     expect(invalidateCacheMock).toHaveBeenCalledWith(expect.arrayContaining([
       "cache:admin:albums:list",
-      "cache:admin:albums:album-1:selections",
-      "cache:gallery:draft:album-1",
+      "cache:admin:selections:album-1",
+      "draft:gallery:album-1",
       "cache:gallery:album:doe-wedding",
     ]));
   });
 
   it("500s and reports to error tracking when the mutation fails", async () => {
-    sanityFetchMock.mockResolvedValue({ slug: { current: "doe-wedding" } });
+    sanityFetchMock.mockResolvedValue({ status: "submitted", slug: { current: "doe-wedding" } });
     mutateMock.mockRejectedValue(new Error("sanity down"));
 
     const res = await call();

@@ -300,7 +300,12 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     setResetError(null);
     try {
       const response = await fetch(`/api/admin/albums/${albumId}/reset`, { method: 'POST' });
-      if (!response.ok) throw new Error('Failed to reset album');
+      if (!response.ok) {
+        // Surfaces reset.ts's specific rejection reason (e.g. "Cannot reset
+        // a delivered album") instead of a generic message.
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? 'Failed to reset album');
+      }
       setAlbum((prev) => (prev ? { ...prev, status: 'active', isLocked: false, selections: [] } : prev));
       setIsResetConfirmOpen(false);
       onUpdated?.();

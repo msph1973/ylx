@@ -5,6 +5,7 @@
 // — use albumPinBySlugQuery below instead, and never cache its result.
 export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug || customSlug == $slug)][0] {
   _id,
+  _rev,
   title,
   clientName,
   eventDate,
