@@ -53,6 +53,7 @@ interface AlbumData {
   lastUnlockedAt?: string | null;
   showOriginalAfterDelivery: boolean;
   photos: Photo[];
+  selections?: Array<{ photoId: string; notes?: string | null }>;
 }
 
 type DeliveredTab = 'cetak' | 'original';
@@ -899,6 +900,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   // change) — not persisted, so returning visitors see it again.
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showUnlockToast, setShowUnlockToast] = useState(false);
+  // Distinguishes an unlock (previous pick kept — revise & resubmit) from a
+  // reset (pick wiped — start over) since both reuse the same toast.
+  const [unlockToastMessage, setUnlockToastMessage] = useState('');
   const unlockToastTimeoutRef = useRef<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimeoutRef = useRef<number | null>(null);
@@ -982,23 +986,89 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     }
   }, [slug]);
 
+  const showNotice = useCallback((message: string) => {
+    setNotice(message);
+    if (noticeTimeoutRef.current !== null) window.clearTimeout(noticeTimeoutRef.current);
+    noticeTimeoutRef.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimeoutRef.current = null;
+    }, 2500);
+  }, []);
+
+  // Pre-fills the grid from the client's server-saved picks — the
+  // still-intact selection docs after an unlock (unlock.ts no longer
+  // deletes them), or simply the last submitted pick on a plain reload
+  // while `submitted`/`locked`. Called before restoreDraft below so a
+  // genuinely newer local draft (e.g. mid-edit changes not yet resubmitted)
+  // still wins.
+  const applyServerSelections = useCallback((albumData: AlbumData) => {
+    const selections = albumData.selections ?? [];
+    setSelectedPhotos(new Set(selections.map((s) => s.photoId)));
+    setPhotoNotes(new Map(
+      selections
+        .filter((s): s is { photoId: string; notes: string } => typeof s.notes === 'string' && s.notes.length > 0)
+        .map((s) => [s.photoId, s.notes])
+    ));
+  }, []);
+
+  const restoreDraft = useCallback((albumData: AlbumData) => {
+    if (albumData.status !== 'active') return;
+    // Drafts saved before the album's most recent unlock describe a
+    // selection round that's no longer current — never restore them.
+    const unlockedAtMs = albumData.lastUnlockedAt ? Date.parse(albumData.lastUnlockedAt) : undefined;
+    const draft = loadDraft(
+      albumData.id,
+      albumData.photos.map((p) => p.id),
+      albumData.maxSelections,
+      Number.isFinite(unlockedAtMs) ? unlockedAtMs : undefined
+    );
+    if (!draft) return;
+    setSelectedPhotos(new Set(draft.photoIds));
+    setPhotoNotes(new Map(Object.entries(draft.notes)));
+    showNotice(
+      `Draft restored — ${draft.photoIds.length} photo${draft.photoIds.length === 1 ? '' : 's'} selected`
+    );
+  }, [showNotice]);
+
+  const showUnlockToastMessage = useCallback((message: string) => {
+    setUnlockToastMessage(message);
+    setShowUnlockToast(true);
+    if (unlockToastTimeoutRef.current !== null) {
+      window.clearTimeout(unlockToastTimeoutRef.current);
+    }
+    unlockToastTimeoutRef.current = window.setTimeout(() => {
+      setShowUnlockToast(false);
+      unlockToastTimeoutRef.current = null;
+    }, 4000);
+  }, []);
+
   const realtimeCallbacks = useMemo(() => ({
+    // The client's previous pick is left intact server-side (unlock.ts only
+    // flips status back to "active"), so refetch it here instead of
+    // clearing — otherwise the client would see an empty grid and have to
+    // reselect everything from scratch just to revise one photo.
     onAlbumUnlocked: () => {
+      setError(null); // drop any stale submit-error toast so it can't overlap the unlock toast
+      void fetchResumeSession(slug).then((resumed) => {
+        if (!resumed) return;
+        setAlbum(resumed);
+        applyServerSelections(resumed);
+        restoreDraft(resumed);
+      });
+      showUnlockToastMessage('Gallery unlocked — your previous selection is still here. Revise it and resubmit.');
+    },
+    // Unlike a plain unlock, reset is the admin explicitly wiping the
+    // client's pick (e.g. client asked to start over) — the server actually
+    // deleted the selection docs here, so clear local state to match.
+    onAlbumReset: () => {
       setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
-      setSelectedPhotos(new Set()); // server deleted existing selections on unlock
-      setPhotoNotes(new Map()); // clear note drafts on unlock
+      setSelectedPhotos(new Set());
+      setPhotoNotes(new Map());
       // The old draft describes selections the server just deleted — restoring
       // it later would mislead the client into thinking they were kept.
       if (albumIdRef.current) clearDraft(albumIdRef.current);
-      setError(null); // drop any stale submit-error toast so it can't overlap the unlock toast
-      setShowUnlockToast(true);
-      if (unlockToastTimeoutRef.current !== null) {
-        window.clearTimeout(unlockToastTimeoutRef.current);
-      }
-      unlockToastTimeoutRef.current = window.setTimeout(() => {
-        setShowUnlockToast(false);
-        unlockToastTimeoutRef.current = null;
-      }, 4000);
+      setError(null);
+      showUnlockToastMessage('The photographer reset your selection — please choose your photos again.');
     },
     // Flip an already-open gallery straight to the delivered view — the
     // final-photos fetch effect (keyed on album.status) picks up from here.
@@ -1026,7 +1096,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     onFinalPhotoDeleted: () => {
       if (albumStatusRef.current === 'delivered') void fetchFinalPhotos();
     },
-  }), [fetchFinalPhotos]);
+  }), [fetchFinalPhotos, slug, applyServerSelections, restoreDraft, showUnlockToastMessage]);
 
   // Cleanup toast timeouts on unmount
   useEffect(() => {
@@ -1043,35 +1113,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     };
   }, []);
 
-  const showNotice = useCallback((message: string) => {
-    setNotice(message);
-    if (noticeTimeoutRef.current !== null) window.clearTimeout(noticeTimeoutRef.current);
-    noticeTimeoutRef.current = window.setTimeout(() => {
-      setNotice(null);
-      noticeTimeoutRef.current = null;
-    }, 2500);
-  }, []);
-
   useRealtime(isAuthenticated ? (album?.id ?? null) : null, realtimeCallbacks);
-
-  const restoreDraft = useCallback((albumData: AlbumData) => {
-    if (albumData.status !== 'active') return;
-    // Drafts saved before the album's most recent unlock describe selections
-    // the server already deleted — never restore them.
-    const unlockedAtMs = albumData.lastUnlockedAt ? Date.parse(albumData.lastUnlockedAt) : undefined;
-    const draft = loadDraft(
-      albumData.id,
-      albumData.photos.map((p) => p.id),
-      albumData.maxSelections,
-      Number.isFinite(unlockedAtMs) ? unlockedAtMs : undefined
-    );
-    if (!draft) return;
-    setSelectedPhotos(new Set(draft.photoIds));
-    setPhotoNotes(new Map(Object.entries(draft.notes)));
-    showNotice(
-      `Draft restored — ${draft.photoIds.length} photo${draft.photoIds.length === 1 ? '' : 's'} selected`
-    );
-  }, [showNotice]);
 
   // Resume without re-entering the PIN when the signed 24h gallery cookie is
   // still valid (verify.ts set it on the first successful PIN entry). The
@@ -1086,6 +1128,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
         if (resumed) {
           setAlbum(resumed);
           setIsAuthenticated(true);
+          applyServerSelections(resumed);
           restoreDraft(resumed);
           if (resumed.status === 'delivered') {
             setFinalPhotos(null); // trigger fetch below
@@ -1100,7 +1143,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [slug, restoreDraft]);
+  }, [slug, applyServerSelections, restoreDraft]);
 
   // Fetch final photos when the album is in delivered state.
   useEffect(() => {
@@ -1209,13 +1252,14 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       setAlbum(data.album);
       setIsAuthenticated(true);
+      applyServerSelections(data.album);
       restoreDraft(data.album);
     } catch (err) {
       setError(getErrorMessage(err, 'Verification failed'));
     } finally {
       setIsLoading(false);
     }
-  }, [slug, restoreDraft]);
+  }, [slug, applyServerSelections, restoreDraft]);
 
   const openLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
@@ -1466,13 +1510,18 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       setAlbum((prev) => prev ? { ...prev, status: 'submitted' } : prev);
       // The selection is now persisted server-side; the local draft is spent.
       clearDraft(album.id);
+      // Without this, a successful submit looked identical to a stray tap on
+      // the now-disabled "Submitted" button — nothing told the client the
+      // request actually went through (unlike the error path below, which
+      // already surfaces a toast on failure).
+      showNotice('Your selection has been submitted successfully!');
     } catch (err) {
       setError(getErrorMessage(err, 'Submission failed'));
     } finally {
       setIsSubmitting(false);
       isSubmittingRef.current = false;
     }
-  }, [album, selectedPhotos, photoNotes, slug, isSubmitting]);
+  }, [album, selectedPhotos, photoNotes, slug, isSubmitting, showNotice]);
 
   // Submitting locks the gallery — the client can't change their mind
   // afterwards without the photographer unlocking it — so a stray tap
@@ -1761,7 +1810,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             exit={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.25 }}
           >
-            Gallery unlocked — please reselect and resubmit your photos
+            {unlockToastMessage}
           </m.div>
         )}
       </AnimatePresence>

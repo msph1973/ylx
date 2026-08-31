@@ -10,6 +10,7 @@ export interface ResumedAlbum {
   maxSelections: number;
   lastUnlockedAt?: string | null;
   showOriginalAfterDelivery: boolean;
+  selections?: Array<{ photoId: string; notes?: string | null }>;
   photos: Array<{
     id: string;
     filename: string;

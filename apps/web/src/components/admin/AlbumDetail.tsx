@@ -208,6 +208,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -277,12 +280,34 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     try {
       const response = await fetch(`/api/admin/albums/${albumId}/unlock`, { method: 'POST' });
       if (!response.ok) throw new Error('Failed to unlock album');
-      setAlbum((prev) => (prev ? { ...prev, status: 'active', isLocked: false, selections: [] } : prev));
+      // Unlock only reopens the gallery — the client's previous selections
+      // are left intact server-side now, so refetch instead of assuming
+      // `selections: []` (that used to be true when unlock deleted them).
+      await fetchAlbum();
       onUpdated?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to unlock');
     } finally {
       setIsUnlocking(false);
+    }
+  };
+
+  // Reset is the deliberate, destructive counterpart to unlock above: it
+  // actually wipes the client's selections (e.g. the client asked to start
+  // over), unlike a plain unlock which now preserves them for revision.
+  const handleReset = async () => {
+    setIsResetting(true);
+    setResetError(null);
+    try {
+      const response = await fetch(`/api/admin/albums/${albumId}/reset`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to reset album');
+      setAlbum((prev) => (prev ? { ...prev, status: 'active', isLocked: false, selections: [] } : prev));
+      setIsResetConfirmOpen(false);
+      onUpdated?.();
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : 'Failed to reset');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -706,6 +731,19 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
                 {isUnlocking ? 'Unlocking…' : 'Unlock Gallery'}
               </button>
             )}
+            {album.selections.length > 0 && (
+              <button
+                className="reset-btn"
+                onClick={() => { setResetError(null); setIsResetConfirmOpen(true); }}
+                aria-label="Reset client's photo selection"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <path d="M3 4v5h5" />
+                </svg>
+                Reset Selection
+              </button>
+            )}
           </div>
 
           <div className="metadata-grid">
@@ -904,6 +942,21 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
         </ConfirmDialog>
 
         <ConfirmDialog
+          isOpen={isResetConfirmOpen}
+          title="Reset client's selection?"
+          confirmLabel="Reset Selection"
+          busyLabel="Resetting…"
+          isBusy={isResetting}
+          error={resetError}
+          onConfirm={() => { void handleReset(); }}
+          onCancel={() => setIsResetConfirmOpen(false)}
+        >
+          This permanently deletes the client's {album.selections.length} selected photo{album.selections.length === 1 ? '' : 's'}
+          {' '}(and any notes on them) and reopens the gallery empty. Unlike Unlock, this cannot be undone — use it only when
+          the client wants to start over completely.
+        </ConfirmDialog>
+
+        <ConfirmDialog
           isOpen={photoToDelete !== null}
           title="Delete photo?"
           confirmLabel="Delete Photo"
@@ -1087,7 +1140,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             margin-bottom: var(--space-8);
           }
 
-          .share-btn, .lock-btn, .unlock-btn {
+          .share-btn, .lock-btn, .unlock-btn, .reset-btn {
             display: inline-flex;
             align-items: center;
             gap: var(--space-2);
@@ -1114,6 +1167,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .unlock-btn { color: var(--color-text); }
           .unlock-btn:hover:not(:disabled) { border-color: var(--color-success); color: var(--color-success); }
           .lock-btn:disabled, .unlock-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+          .reset-btn { color: var(--color-error); border-color: color-mix(in srgb, var(--color-error) 45%, var(--color-border)); }
+          .reset-btn:hover:not(:disabled) { border-color: var(--color-error); background-color: color-mix(in srgb, var(--color-error) 12%, transparent); }
+          .reset-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
           .section-header {
             display: flex;
@@ -1448,7 +1504,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             }
 
             .share-actions .lock-btn,
-            .share-actions .unlock-btn {
+            .share-actions .unlock-btn,
+            .share-actions .reset-btn {
               grid-column: 1 / -1;
             }
 
@@ -1458,6 +1515,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             .share-btn,
             .lock-btn,
             .unlock-btn,
+            .reset-btn,
             .selection-toggle-btn,
             .bulk-delete-btn,
             .back-btn {

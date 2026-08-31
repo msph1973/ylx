@@ -3,6 +3,7 @@ export type RealtimeEventType =
   | "selection:changed"
   | "submission:received"
   | "album:unlocked"
+  | "album:reset"
   | "album:delivered"
   | "selection:replied"
   | "draft:progress"
