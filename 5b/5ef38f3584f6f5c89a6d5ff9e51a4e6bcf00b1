@@ -1,0 +1,20 @@
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 136-137
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 242-243,287
+apps/web/src/pages/gallery/[slug].astro
+  h_45c23cf41d175e 15
+docs/compose/plans/2026-08-30-vendor-name-branding.md
+  h_45c23cf41d175e 1-334
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "5b5ef38f3584f6f5c89a6d5ff9e51a4e6bcf00b1",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
