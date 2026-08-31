@@ -1,6 +1,6 @@
 # YLx — Status & AI Agent Onboarding
 > Last updated: 2026-08-31 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79–#99, #100–#103 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. **PR #104 (vendorName) OPEN** (squash `780fe3e` di `feat/vendor-name`, 2026-08-31) — field wajib Sanity + admin form + API validasi + pre-PIN cached lookup di `gallery/[slug].astro` + render di `GalleryLayout`/`BaseLayout`, fallback `'YLx'` untuk album lama; 259/259 vitest, tsc/lint/build hijau.
-> Last updated: 2026-08-31 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79–#104 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. **PR #104 (vendorName) MERGED** (squash `4d98555`, 2026-08-31) — per-album vendorName field + review loop: P1 getCached 4th arg fix, PUT/POST trim+cap 80; all checks SUCCESS, proactive scans clean.
+> Last updated: 2026-08-31 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79–#104 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. **PR #104 (vendorName) MERGED** (squash `4d98555`, 2026-08-31) — per-album vendorName field + review loop: P1 getCached 4th arg fix, PUT/POST trim+cap 80; all checks SUCCESS, proactive scans clean. **PR #105 OPEN** (`fix/submit-notice-preserve-selections`, 2026-08-31) — toast sukses submit; unlock tidak lagi hapus pilihan client (cuma reopen), reset destruktif dipisah ke endpoint/tombol/event realtime sendiri (`album:reset`); galeri pre-fill pilihan tersimpan dari server; 264/264 vitest, tsc/lint hijau.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -49,8 +49,8 @@ Client submits selection        ✅  API + Sanity transaction + Ably event
 Admin sees real-time notif      ✅  useAdminRealtime + AlbumList
 Admin views selections          ✅  SelectionTable + AlbumDetail
 Admin copies filenames          ✅  CopyFilenamesButton → clipboard → Lightroom
-Admin unlocks gallery           ✅  unlock.ts — hapus selections lama + set active
-Client sees unlock real-time    ✅  useRealtime + animated toast + state reset
+Admin unlocks gallery           ✅  unlock.ts — reopen (set active) saja, TIDAK hapus selections; reset.ts terpisah utk hapus destruktif
+Client sees unlock real-time    ✅  useRealtime (`album:unlocked` preserve + `album:reset` clear) + toast dinamis + pre-fill pilihan dari server
 ```
 
 ---
@@ -292,5 +292,6 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #103 | fix: safe area, dvh, hide gallery instructions, gallery tile actions | MERGED (`40db4ed`) | `~/.junie/tasks/PR-103-ui-ux-audit-fixes.md` |
 | #104 | Feat: per-album `vendorName` (fotografer/studio brand) — field wajib di schema Sanity + GROQ projection (`albumBySlugQuery`, `allAlbumsQuery`); API POST/PUT validasi required (max 200 char) + GET response `vendorName ?? 'YLx'`; UI admin `AlbumFormModal` input wajib; pre-PIN cached Sanity lookup di `gallery/[slug].astro`; render di `GalleryLayout` (header brand div) + `BaseLayout` (browser tab title) dengan fallback `'YLx'`. Tuntaskan ROADMAP branding kustom (sebagian). | OPEN (CI running) | `~/.junie/tasks/PR-104-vendor-name.md` |
 | #104 | Feat: per-album `vendorName` (fotografer/studio brand) — field wajib di schema Sanity + GROQ projection; API POST/PUT validasi required (max 80) + GET response `vendorName ?? 'YLx'`; UI admin `AlbumFormModal` input wajib; pre-PIN cached Sanity lookup di `gallery/[slug].astro`; render di `GalleryLayout` + `BaseLayout` dgn fallback `'YLx'`. Review loop: P1 getCached 4th arg fix, PUT/POST trim+cap 80. | MERGED (`4d98555`) | `~/.junie/tasks/PR-104-vendor-name.md` |
+| #105 | Fix: toast sukses saat client submit pilihan (sebelumnya cuma error path yang ada feedback); `unlock.ts` tidak lagi hapus `selection`/`submission` — cuma buka status jadi `active` (pilihan client tetap ada utk direvisi); endpoint baru `POST admin/albums/[id]/reset` (logic hapus lama) + tombol admin "Reset Selection" terpisah dari "Unlock Gallery", event realtime `album:reset` terpisah dari `album:unlocked`; galeri client kini pre-fill pilihan tersimpan dari server (`albumBySlugQuery` bawa `selections`) di setiap load/unlock, bukan cuma draft lokal | OPEN | `~/.junie/tasks/PR-105-submit-notice-preserve-selections.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.
