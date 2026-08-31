@@ -160,7 +160,13 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     { albumId: album._id }
   );
 
-  const transaction = sanityWriteClient.transaction();
+  // Plain mutation array (not the `.transaction()` builder) so a resubmit's
+  // selection cleanup below can delete by GROQ query in a single mutation —
+  // the builder's `.delete()` only accepts document IDs, and looping it over
+  // every existing selection individually risks exceeding Sanity's per-
+  // transaction mutation limit for an album with a large previous selection.
+  // `mutate()` with an array still commits as one all-or-nothing transaction.
+  const mutations: Parameters<typeof sanityWriteClient.mutate>[0] = [];
 
   // A resubmit after the admin unlocked the gallery: unlock.ts now leaves the
   // previous round's selection/submission docs intact (so the client can see
@@ -170,44 +176,53 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   // permanently 409ing every resubmit-after-unlock. reset.ts already deletes
   // both, so `existingSelections` is empty there and this is a no-op.
   if (existingSelections.length > 0) {
-    for (const selection of existingSelections) {
-      transaction.delete(selection._id);
-    }
-    transaction.delete(`submission-${album._id}`);
+    mutations.push({
+      delete: {
+        query: `*[_type == "selection" && album._ref == $albumId]`,
+        params: { albumId: album._id },
+      },
+    });
+    mutations.push({ delete: { id: `submission-${album._id}` } });
   }
 
   const selectionIds: string[] = [];
   for (const photoId of uniquePhotoIds) {
     const selectionId = crypto.randomUUID();
     const note = notesMap.get(photoId);
-    transaction.create({
-      _type: "selection",
-      _id: selectionId,
-      album: { _type: "reference", _ref: album._id },
-      photo: { _type: "reference", _ref: photoId },
-      selectedAt: new Date().toISOString(),
-      ...(note ? { notes: note } : {}),
+    mutations.push({
+      create: {
+        _type: "selection",
+        _id: selectionId,
+        album: { _type: "reference", _ref: album._id },
+        photo: { _type: "reference", _ref: photoId },
+        selectedAt: new Date().toISOString(),
+        ...(note ? { notes: note } : {}),
+      },
     });
     selectionIds.push(selectionId);
   }
 
   // Deterministic submission _id acts as an atomic lock: a concurrent second
-  // submit for the same album will fail with a 409 conflict on create.
-  transaction.create({
-    _type: "submission",
-    _id: `submission-${album._id}`,
-    album: { _type: "reference", _ref: album._id },
-    selections: selectionIds.map((id) => ({
-      _type: "reference",
-      _ref: id,
-    })),
-    submittedAt: new Date().toISOString(),
+  // *first-time* submit for the same album will fail with a 409 conflict on
+  // create (the resubmit-after-unlock path above already deleted the old
+  // one, so this narrower guard no longer applies to that case).
+  mutations.push({
+    create: {
+      _type: "submission",
+      _id: `submission-${album._id}`,
+      album: { _type: "reference", _ref: album._id },
+      selections: selectionIds.map((id) => ({
+        _type: "reference",
+        _ref: id,
+      })),
+      submittedAt: new Date().toISOString(),
+    },
   });
 
-  transaction.patch(album._id, { set: { status: "submitted" } });
+  mutations.push({ patch: { id: album._id, set: { status: "submitted" } } });
 
   try {
-    await transaction.commit();
+    await sanityWriteClient.mutate(mutations);
   } catch (err) {
     const statusCode =
       err && typeof err === "object" && "statusCode" in err

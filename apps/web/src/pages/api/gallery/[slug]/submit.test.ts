@@ -3,20 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- mocks ---------------------------------------------------------------
 
 const sanityFetchMock = vi.fn();
-const transactionCommitMock = vi.fn().mockResolvedValue(undefined);
-const transactionCreateMock = vi.fn().mockReturnThis();
-const transactionPatchMock = vi.fn().mockReturnThis();
-const transactionDeleteMock = vi.fn().mockReturnThis();
+const mutateMock = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@ylx/sanity/client", () => ({
   sanityClient: { fetch: (...args: unknown[]) => sanityFetchMock(...args) },
   sanityWriteClient: {
-    transaction: () => ({
-      create: (...args: unknown[]) => transactionCreateMock(...args),
-      patch: (...args: unknown[]) => transactionPatchMock(...args),
-      delete: (...args: unknown[]) => transactionDeleteMock(...args),
-      commit: () => transactionCommitMock(),
-    }),
+    mutate: (...args: unknown[]) => mutateMock(...args),
   },
   urlFor: () => ({
     width: () => ({ auto: () => ({ quality: () => ({ url: () => "https://img.test/full" }) }) }),
@@ -83,10 +75,7 @@ function call(selections: unknown[], slug = "doe-wedding") {
 
 beforeEach(() => {
   sanityFetchMock.mockReset();
-  transactionCommitMock.mockReset().mockResolvedValue(undefined);
-  transactionCreateMock.mockReset().mockReturnThis();
-  transactionPatchMock.mockReset().mockReturnThis();
-  transactionDeleteMock.mockReset().mockReturnThis();
+  mutateMock.mockReset().mockResolvedValue(undefined);
   notifyAdminsMock.mockReset().mockResolvedValue(1);
 
   // sanityFetchMock branches on the GROQ query string passed in args[0].
@@ -115,7 +104,7 @@ describe("POST /api/gallery/[slug]/submit", () => {
   it("commits + notifies the admin by email on a successful submission", async () => {
     const res = await call([{ photoId: "photo-1" }, { photoId: "photo-2" }]);
     expect(res.status).toBe(200);
-    expect(transactionCommitMock).toHaveBeenCalledTimes(1);
+    expect(mutateMock).toHaveBeenCalledTimes(1);
     expect(notifyAdminsMock).toHaveBeenCalledTimes(1);
     expect(notifyAdminsMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -143,14 +132,14 @@ describe("POST /api/gallery/[slug]/submit", () => {
   });
 
   it("does not send an email when the Sanity commit fails (500 path)", async () => {
-    transactionCommitMock.mockRejectedValue(Object.assign(new Error("boom"), { statusCode: 500 }));
+    mutateMock.mockRejectedValue(Object.assign(new Error("boom"), { statusCode: 500 }));
     const res = await call([{ photoId: "photo-1" }]);
     expect(res.status).toBe(500);
     expect(notifyAdminsMock).not.toHaveBeenCalled();
   });
 
   it("does not send an email on a 409 (already submitted)", async () => {
-    transactionCommitMock.mockRejectedValue(
+    mutateMock.mockRejectedValue(
       Object.assign(new Error("conflict"), { statusCode: 409 })
     );
     const res = await call([{ photoId: "photo-1" }]);
@@ -161,7 +150,9 @@ describe("POST /api/gallery/[slug]/submit", () => {
   // A resubmit after the admin unlocked the gallery: unlock.ts leaves the
   // previous round's selection/submission docs intact, so submit.ts must
   // clear them itself instead of 409ing forever on every resubmit attempt.
-  it("deletes the previous round's selections/submission and resubmits successfully when selections already exist", async () => {
+  // Deletes by GROQ query (not per-document IDs) so a large previous
+  // selection can't blow past Sanity's per-transaction mutation limit.
+  it("deletes the previous round's selections/submission by query and resubmits successfully when selections already exist", async () => {
     sanityFetchMock.mockImplementation((query: string) => {
       if (typeof query !== "string") return Promise.resolve(null);
       if (query.includes("customSlug")) return Promise.resolve(ALBUM);
@@ -170,8 +161,12 @@ describe("POST /api/gallery/[slug]/submit", () => {
     });
     const res = await call([{ photoId: "photo-1" }]);
     expect(res.status).toBe(200);
-    expect(transactionDeleteMock).toHaveBeenCalledWith("existing-selection");
-    expect(transactionDeleteMock).toHaveBeenCalledWith("submission-album-1");
-    expect(transactionCommitMock).toHaveBeenCalledTimes(1);
+
+    const mutations = mutateMock.mock.calls[0][0];
+    expect(mutations).toEqual(expect.arrayContaining([
+      { delete: { query: expect.stringContaining("selection"), params: { albumId: "album-1" } } },
+      { delete: { id: "submission-album-1" } },
+    ]));
+    expect(mutateMock).toHaveBeenCalledTimes(1);
   });
 });
