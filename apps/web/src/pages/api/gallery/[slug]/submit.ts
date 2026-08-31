@@ -155,19 +155,26 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     );
   }
 
-  const existingSelections = await sanityClient.fetch(
+  const existingSelections = await sanityClient.fetch<{ _id: string }[]>(
     selectionsByAlbumQuery,
     { albumId: album._id }
   );
 
-  if (existingSelections.length > 0) {
-    return new Response(
-      JSON.stringify({ error: "Selections already submitted" }),
-      { status: 409, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
   const transaction = sanityWriteClient.transaction();
+
+  // A resubmit after the admin unlocked the gallery: unlock.ts now leaves the
+  // previous round's selection/submission docs intact (so the client can see
+  // and revise them), so this submit must clear them itself before writing
+  // the new round. Without this, the deterministic submission _id create
+  // below would always conflict with the still-existing old submission doc,
+  // permanently 409ing every resubmit-after-unlock. reset.ts already deletes
+  // both, so `existingSelections` is empty there and this is a no-op.
+  if (existingSelections.length > 0) {
+    for (const selection of existingSelections) {
+      transaction.delete(selection._id);
+    }
+    transaction.delete(`submission-${album._id}`);
+  }
 
   const selectionIds: string[] = [];
   for (const photoId of uniquePhotoIds) {

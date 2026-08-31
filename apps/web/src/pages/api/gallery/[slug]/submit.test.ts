@@ -6,6 +6,7 @@ const sanityFetchMock = vi.fn();
 const transactionCommitMock = vi.fn().mockResolvedValue(undefined);
 const transactionCreateMock = vi.fn().mockReturnThis();
 const transactionPatchMock = vi.fn().mockReturnThis();
+const transactionDeleteMock = vi.fn().mockReturnThis();
 
 vi.mock("@ylx/sanity/client", () => ({
   sanityClient: { fetch: (...args: unknown[]) => sanityFetchMock(...args) },
@@ -13,6 +14,7 @@ vi.mock("@ylx/sanity/client", () => ({
     transaction: () => ({
       create: (...args: unknown[]) => transactionCreateMock(...args),
       patch: (...args: unknown[]) => transactionPatchMock(...args),
+      delete: (...args: unknown[]) => transactionDeleteMock(...args),
       commit: () => transactionCommitMock(),
     }),
   },
@@ -84,6 +86,7 @@ beforeEach(() => {
   transactionCommitMock.mockReset().mockResolvedValue(undefined);
   transactionCreateMock.mockReset().mockReturnThis();
   transactionPatchMock.mockReset().mockReturnThis();
+  transactionDeleteMock.mockReset().mockReturnThis();
   notifyAdminsMock.mockReset().mockResolvedValue(1);
 
   // sanityFetchMock branches on the GROQ query string passed in args[0].
@@ -155,7 +158,10 @@ describe("POST /api/gallery/[slug]/submit", () => {
     expect(notifyAdminsMock).not.toHaveBeenCalled();
   });
 
-  it("does not send an email when selections already exist (pre-commit 409)", async () => {
+  // A resubmit after the admin unlocked the gallery: unlock.ts leaves the
+  // previous round's selection/submission docs intact, so submit.ts must
+  // clear them itself instead of 409ing forever on every resubmit attempt.
+  it("deletes the previous round's selections/submission and resubmits successfully when selections already exist", async () => {
     sanityFetchMock.mockImplementation((query: string) => {
       if (typeof query !== "string") return Promise.resolve(null);
       if (query.includes("customSlug")) return Promise.resolve(ALBUM);
@@ -163,7 +169,9 @@ describe("POST /api/gallery/[slug]/submit", () => {
       return Promise.resolve([{ _id: "existing-selection" }]); // existing
     });
     const res = await call([{ photoId: "photo-1" }]);
-    expect(res.status).toBe(409);
-    expect(notifyAdminsMock).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(transactionDeleteMock).toHaveBeenCalledWith("existing-selection");
+    expect(transactionDeleteMock).toHaveBeenCalledWith("submission-album-1");
+    expect(transactionCommitMock).toHaveBeenCalledTimes(1);
   });
 });
