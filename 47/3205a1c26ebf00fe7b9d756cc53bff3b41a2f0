@@ -1,0 +1,22 @@
+apps/web/src/components/admin/AlbumDetail.tsx
+  h_45c23cf41d175e 1180
+apps/web/src/components/admin/ConfirmDialog.tsx
+  h_45c23cf41d175e 179
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 268-270,276,818,820,826
+apps/web/src/lib/motion.ts
+  h_45c23cf41d175e 8-9
+apps/web/src/styles/variables.css
+  h_45c23cf41d175e 105-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "473205a1c26ebf00fe7b9d756cc53bff3b41a2f0",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
