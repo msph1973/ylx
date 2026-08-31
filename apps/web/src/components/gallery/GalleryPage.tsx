@@ -817,7 +817,9 @@ const GALLERY_VIEW_STYLES = `
           color: #fff;
           transition: background-color var(--transition-fast), transform var(--transition-fast);
         }
-        /* framer owns transform here (whileTap) — keep it out of the CSS transition */
+        /* .photo-select-btn is a framer m.button (whileTap) — its transform is
+           JS-driven, so keep transform out of this transition. The download
+           button above is a plain <button> and intentionally keeps it for :active. */
         .photo-select-btn {
           left: var(--space-2);
           background-color: var(--color-photo-download-bg);
