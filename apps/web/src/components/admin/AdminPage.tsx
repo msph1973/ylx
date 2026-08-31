@@ -49,7 +49,7 @@ export default function AdminPage({ adminName }: AdminPageProps) {
     <div className="admin-dashboard">
       <div className="admin-toolbar">
         {adminName && (
-          <span className="admin-user">Welcome, {adminName}</span>
+          <span className="admin-user">Welcome back, {adminName}</span>
         )}
         <div className="toolbar-actions">
           {!selectedAlbumId && (

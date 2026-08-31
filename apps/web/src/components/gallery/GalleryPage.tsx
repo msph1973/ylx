@@ -38,6 +38,9 @@ class LightboxErrorBoundary extends Component<{ children: ReactNode }, { hasErro
 
 interface GalleryPageProps {
   slug: string;
+  /** Pre-PIN branding-only title (cached lookup in the astro page) shown on
+      the PIN card so clients know whose gallery they entered. */
+  albumTitle?: string;
 }
 
 interface AlbumData {
@@ -546,22 +549,22 @@ const GALLERY_VIEW_STYLES = `
           font-weight: var(--font-medium);
           font-size: var(--text-sm);
           cursor: pointer;
-          transition: all var(--transition-fast);
-          background-color: transparent;
-          border: 1px solid var(--color-lightbox-select-border);
-          color: var(--color-lightbox-text);
+          transition: background-color var(--transition-fast), color var(--transition-fast);
+          background-color: var(--color-accent);
+          border: 1px solid var(--color-accent);
+          color: var(--color-bg);
         }
 
         .lightbox-select.selected {
-          background-color: var(--color-accent);
-          border-color: var(--color-accent);
+          background-color: var(--color-success);
+          border-color: var(--color-success);
           color: var(--color-bg);
         }
 
         @media (hover: hover) {
           .lightbox-select:hover:not(.selected) {
-            border-color: var(--color-accent);
-            color: var(--color-accent);
+            background-color: var(--color-accent-hover);
+            border-color: var(--color-accent-hover);
           }
         }
 
@@ -814,7 +817,7 @@ const GALLERY_VIEW_STYLES = `
         .photo-download-btn {
           right: var(--space-2);
           background-color: var(--color-photo-download-bg);
-          color: #fff;
+          color: var(--color-lightbox-text-bright);
           transition: background-color var(--transition-fast), transform var(--transition-fast);
         }
         /* .photo-select-btn is a framer m.button (whileTap) — its transform is
@@ -906,7 +909,7 @@ function sanitizeZipFilename(name: string): string {
 // upload flows (see UPLOAD_CONCURRENCY in FinalPhotosSection.tsx/UploadPage.tsx).
 const DOWNLOAD_CONCURRENCY = 4;
 
-export function GalleryPage({ slug }: GalleryPageProps) {
+export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   // Blocks the PIN screen until the resume-session check finishes, so a
@@ -1422,7 +1425,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
   // Fetches every entry's blob (best-effort — a single failed fetch is
   // skipped, not fatal to the whole batch) and bundles them into one zip
-  // with the entry's folder as the path prefix (e.g. "Cetak/edit_1.jpg").
+  // with the entry's folder as the path prefix (e.g. "Final/edit_1.jpg").
   // Bounded via runWithConcurrency (same helper/convention as the admin
   // upload flows) instead of a fully-parallel Promise.allSettled, so a large
   // gallery's ZIP doesn't fire dozens of simultaneous blob fetches at once.
@@ -1474,9 +1477,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
   }, []);
 
   const handleDownloadAll = useCallback(() => {
-    const folders: DownloadFolder[] = [{ folder: 'Cetak', photos: finalPhotos ?? [] }];
+    const folders: DownloadFolder[] = [{ folder: 'Final', photos: finalPhotos ?? [] }];
     if (album?.showOriginalAfterDelivery) {
-      folders.push({ folder: 'Semua Foto', photos: album.photos ?? [] });
+      folders.push({ folder: 'Originals', photos: album.photos ?? [] });
     }
     void downloadManifestAsZip(buildDownloadManifest(folders), `${sanitizeZipFilename(album?.title ?? 'gallery')}.zip`);
   }, [album, finalPhotos, downloadManifestAsZip]);
@@ -1487,12 +1490,12 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       ? (album.photos ?? []).filter((photo) => selectedForDownload.has(photo.id))
       : [];
     const folders: DownloadFolder[] = [
-      { folder: 'Cetak', photos: selectedFinal },
-      { folder: 'Semua Foto', photos: selectedOriginal },
+      { folder: 'Final', photos: selectedFinal },
+      { folder: 'Originals', photos: selectedOriginal },
     ].filter((folder) => folder.photos.length > 0);
     void downloadManifestAsZip(
       buildDownloadManifest(folders),
-      `${sanitizeZipFilename(album?.title ?? 'gallery')}-terpilih.zip`
+      `${sanitizeZipFilename(album?.title ?? 'gallery')}-selected.zip`
     );
   }, [album, finalPhotos, selectedForDownload, downloadManifestAsZip]);
 
@@ -1602,6 +1605,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
         >
+          {albumTitle && (
+            <p className="gallery-album-label">{albumTitle}</p>
+          )}
           <h1 className="gallery-title">Enter PIN</h1>
           <p className="gallery-subtitle">to view your photos</p>
           <PinEntry
@@ -1625,6 +1631,15 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             text-align: center;
             max-width: 320px;
             width: 100%;
+          }
+
+          .gallery-album-label {
+            font-size: var(--text-xs);
+            font-weight: var(--font-medium);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: var(--space-2);
           }
 
           .gallery-title {
@@ -1724,7 +1739,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 className={`delivered-tab-btn ${effectiveDeliveredTab === 'cetak' ? 'active' : ''}`}
                 onClick={() => setActiveDeliveredTab('cetak')}
               >
-                Cetak
+                Final
               </button>
               <button
                 type="button"
@@ -1733,7 +1748,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 className={`delivered-tab-btn ${effectiveDeliveredTab === 'original' ? 'active' : ''}`}
                 onClick={() => setActiveDeliveredTab('original')}
               >
-                Semua Foto
+                Originals
               </button>
             </div>
           )}
@@ -1827,7 +1842,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
       {isDelivered && isDownloadSelectMode && selectedForDownload.size > 0 && (
         <div className="gallery-selection-bar download-selection-bar">
-          <span className="selection-count">{selectedForDownload.size} foto dipilih</span>
+          <span className="selection-count">{selectedForDownload.size} photos selected</span>
           <m.button
             type="button"
             className="submit-btn"
@@ -1839,9 +1854,9 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             {isDownloading ? (
               <>
                 <span className="btn-spinner" aria-hidden="true" />
-                Mengunduh…
+                Downloading…
               </>
-            ) : `Download ${selectedForDownload.size} Foto Terpilih`}
+            ) : `Download ${selectedForDownload.size} Selected Photos`}
           </m.button>
         </div>
       )}

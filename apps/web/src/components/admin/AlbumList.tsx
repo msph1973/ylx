@@ -271,7 +271,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
             onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
             aria-pressed={selectionMode}
           >
-            {selectionMode ? 'Done' : 'Select'}
+            {selectionMode ? 'Done' : 'Select Albums'}
           </button>
         </div>
 
@@ -338,9 +338,11 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
             <span>
               Showing {visibleRange.start}–{visibleRange.end} of {filteredAlbums.length} album{filteredAlbums.length === 1 ? '' : 's'}
             </span>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            {totalPages > 1 && (
+              <span>
+                Page {page} of {totalPages}
+              </span>
+            )}
           </div>
 
           <div className="album-list">
@@ -366,27 +368,29 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
             </AnimatePresence>
           </div>
 
-          <nav className="pagination-controls" aria-label="Album pages">
-            <button
-              type="button"
-              className="pagination-btn"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page === 1}
-              aria-label="Go to previous page"
-            >
-              Previous
-            </button>
-            <span className="pagination-page-label">Page {page} / {totalPages}</span>
-            <button
-              type="button"
-              className="pagination-btn"
-              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              disabled={page === totalPages}
-              aria-label="Go to next page"
-            >
-              Next
-            </button>
-          </nav>
+          {totalPages > 1 && (
+            <nav className="pagination-controls" aria-label="Album pages">
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page === 1}
+                aria-label="Go to previous page"
+              >
+                Previous
+              </button>
+              <span className="pagination-page-label">Page {page} / {totalPages}</span>
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={page === totalPages}
+                aria-label="Go to next page"
+              >
+                Next
+              </button>
+            </nav>
+          )}
         </>
       )}
 
