@@ -142,6 +142,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
         <AnimatePresence initial={false}>
           {isSelected && (
             <m.div
+              key="selection-badge"
               className="selection-badge"
               aria-hidden="true"
               initial={{ scale: shouldReduceMotion ? 1 : 0 }}
@@ -267,10 +268,11 @@ const GALLERY_VIEW_STYLES = `
           transition: all var(--transition-fast);
         }
 
-        .submit-btn:active:not(:disabled),
-        .submit-cancel-btn:active:not(:disabled),
-        .photo-download-btn:active {
-          transform: scale(0.97);
+        @media (prefers-reduced-motion: no-preference) {
+          .submit-cancel-btn:active:not(:disabled),
+          .photo-download-btn:active {
+            transform: scale(0.97);
+          }
         }
 
         @media (hover: hover) {
@@ -1820,12 +1822,13 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       {isDelivered && isDownloadSelectMode && selectedForDownload.size > 0 && (
         <div className="gallery-selection-bar download-selection-bar">
           <span className="selection-count">{selectedForDownload.size} foto dipilih</span>
-          <button
+          <m.button
             type="button"
             className="submit-btn"
             onClick={handleDownloadSelected}
             disabled={isDownloading}
             aria-busy={isDownloading}
+            whileTap={{ scale: shouldReduceMotion ? 1 : PRESS_SCALE }}
           >
             {isDownloading ? (
               <>
@@ -1833,7 +1836,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                 Mengunduh…
               </>
             ) : `Download ${selectedForDownload.size} Foto Terpilih`}
-          </button>
+          </m.button>
         </div>
       )}
 

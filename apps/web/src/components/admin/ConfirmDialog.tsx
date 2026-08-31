@@ -173,9 +173,11 @@ export function ConfirmDialog({
               color: var(--color-text);
             }
 
-            .btn-cancel:active:not(:disabled),
-            .btn-confirm-delete:active:not(:disabled) {
-              transform: scale(0.97);
+            @media (prefers-reduced-motion: no-preference) {
+              .btn-cancel:active:not(:disabled),
+              .btn-confirm-delete:active:not(:disabled) {
+                transform: scale(0.97);
+              }
             }
 
             .btn-confirm-delete {

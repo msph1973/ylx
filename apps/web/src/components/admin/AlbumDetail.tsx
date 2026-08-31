@@ -1172,11 +1172,13 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .share-btn:hover:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
           .share-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-          .share-btn:active:not(:disabled),
-          .lock-btn:active:not(:disabled),
-          .unlock-btn:active:not(:disabled),
-          .reset-btn:active:not(:disabled) {
-            transform: scale(0.97);
+          @media (prefers-reduced-motion: no-preference) {
+            .share-btn:active:not(:disabled),
+            .lock-btn:active:not(:disabled),
+            .unlock-btn:active:not(:disabled),
+            .reset-btn:active:not(:disabled) {
+              transform: scale(0.97);
+            }
           }
 
           .share-btn-label--long { display: inline; }
