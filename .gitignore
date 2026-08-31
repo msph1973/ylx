@@ -62,3 +62,9 @@ memory/
 
 # graphify knowledge-graph output (regenerated on demand via `graphify .`)
 graphify-out/
+
+# Local dev tooling (harness/skills state, not part of the app)
+.omp/
+.agents/
+.junie/skills/
+skills-lock.json

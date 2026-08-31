@@ -36,6 +36,21 @@ function driveAlbum(overrides: Partial<SanityAlbumRaw> = {}): SanityAlbumRaw {
 }
 
 describe("buildGalleryAlbumResponse", () => {
+  it("includes vendorName from album, falling back to 'YLx' when absent", () => {
+    const { album } = buildGalleryAlbumResponse({ ...BASE_ALBUM, vendorName: 'Elena Photography' });
+    expect(album.vendorName).toBe('Elena Photography');
+  });
+
+  it("falls back to 'YLx' when vendorName is absent", () => {
+    const { album } = buildGalleryAlbumResponse(BASE_ALBUM);
+    expect(album.vendorName).toBe('YLx');
+  });
+
+  it("falls back to 'YLx' when vendorName is null", () => {
+    const { album } = buildGalleryAlbumResponse({ ...BASE_ALBUM, vendorName: null });
+    expect(album.vendorName).toBe('YLx');
+  });
+
   it("never includes downloadUrl for a non-delivered album, even if showOriginalAfterDelivery is true", () => {
     const { album } = buildGalleryAlbumResponse({ ...BASE_ALBUM, status: "active", showOriginalAfterDelivery: true });
     expect(album.photos[0]).not.toHaveProperty("downloadUrl");

@@ -53,6 +53,7 @@ interface SanityAlbumDetailRaw {
   lastAccessedAt?: string;
   maxSelections: number;
   status: string;
+  vendorName?: string;
   storageType?: StorageType;
   photos: SanityPhotoRaw[];
   finalPhotos?: SanityPhotoRaw[] | null;
@@ -139,6 +140,7 @@ export const GET: APIRoute = async ({ params, cookies }) => {
       maxSelections: album.maxSelections,
       status: album.status,
       storageType: album.storageType === DRIVE_STORAGE ? DRIVE_STORAGE : SANITY_STORAGE,
+      vendorName: album.vendorName ?? 'YLx',
       isLocked: album.status !== 'active',
       photos: (album.photos ?? []).map((p) => ({
         id: p._id,
@@ -192,13 +194,14 @@ interface UpdateAlbumBody {
   pin?: string;
   maxSelections?: number;
   customSlug?: string;
+  vendorName?: string;
 }
 
 /** Validates a raw parsed body and narrows it into an `UpdateAlbumBody` on
  *  success, or returns an error message for the first invalid field. Every
  *  field is optional — only fields present in the body are checked. */
 function validateUpdateAlbumBody(body: Record<string, unknown>): { error: string } | { value: UpdateAlbumBody } {
-  const { title, clientName, eventDate, pin, maxSelections, customSlug } = body;
+  const { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName } = body;
 
   if (title !== undefined) {
     if (typeof title !== "string" || title.length === 0 || title.length > MAX_TEXT_FIELD_LENGTH) {
@@ -235,8 +238,13 @@ function validateUpdateAlbumBody(body: Record<string, unknown>): { error: string
       return { error: `customSlug must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
     }
   }
+  if (vendorName !== undefined) {
+    if (typeof vendorName !== "string" || vendorName.trim().length === 0 || vendorName.trim().length > 80) {
+      return { error: "vendorName must be a non-empty string of at most 80 characters" };
+    }
+  }
 
-  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug } };
+  return { value: { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName } };
 }
 
 /** `undefined` = leave the field untouched, `null` = clear it, a string =
@@ -265,7 +273,7 @@ async function buildAlbumPatch(
   resolvedCustomSlug: string | null | undefined,
   currentSlug: string | undefined
 ) {
-  const { title, clientName, eventDate, pin, maxSelections } = body;
+  const { title, clientName, eventDate, pin, maxSelections, vendorName } = body;
   const patch: Record<string, unknown> = {};
 
   if (title !== undefined) {
@@ -276,6 +284,7 @@ async function buildAlbumPatch(
   if (eventDate !== undefined) patch.eventDate = eventDate;
   if (pin !== undefined) patch.pin = pin;
   if (maxSelections !== undefined) patch.maxSelections = maxSelections;
+  if (vendorName !== undefined) patch.vendorName = vendorName.trim();
   // `null` means "clear it" — `.set()` would store a literal null instead
   // of unsetting the field, so it's routed to `.unset()` by the caller.
   if (resolvedCustomSlug) patch.customSlug = resolvedCustomSlug;

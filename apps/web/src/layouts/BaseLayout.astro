@@ -4,9 +4,10 @@ import Analytics from '@vercel/analytics/astro';
 export interface Props {
   title: string;
   description?: string;
+  vendorName?: string;
 }
 
-const { title, description = 'Photo Proofing Gallery Platform' } = Astro.props;
+const { title, description = 'Photo Proofing Gallery Platform', vendorName } = Astro.props;
 ---
 
 <!doctype html>
@@ -23,7 +24,7 @@ const { title, description = 'Photo Proofing Gallery Platform' } = Astro.props;
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
       rel="stylesheet"
     />
-    <title>{title} | YLx</title>
+    <title>{title} | {vendorName ?? 'YLx'}</title>
     <slot name="head" />
     <Analytics />
   </head>

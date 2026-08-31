@@ -1,5 +1,5 @@
 # YLx — Status & AI Agent Onboarding
-> Last updated: 2026-08-30 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79–#99, #100–#103 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. **PR #103 (UI/UX audit) MERGED** (squash `40db4ed`, 2026-08-30) — safe area `env(safe-area-inset-bottom)` + `100dvh`, hide gallery instructions after first tap, gallery tile select outside lightbox sejajar download (44px, `photo-tile-wrap`).
+> Last updated: 2026-08-31 | PR MERGED: #19–#52, #54–#65, #67, #69–#71, #73, #75–#77, #79–#99, #100–#103 (#68, #74, #78 closed/superseded) — lihat tabel pointer di bawah. **PR #104 (vendorName) OPEN** (squash `780fe3e` di `feat/vendor-name`, 2026-08-31) — field wajib Sanity + admin form + API validasi + pre-PIN cached lookup di `gallery/[slug].astro` + render di `GalleryLayout`/`BaseLayout`, fallback `'YLx'` untuk album lama; 259/259 vitest, tsc/lint/build hijau.
 
 Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber kebenaran tentang kondisi project saat ini.
 
@@ -289,5 +289,6 @@ Mulai 2026-07-21, narasi lengkap tiap task/PR (root cause, perubahan kode, ronde
 | #101 | fix: allow Sentry envelopes and blob workers in CSP | MERGED (`48bc7a2`) | `~/.junie/tasks/PR-101-csp-sentry-worker.md` |
 | #102 | polish: tokenize lightbox colors & make PIN responsive | MERGED (`6f041bd`) | — (other agent) |
 | #103 | fix: safe area, dvh, hide gallery instructions, gallery tile actions | MERGED (`40db4ed`) | `~/.junie/tasks/PR-103-ui-ux-audit-fixes.md` |
+| #104 | Feat: per-album `vendorName` (fotografer/studio brand) — field wajib di schema Sanity + GROQ projection (`albumBySlugQuery`, `allAlbumsQuery`); API POST/PUT validasi required (max 200 char) + GET response `vendorName ?? 'YLx'`; UI admin `AlbumFormModal` input wajib; pre-PIN cached Sanity lookup di `gallery/[slug].astro`; render di `GalleryLayout` (header brand div) + `BaseLayout` (browser tab title) dengan fallback `'YLx'`. Tuntaskan ROADMAP branding kustom (sebagian). | OPEN (CI running) | `~/.junie/tasks/PR-104-vendor-name.md` |
 
 > Catatan: file-file di atas cuma ada di mesin/sandbox ini — kalau environment berpindah, salinan lokal ini tidak ikut. Baris header `STATUS.md` (ringkasan 1-baris per PR) + riwayat PR di GitHub jadi jaring pengaman kalau itu terjadi.

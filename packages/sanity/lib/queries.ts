@@ -13,6 +13,7 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
   storageType,
   lastUnlockedAt,
   showOriginalAfterDelivery,
+  vendorName,
   photos[]-> {
     _id,
     filename,
@@ -46,6 +47,7 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
   shareCount,
   lastAccessedAt,
   maxSelections,
+  vendorName,
   "photoCount": count(photos),
   "selectionCount": count(*[_type == "selection" && album._ref == ^._id])
 }`;
@@ -85,6 +87,7 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   maxSelections,
   status,
   storageType,
+  vendorName,
   showOriginalAfterDelivery,
   photos[]-> {
     _id,

@@ -40,9 +40,10 @@ export interface SanityAlbumRaw {
   status: string;
   lastUnlockedAt?: string | null;
   showOriginalAfterDelivery?: boolean;
+  vendorName?: string | null;
   storageType?: StorageType;
   photos: SanityPhotoRaw[];
-}
+};
 
 export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
   // Only ever emit the Sanity full-original-resolution download URL once the
@@ -123,6 +124,7 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
       // to false (hide the originals tab) for any album that predates this
       // field and was never re-delivered since.
       showOriginalAfterDelivery: album.showOriginalAfterDelivery === true,
+      vendorName: album.vendorName ?? 'YLx',
       photos,
     },
   };

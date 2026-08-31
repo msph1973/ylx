@@ -29,6 +29,15 @@ export default defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
+      name: "vendorName",
+      title: "Vendor Name",
+      type: "string",
+      description:
+        "Photographer/studio brand shown to the client on the gallery page (header and browser tab). " +
+        "Albums created before this field existed fall back to 'YLx' in the app.",
+      validation: (Rule) => Rule.required().max(80),
+    }),
+    defineField({
       name: "eventDate",
       title: "Event Date",
       type: "date",
