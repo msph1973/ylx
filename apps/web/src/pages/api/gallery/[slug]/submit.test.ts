@@ -51,6 +51,7 @@ import { POST } from "./submit";
 
 const ALBUM = {
   _id: "album-1",
+  _rev: "rev-abc",
   title: "Doe Wedding",
   clientName: "Jane & John",
   eventDate: "2026-09-12",
@@ -168,5 +169,28 @@ describe("POST /api/gallery/[slug]/submit", () => {
       { delete: { id: "submission-album-1" } },
     ]));
     expect(mutateMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Guards against a concurrent admin reset/unlock silently being undone by
+  // an in-flight submit (see submit.ts's ifRevisionID comment). Without
+  // ALBUM._rev flowing through into the mutation, this guard would be
+  // silently disabled — Sanity treats a missing ifRevisionID as "don't
+  // check", so a regression here would still pass every other test above.
+  it("ties the final status patch to the album revision it read (ifRevisionID)", async () => {
+    const res = await call([{ photoId: "photo-1" }]);
+    expect(res.status).toBe(200);
+
+    const mutations = mutateMock.mock.calls[0][0];
+    expect(mutations).toEqual(expect.arrayContaining([
+      { patch: { id: "album-1", set: { status: "submitted" }, ifRevisionID: "rev-abc" } },
+    ]));
+  });
+
+  it("409s with a reload prompt when the album revision changed mid-submit (e.g. a concurrent reset)", async () => {
+    mutateMock.mockRejectedValue(Object.assign(new Error("revision mismatch"), { statusCode: 409 }));
+    const res = await call([{ photoId: "photo-1" }]);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/reload/i);
   });
 });
