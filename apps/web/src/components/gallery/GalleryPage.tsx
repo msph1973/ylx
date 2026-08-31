@@ -7,6 +7,7 @@ import { saveDraft, loadDraft, clearDraft } from '@/lib/selectionDraft';
 import { fetchResumeSession } from '@/lib/gallerySessionClient';
 import { buildDownloadManifest, type DownloadFolder, type DownloadManifestEntry } from '@/lib/galleryDownload';
 import { runWithConcurrency } from '@/lib/concurrency';
+import { EASE_OUT_QUINT, PRESS_SCALE, PUCK_SCALE } from '@/lib/motion';
 import type { Photo, AlbumDeliveredData, StorageType } from '@ylx/shared';
 import { DRIVE_STORAGE } from '@ylx/shared';
 
@@ -138,28 +139,33 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           loading={isAboveFold ? 'eager' : 'lazy'}
           alt={`Photo ${index + 1} of ${totalPhotos}`}
         />
-        {isSelected && (
-          <m.div
-            className="selection-badge"
-            aria-hidden="true"
-            initial={{ scale: shouldReduceMotion ? 1 : 0 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: shouldReduceMotion ? 1 : 0 }}
-          >
-            ✓
-          </m.div>
-        )}
+        <AnimatePresence initial={false}>
+          {isSelected && (
+            <m.div
+              key="selection-badge"
+              className="selection-badge"
+              aria-hidden="true"
+              initial={{ scale: shouldReduceMotion ? 1 : 0 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: shouldReduceMotion ? 1 : 0 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: EASE_OUT_QUINT }}
+            >
+              ✓
+            </m.div>
+          )}
+        </AnimatePresence>
       </div>
       {onToggleSelect && (
-        <button
+        <m.button
           type="button"
           className={`photo-select-btn ${isSelected ? 'selected' : ''}`}
-          onClick={(event) => { event.stopPropagation(); onToggleSelect(photo.id); }}
+          onClick={(event: React.MouseEvent<HTMLButtonElement>) => { event.stopPropagation(); onToggleSelect(photo.id); }}
           aria-label={isSelected ? `Deselect photo ${photo.filename}` : `Select photo ${photo.filename}`}
           aria-pressed={isSelected}
+          whileTap={{ scale: shouldReduceMotion ? 1 : PUCK_SCALE }}
         >
           {isSelected ? '✓' : '+'}
-        </button>
+        </m.button>
       )}
       {onDownloadClick && (
         <button
@@ -249,13 +255,26 @@ const GALLERY_VIEW_STYLES = `
         }
 
         .submit-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-2);
           padding: var(--space-2) var(--space-4);
           min-height: var(--tap-target-min);
           background-color: var(--color-accent);
           color: var(--color-bg);
           border-radius: var(--radius-md);
           font-weight: var(--font-medium);
-          transition: all var(--transition-fast);
+          /* Not "all": framer owns transform on this element via whileTap,
+             and a CSS transition on it fights the JS-driven press. */
+          transition: background-color var(--transition-fast), color var(--transition-fast);
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+          .submit-cancel-btn:active:not(:disabled),
+          .photo-download-btn:active {
+            transform: scale(var(--press-scale));
+          }
         }
 
         @media (hover: hover) {
@@ -791,18 +810,22 @@ const GALLERY_VIEW_STYLES = `
           border-radius: var(--radius-full);
           font-size: var(--text-base);
           cursor: pointer;
-          transition: all var(--transition-fast);
         }
         .photo-download-btn {
           right: var(--space-2);
           background-color: var(--color-photo-download-bg);
           color: #fff;
+          transition: background-color var(--transition-fast), transform var(--transition-fast);
         }
+        /* .photo-select-btn is a framer m.button (whileTap) — its transform is
+           JS-driven, so keep transform out of this transition. The download
+           button above is a plain <button> and intentionally keeps it for :active. */
         .photo-select-btn {
           left: var(--space-2);
           background-color: var(--color-photo-download-bg);
           color: #fff;
           border: 1px solid var(--color-lightbox-border);
+          transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
         }
         .photo-select-btn.selected {
           background-color: var(--color-accent);
@@ -1660,13 +1683,20 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             Cancel
           </button>
         )}
-        <button
+        <m.button
           className="submit-btn"
           onClick={handleSubmitTap}
           disabled={selectedPhotos.size === 0 || isAlbumLocked(album) || isSubmitting}
+          aria-busy={isSubmitting}
+          whileTap={{ scale: shouldReduceMotion ? 1 : PRESS_SCALE }}
         >
-          {isAlbumLocked(album) ? 'Submitted' : confirmingSubmit ? 'Yes, Submit' : 'Submit Selection'}
-        </button>
+          {isSubmitting ? (
+            <>
+              <span className="btn-spinner" aria-hidden="true" />
+              Submitting…
+            </>
+          ) : isAlbumLocked(album) ? 'Submitted' : confirmingSubmit ? 'Yes, Submit' : 'Submit Selection'}
+        </m.button>
       </div>
       )}
 
@@ -1798,14 +1828,21 @@ export function GalleryPage({ slug }: GalleryPageProps) {
       {isDelivered && isDownloadSelectMode && selectedForDownload.size > 0 && (
         <div className="gallery-selection-bar download-selection-bar">
           <span className="selection-count">{selectedForDownload.size} foto dipilih</span>
-          <button
+          <m.button
             type="button"
             className="submit-btn"
             onClick={handleDownloadSelected}
             disabled={isDownloading}
+            aria-busy={isDownloading}
+            whileTap={{ scale: shouldReduceMotion ? 1 : PRESS_SCALE }}
           >
-            Download {selectedForDownload.size} Foto Terpilih
-          </button>
+            {isDownloading ? (
+              <>
+                <span className="btn-spinner" aria-hidden="true" />
+                Mengunduh…
+              </>
+            ) : `Download ${selectedForDownload.size} Foto Terpilih`}
+          </m.button>
         </div>
       )}
 

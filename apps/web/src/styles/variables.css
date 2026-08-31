@@ -102,6 +102,8 @@
   --transition-base: 200ms ease;
   --transition-slow: 300ms ease;
   --transition-spring: 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* Press feedback scale — mirrors PRESS_SCALE in apps/web/src/lib/motion.ts */
+  --press-scale: 0.97;
 
   /* Z-index */
   --z-base: 0;

@@ -147,6 +147,20 @@ ul, ol {
   to { transform: rotate(360deg); }
 }
 
+/* Button-sized progress ring shown inline in a button while its action is
+   in flight. Uses currentColor so it reads correctly on filled and outline
+   buttons alike. */
+.btn-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: none;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  border-radius: var(--radius-full);
+  animation: spin 0.7s linear infinite;
+}
+
 /* Shared state container (loading / error / empty) */
 .state-container {
   display: flex;
