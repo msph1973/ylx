@@ -1,0 +1,16 @@
+apps/web/src/pages/api/gallery/[slug]/submit.test.ts
+  h_45c23cf41d175e 9,17,89,161-164,172-175
+apps/web/src/pages/api/gallery/[slug]/submit.ts
+  h_45c23cf41d175e 158,163-171,173-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c728535b5a610001bcab4245e530e20f318b8e3e",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
