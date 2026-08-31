@@ -176,7 +176,7 @@ export function ConfirmDialog({
             @media (prefers-reduced-motion: no-preference) {
               .btn-cancel:active:not(:disabled),
               .btn-confirm-delete:active:not(:disabled) {
-                transform: scale(0.97);
+                transform: scale(var(--press-scale));
               }
             }
 

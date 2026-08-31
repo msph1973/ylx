@@ -1177,7 +1177,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             .lock-btn:active:not(:disabled),
             .unlock-btn:active:not(:disabled),
             .reset-btn:active:not(:disabled) {
-              transform: scale(0.97);
+              transform: scale(var(--press-scale));
             }
           }
 

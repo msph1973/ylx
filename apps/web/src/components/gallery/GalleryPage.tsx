@@ -265,13 +265,15 @@ const GALLERY_VIEW_STYLES = `
           color: var(--color-bg);
           border-radius: var(--radius-md);
           font-weight: var(--font-medium);
-          transition: all var(--transition-fast);
+          /* Not `all`: framer owns transform on this element via whileTap,
+             and a CSS transition on it fights the JS-driven press. */
+          transition: background-color var(--transition-fast), color var(--transition-fast);
         }
 
         @media (prefers-reduced-motion: no-preference) {
           .submit-cancel-btn:active:not(:disabled),
           .photo-download-btn:active {
-            transform: scale(0.97);
+            transform: scale(var(--press-scale));
           }
         }
 
@@ -808,18 +810,20 @@ const GALLERY_VIEW_STYLES = `
           border-radius: var(--radius-full);
           font-size: var(--text-base);
           cursor: pointer;
-          transition: all var(--transition-fast);
         }
         .photo-download-btn {
           right: var(--space-2);
           background-color: var(--color-photo-download-bg);
           color: #fff;
+          transition: background-color var(--transition-fast), transform var(--transition-fast);
         }
+        /* framer owns transform here (whileTap) — keep it out of the CSS transition */
         .photo-select-btn {
           left: var(--space-2);
           background-color: var(--color-photo-download-bg);
           color: #fff;
           border: 1px solid var(--color-lightbox-border);
+          transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
         }
         .photo-select-btn.selected {
           background-color: var(--color-accent);
