@@ -85,7 +85,9 @@ export function ConfirmDialog({
                 className="btn-confirm-delete"
                 onClick={onConfirm}
                 disabled={isBusy}
+                aria-busy={isBusy}
               >
+                {isBusy && <span className="btn-spinner" aria-hidden="true" />}
                 {isBusy ? (busyLabel ?? confirmLabel) : confirmLabel}
               </button>
             </div>
@@ -163,7 +165,7 @@ export function ConfirmDialog({
               font-size: var(--text-sm);
               font-weight: var(--font-medium);
               cursor: pointer;
-              transition: background-color var(--transition-fast), color var(--transition-fast);
+              transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
             }
 
             .btn-cancel:hover:not(:disabled) {
@@ -171,7 +173,16 @@ export function ConfirmDialog({
               color: var(--color-text);
             }
 
+            .btn-cancel:active:not(:disabled),
+            .btn-confirm-delete:active:not(:disabled) {
+              transform: scale(0.97);
+            }
+
             .btn-confirm-delete {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: var(--space-2);
               padding: var(--space-2-5) var(--space-5);
               min-height: var(--tap-target-min);
               background-color: var(--color-error);
@@ -181,7 +192,7 @@ export function ConfirmDialog({
               font-size: var(--text-sm);
               font-weight: var(--font-medium);
               cursor: pointer;
-              transition: background-color var(--transition-fast);
+              transition: background-color var(--transition-fast), transform var(--transition-fast);
             }
 
             .btn-confirm-delete:hover:not(:disabled) {
