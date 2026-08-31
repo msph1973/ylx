@@ -43,6 +43,7 @@ export interface SanityAlbumRaw {
   vendorName?: string | null;
   storageType?: StorageType;
   photos: SanityPhotoRaw[];
+  selections?: Array<{ photoId: string; notes?: string | null }>;
 };
 
 export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
@@ -126,6 +127,14 @@ export function buildGalleryAlbumResponse(album: SanityAlbumRaw) {
       showOriginalAfterDelivery: album.showOriginalAfterDelivery === true,
       vendorName: album.vendorName ?? 'YLx',
       photos,
+      // Pre-fill data for the client to resume/revise a previous pick —
+      // present regardless of status (active after unlock, or still
+      // submitted/locked) so a reload never shows an empty grid for a
+      // selection that actually still exists server-side.
+      selections: (album.selections ?? []).map((s) => ({
+        photoId: s.photoId,
+        notes: s.notes ?? null,
+      })),
     },
   };
 }

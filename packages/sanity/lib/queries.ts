@@ -5,6 +5,7 @@
 // — use albumPinBySlugQuery below instead, and never cache its result.
 export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug || customSlug == $slug)][0] {
   _id,
+  _rev,
   title,
   clientName,
   eventDate,
@@ -21,6 +22,15 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
     driveFileId,
     driveResourceKey,
     "lqip": image.asset->metadata.lqip
+  },
+  // The client's previously saved picks — unlock.ts no longer deletes these,
+  // so the gallery can pre-fill them here for revision instead of the client
+  // having to reselect everything from scratch. Only photoId + notes are
+  // needed client-side (no photo details: the photos projection above
+  // already carries those).
+  "selections": *[_type == "selection" && album._ref == ^._id]{
+    "photoId": photo._ref,
+    notes
   }
 }`;
 

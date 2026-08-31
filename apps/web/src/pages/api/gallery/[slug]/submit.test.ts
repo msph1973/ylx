@@ -3,18 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- mocks ---------------------------------------------------------------
 
 const sanityFetchMock = vi.fn();
-const transactionCommitMock = vi.fn().mockResolvedValue(undefined);
-const transactionCreateMock = vi.fn().mockReturnThis();
-const transactionPatchMock = vi.fn().mockReturnThis();
+const mutateMock = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@ylx/sanity/client", () => ({
   sanityClient: { fetch: (...args: unknown[]) => sanityFetchMock(...args) },
   sanityWriteClient: {
-    transaction: () => ({
-      create: (...args: unknown[]) => transactionCreateMock(...args),
-      patch: (...args: unknown[]) => transactionPatchMock(...args),
-      commit: () => transactionCommitMock(),
-    }),
+    mutate: (...args: unknown[]) => mutateMock(...args),
   },
   urlFor: () => ({
     width: () => ({ auto: () => ({ quality: () => ({ url: () => "https://img.test/full" }) }) }),
@@ -57,6 +51,7 @@ import { POST } from "./submit";
 
 const ALBUM = {
   _id: "album-1",
+  _rev: "rev-abc",
   title: "Doe Wedding",
   clientName: "Jane & John",
   eventDate: "2026-09-12",
@@ -81,9 +76,7 @@ function call(selections: unknown[], slug = "doe-wedding") {
 
 beforeEach(() => {
   sanityFetchMock.mockReset();
-  transactionCommitMock.mockReset().mockResolvedValue(undefined);
-  transactionCreateMock.mockReset().mockReturnThis();
-  transactionPatchMock.mockReset().mockReturnThis();
+  mutateMock.mockReset().mockResolvedValue(undefined);
   notifyAdminsMock.mockReset().mockResolvedValue(1);
 
   // sanityFetchMock branches on the GROQ query string passed in args[0].
@@ -112,7 +105,7 @@ describe("POST /api/gallery/[slug]/submit", () => {
   it("commits + notifies the admin by email on a successful submission", async () => {
     const res = await call([{ photoId: "photo-1" }, { photoId: "photo-2" }]);
     expect(res.status).toBe(200);
-    expect(transactionCommitMock).toHaveBeenCalledTimes(1);
+    expect(mutateMock).toHaveBeenCalledTimes(1);
     expect(notifyAdminsMock).toHaveBeenCalledTimes(1);
     expect(notifyAdminsMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -140,14 +133,14 @@ describe("POST /api/gallery/[slug]/submit", () => {
   });
 
   it("does not send an email when the Sanity commit fails (500 path)", async () => {
-    transactionCommitMock.mockRejectedValue(Object.assign(new Error("boom"), { statusCode: 500 }));
+    mutateMock.mockRejectedValue(Object.assign(new Error("boom"), { statusCode: 500 }));
     const res = await call([{ photoId: "photo-1" }]);
     expect(res.status).toBe(500);
     expect(notifyAdminsMock).not.toHaveBeenCalled();
   });
 
   it("does not send an email on a 409 (already submitted)", async () => {
-    transactionCommitMock.mockRejectedValue(
+    mutateMock.mockRejectedValue(
       Object.assign(new Error("conflict"), { statusCode: 409 })
     );
     const res = await call([{ photoId: "photo-1" }]);
@@ -155,7 +148,12 @@ describe("POST /api/gallery/[slug]/submit", () => {
     expect(notifyAdminsMock).not.toHaveBeenCalled();
   });
 
-  it("does not send an email when selections already exist (pre-commit 409)", async () => {
+  // A resubmit after the admin unlocked the gallery: unlock.ts leaves the
+  // previous round's selection/submission docs intact, so submit.ts must
+  // clear them itself instead of 409ing forever on every resubmit attempt.
+  // Deletes by GROQ query (not per-document IDs) so a large previous
+  // selection can't blow past Sanity's per-transaction mutation limit.
+  it("deletes the previous round's selections/submission by query and resubmits successfully when selections already exist", async () => {
     sanityFetchMock.mockImplementation((query: string) => {
       if (typeof query !== "string") return Promise.resolve(null);
       if (query.includes("customSlug")) return Promise.resolve(ALBUM);
@@ -163,7 +161,36 @@ describe("POST /api/gallery/[slug]/submit", () => {
       return Promise.resolve([{ _id: "existing-selection" }]); // existing
     });
     const res = await call([{ photoId: "photo-1" }]);
+    expect(res.status).toBe(200);
+
+    const mutations = mutateMock.mock.calls[0][0];
+    expect(mutations).toEqual(expect.arrayContaining([
+      { delete: { query: expect.stringContaining("selection"), params: { albumId: "album-1" } } },
+      { delete: { id: "submission-album-1" } },
+    ]));
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Guards against a concurrent admin reset/unlock silently being undone by
+  // an in-flight submit (see submit.ts's ifRevisionID comment). Without
+  // ALBUM._rev flowing through into the mutation, this guard would be
+  // silently disabled — Sanity treats a missing ifRevisionID as "don't
+  // check", so a regression here would still pass every other test above.
+  it("ties the final status patch to the album revision it read (ifRevisionID)", async () => {
+    const res = await call([{ photoId: "photo-1" }]);
+    expect(res.status).toBe(200);
+
+    const mutations = mutateMock.mock.calls[0][0];
+    expect(mutations).toEqual(expect.arrayContaining([
+      { patch: { id: "album-1", set: { status: "submitted" }, ifRevisionID: "rev-abc" } },
+    ]));
+  });
+
+  it("409s with a reload prompt when the album revision changed mid-submit (e.g. a concurrent reset)", async () => {
+    mutateMock.mockRejectedValue(Object.assign(new Error("revision mismatch"), { statusCode: 409 }));
+    const res = await call([{ photoId: "photo-1" }]);
     expect(res.status).toBe(409);
-    expect(notifyAdminsMock).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.error).toMatch(/reload/i);
   });
 });

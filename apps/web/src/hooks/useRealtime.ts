@@ -17,6 +17,7 @@ export interface RealtimeCallbacks {
   onSelectionChanged?: (data: SelectionChangedData) => void;
   onSubmissionReceived?: (data: SubmissionReceivedData) => void;
   onAlbumUnlocked?: (data: AlbumUnlockedData) => void;
+  onAlbumReset?: (data: AlbumUnlockedData) => void;
   onAlbumDelivered?: (data: AlbumDeliveredData) => void;
   onFinalPhotoUploaded?: (data: FinalPhotoUploadedData) => void;
   onFinalPhotoDeleted?: (data: FinalPhotoDeletedData) => void;
@@ -62,6 +63,10 @@ export function useRealtime(
       if (callbacksRef.current.onAlbumUnlocked) {
         handlers["album:unlocked"] = (msg) =>
           callbacksRef.current.onAlbumUnlocked?.(msg.data as AlbumUnlockedData);
+      }
+      if (callbacksRef.current.onAlbumReset) {
+        handlers["album:reset"] = (msg) =>
+          callbacksRef.current.onAlbumReset?.(msg.data as AlbumUnlockedData);
       }
       if (callbacksRef.current.onAlbumDelivered) {
         handlers["album:delivered"] = (msg) =>

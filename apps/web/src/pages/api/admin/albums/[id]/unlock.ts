@@ -39,28 +39,19 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       );
     }
 
-    // Delete by query (rather than reading selection/submission ids first and
-    // deleting that fixed list) so a selection or submission created by a
-    // request that races this unlock is also caught — otherwise it survives
-    // as an orphan that permanently makes submit.ts respond 409 "Selections
-    // already submitted" for this album. All three mutations commit as one
-    // atomic transaction.
+    // Unlock only reopens the gallery for revision — it deliberately does NOT
+    // delete the existing selection/submission docs. Deleting here used to
+    // wipe the client's whole previous pick (and any photographerReply notes
+    // on it) on every unlock, which made revising a selection painful. The
+    // previous picks now stay intact — visible to the admin and pre-filled
+    // for the client — until either the client resubmits (submit.ts replaces
+    // them atomically) or the admin explicitly hits "Reset" (reset.ts, the
+    // only place that still deletes them).
     // lastUnlockedAt is the draft revision marker: the gallery discards any
-    // locally-stored draft saved before this moment, so a client that missed
-    // the realtime unlock event can't restore selections the server deleted.
+    // locally-stored draft saved before this moment (it may describe a pick
+    // the client abandoned mid-edit before this unlock), falling back to the
+    // still-intact server-side selection instead.
     await sanityWriteClient.mutate([
-      {
-        delete: {
-          query: `*[_type == "selection" && album._ref == $albumId]`,
-          params: { albumId },
-        },
-      },
-      {
-        delete: {
-          query: `*[_type == "submission" && album._ref == $albumId]`,
-          params: { albumId },
-        },
-      },
       {
         patch: {
           id: albumId,
@@ -71,9 +62,10 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
     await invalidateCache([
       CACHE_KEYS.albumsList(),
-      CACHE_KEYS.albumSelections(albumId),
-      // Unlock resets the client's selections, so any stale draft-progress
-      // count from the previous round must not linger on the dashboard.
+      // Selections are unchanged by unlock now, but the gallery's cached
+      // album-by-slug response still needs a bust: `status` flipped to
+      // "active" and that response is what the client's realtime handler
+      // re-fetches to pre-fill the (still-intact) previous selection.
       CACHE_KEYS.galleryDraft(albumId),
       ...(album.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
