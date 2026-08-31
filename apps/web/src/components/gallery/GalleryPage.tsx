@@ -1048,16 +1048,19 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     // clearing — otherwise the client would see an empty grid and have to
     // reselect everything from scratch just to revise one photo.
     onAlbumUnlocked: () => {
-      // Flip to active immediately, synchronously — don't wait on the
-      // refetch below. Otherwise, if fetchResumeSession is slow or fails
-      // (network hiccup, timeout), the grid would stay disabled while the
-      // toast already claims the gallery is unlocked.
-      setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
       setError(null); // drop any stale submit-error toast so it can't overlap the unlock toast
-      // The refetch's job from here is just to hydrate the previous pick
-      // (selections/notes) for revision — album.status is already correct.
+      // Status flips to 'active' only once this settles — not before —
+      // so the grid can't accept a tap mid-hydration that
+      // applyServerSelections/restoreDraft would then silently clobber
+      // once the fetch resolves. fetchResumeSession has its own bounded
+      // timeout, so the `!resumed` branch (network hiccup/timeout) still
+      // flips status here instead of leaving the grid disabled forever —
+      // it just skips the selection hydration it has no data for.
       void fetchResumeSession(slug).then((resumed) => {
-        if (!resumed) return;
+        if (!resumed) {
+          setAlbum((prev) => prev ? { ...prev, status: 'active' } : prev);
+          return;
+        }
         setAlbum(resumed);
         applyServerSelections(resumed);
         restoreDraft(resumed);
