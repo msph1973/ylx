@@ -239,8 +239,8 @@ function validateUpdateAlbumBody(body: Record<string, unknown>): { error: string
     }
   }
   if (vendorName !== undefined) {
-    if (typeof vendorName !== "string" || vendorName.length === 0 || vendorName.length > MAX_TEXT_FIELD_LENGTH) {
-      return { error: `vendorName must be a non-empty string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
+    if (typeof vendorName !== "string" || vendorName.trim().length === 0 || vendorName.trim().length > 80) {
+      return { error: "vendorName must be a non-empty string of at most 80 characters" };
     }
   }
 
@@ -284,7 +284,7 @@ async function buildAlbumPatch(
   if (eventDate !== undefined) patch.eventDate = eventDate;
   if (pin !== undefined) patch.pin = pin;
   if (maxSelections !== undefined) patch.maxSelections = maxSelections;
-  if (vendorName !== undefined) patch.vendorName = vendorName;
+  if (vendorName !== undefined) patch.vendorName = vendorName.trim();
   // `null` means "clear it" — `.set()` would store a literal null instead
   // of unsetting the field, so it's routed to `.unset()` by the caller.
   if (resolvedCustomSlug) patch.customSlug = resolvedCustomSlug;

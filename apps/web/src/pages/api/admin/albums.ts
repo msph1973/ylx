@@ -133,8 +133,8 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
   if (typeof title !== "string" || title.length > MAX_TEXT_FIELD_LENGTH) {
     return { error: `title must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
   }
-  if (typeof vendorName !== "string" || vendorName.trim().length === 0 || vendorName.length > MAX_TEXT_FIELD_LENGTH) {
-    return { error: `vendorName must be a non-empty string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
+  if (typeof vendorName !== "string" || vendorName.trim().length === 0 || vendorName.trim().length > 80) {
+    return { error: "vendorName must be a non-empty string of at most 80 characters" };
   }
   if (typeof clientName !== "string" || clientName.length > MAX_TEXT_FIELD_LENGTH) {
     return { error: `clientName must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };

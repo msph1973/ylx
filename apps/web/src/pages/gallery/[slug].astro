@@ -12,6 +12,7 @@ const { slug } = Astro.params;
 const album = await getCached(
   CACHE_KEYS.albumBySlug(slug!),
   120,
+  120,
   () => sanityClient.fetch<{ title: string; vendorName?: string | null } | null>(albumBySlugQuery, { slug })
 );
 const vendorName = album?.vendorName ?? 'YLx';
