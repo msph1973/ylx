@@ -1,0 +1,36 @@
+.gitignore
+  h_45c23cf41d175e 65-70
+apps/web/src/components/admin/AlbumCard.tsx
+  h_45c23cf41d175e 19
+apps/web/src/components/admin/AlbumDetail.tsx
+  h_45c23cf41d175e 888
+apps/web/src/components/admin/AlbumFormModal.tsx
+  h_45c23cf41d175e 17,35,53-55,112,419-436
+apps/web/src/layouts/BaseLayout.astro
+  h_45c23cf41d175e 7,10,27
+apps/web/src/layouts/GalleryLayout.astro
+  h_45c23cf41d175e 7,10,17,21
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 28,77,119,128,130-131,136-138,206,240,274
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 56,143,197,204,241-245,247,276,287
+apps/web/src/pages/gallery/[slug].astro
+  h_45c23cf41d175e 4-6,9-17,20
+packages/sanity/lib/queries.ts
+  h_45c23cf41d175e 16,50,90
+packages/sanity/schemas/album.ts
+  h_45c23cf41d175e 31-39
+packages/shared/types/album.ts
+  h_45c23cf41d175e 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "780fe3eff6186a3b2446b9d8e8bed4698ea27a89",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
