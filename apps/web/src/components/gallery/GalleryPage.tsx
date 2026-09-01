@@ -1194,11 +1194,14 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
   // generic "Client" placeholder, never the real clientName. Once this island
   // has a verified/resumed album (which does carry the real clientName), swap
   // the header placeholder for it directly via the DOM instead of duplicating
-  // the header markup inside the island.
+  // the header markup inside the island. Must reset back to the generic
+  // placeholder whenever authentication is lost (e.g. session expiry) —
+  // otherwise the previous client's real name would keep leaking on the PIN
+  // screen shown next.
   useEffect(() => {
-    if (!isAuthenticated || !album?.clientName) return;
     const el = document.getElementById('gallery-client-name');
-    if (el) el.textContent = album.clientName;
+    if (!el) return;
+    el.textContent = isAuthenticated && album?.clientName ? album.clientName : 'Client';
   }, [isAuthenticated, album?.clientName]);
 
   // Autosave the in-progress selection (debounced) so a closed tab or reload
@@ -1637,11 +1640,16 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
                100vh here. Stacking two full-viewport heights used to push
                this vertically-centered PIN card down by roughly the
                header's height on first mobile load — its true center landed
-               well below the screen's actual center. \`height: 100%\` (not
-               min-height) because a grid row's used size — unlike a flex
-               item's flex-grow-derived size — reliably counts as "definite"
-               for a further-nested child's percentage height. */
-            height: 100%;
+               well below the screen's actual center. \`min-height: 100%\`
+               (not a hard \`height\`) because a grid row's used size — unlike
+               a flex item's flex-grow-derived size — reliably counts as
+               "definite" for a further-nested child's percentage height, but
+               a fixed \`height\` combined with \`align-items: center\` would
+               clip the PIN card top/bottom whenever it's taller than the
+               available space (short/landscape viewports, browser zoom,
+               larger accessibility font sizes) — \`min-height\` lets the box
+               grow to fit its content instead. */
+            min-height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
