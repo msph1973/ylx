@@ -1,0 +1,16 @@
+apps/web/src/components/admin/AlbumDetail.tsx
+  h_45c23cf41d175e 265-268
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 1420,1434,1464,1470,1473,1773,1777
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ff70543724a9fc2dfc2b1a8f5167adc1c595ff70",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
