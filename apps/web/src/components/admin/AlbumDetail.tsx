@@ -263,6 +263,10 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   }, [albumId]);
 
   useEffect(() => {
+    setPinRevealed(false);
+  }, [albumId]);
+
+  useEffect(() => {
     void fetchAlbum();
   }, [fetchAlbum]);
 

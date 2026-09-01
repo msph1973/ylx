@@ -1417,7 +1417,7 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
       const blob = await fetchAsBlob(photo.downloadUrl ?? photo.url);
       saveBlob(blob, photo.filename);
     } catch {
-      setDownloadError(`Gagal mengunduh ${photo.filename}. Silakan coba lagi.`);
+      setDownloadError(`Failed to download ${photo.filename}. Please try again.`);
     } finally {
       setIsDownloading(false);
     }
@@ -1431,7 +1431,7 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
   // gallery's ZIP doesn't fire dozens of simultaneous blob fetches at once.
   const downloadManifestAsZip = useCallback(async (entries: DownloadManifestEntry[], zipFilename: string) => {
     if (entries.length === 0) {
-      setDownloadError('Tidak ada foto untuk diunduh.');
+      setDownloadError('No photos to download.');
       return;
     }
     setDownloadError(null);
@@ -1461,16 +1461,16 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
       );
       const failedCount = failedFlags.filter(Boolean).length;
       if (failedCount === entries.length) {
-        setDownloadError('Semua unduhan gagal. Silakan coba lagi.');
+        setDownloadError('All downloads failed. Please try again.');
         return;
       }
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       saveBlob(zipBlob, zipFilename);
       if (failedCount > 0) {
-        setDownloadError(`${failedCount} dari ${entries.length} foto gagal diunduh.`);
+        setDownloadError(`${failedCount} of ${entries.length} photos failed to download.`);
       }
     } catch {
-      setDownloadError('Gagal membuat file ZIP. Silakan coba lagi.');
+      setDownloadError('Failed to create the ZIP file. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -1770,11 +1770,11 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
               // "original" tab (or a failed fetch) would otherwise leave this
               // enabled even though `finalPhotos` isn't a loaded array yet —
               // `handleDownloadAll` would then silently zip an incomplete/
-              // empty "Cetak" folder. Require finalPhotos to have actually
+              // empty "Final" folder. Require finalPhotos to have actually
               // loaded (non-null) and be error-free instead.
               disabled={isDownloading || finalPhotos === null || finalPhotosError !== null}
             >
-              Download Semua
+              Download All
             </button>
           </div>
           {downloadError && <p className="inline-error" role="alert">{downloadError}</p>}
