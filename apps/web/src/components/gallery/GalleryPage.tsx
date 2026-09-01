@@ -1614,13 +1614,16 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
         <style>{`
           .gallery-auth {
-            /* Fills its parent \`.gallery-content\` (already the correctly-sized
-               remaining space below \`.gallery-header\` via flex:1 in
-               GalleryLayout.astro) instead of re-adding a second 100vh here.
-               Stacking two full-viewport heights pushed this vertically-
-               centered PIN card down by roughly the header's height on
-               first mobile load — its true center landed well below the
-               screen's actual center. */
+            /* Fills its parent \`.gallery-content\` (the 1fr grid row in
+               GalleryLayout.astro, already correctly sized to the remaining
+               space below \`.gallery-header\`) instead of re-adding a second
+               100vh here. Stacking two full-viewport heights used to push
+               this vertically-centered PIN card down by roughly the
+               header's height on first mobile load — its true center landed
+               well below the screen's actual center. \`height: 100%\` (not
+               min-height) because a grid row's used size — unlike a flex
+               item's flex-grow-derived size — reliably counts as "definite"
+               for a further-nested child's percentage height. */
             height: 100%;
             display: flex;
             align-items: center;
