@@ -19,7 +19,12 @@ const displayClientName = clientName || 'Client';
   <div class="gallery-layout">
     <header class="gallery-header">
       <div class="gallery-brand">{vendorName ?? 'YLx'}</div>
-      <div class="gallery-client">{displayClientName}</div>
+      <div class="gallery-client">
+        {/* id targeted by GalleryPage.tsx once the PIN-authenticated client's
+            real clientName arrives client-side — this initial render must
+            stay privacy-safe (no real name pre-PIN), see displayClientName. */}
+        <span id="gallery-client-name">{displayClientName}</span>
+      </div>
     </header>
     <main class="gallery-content">
       <slot />

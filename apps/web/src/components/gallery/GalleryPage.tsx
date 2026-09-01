@@ -38,6 +38,11 @@ class LightboxErrorBoundary extends Component<{ children: ReactNode }, { hasErro
 
 interface GalleryPageProps {
   slug: string;
+  // Branding-only album title (never `pin`/`clientName`), fetched pre-PIN by
+  // [slug].astro from the same non-sensitive lookup already used for the
+  // <title> tag — shown above the PIN card so clients recognize which
+  // gallery they landed on before authenticating.
+  albumTitle?: string | null;
 }
 
 interface AlbumData {
@@ -906,7 +911,7 @@ function sanitizeZipFilename(name: string): string {
 // upload flows (see UPLOAD_CONCURRENCY in FinalPhotosSection.tsx/UploadPage.tsx).
 const DOWNLOAD_CONCURRENCY = 4;
 
-export function GalleryPage({ slug }: GalleryPageProps) {
+export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   // Blocks the PIN screen until the resume-session check finishes, so a
@@ -1184,6 +1189,17 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     void fetchFinalPhotos();
   }, [isAuthenticated, album?.status, slug, fetchFinalPhotos]);
 
+  // GalleryLayout.astro's header is static server-rendered HTML (outside this
+  // React island) and must stay privacy-safe pre-PIN — it always renders the
+  // generic "Client" placeholder, never the real clientName. Once this island
+  // has a verified/resumed album (which does carry the real clientName), swap
+  // the header placeholder for it directly via the DOM instead of duplicating
+  // the header markup inside the island.
+  useEffect(() => {
+    if (!isAuthenticated || !album?.clientName) return;
+    const el = document.getElementById('gallery-client-name');
+    if (el) el.textContent = album.clientName;
+  }, [isAuthenticated, album?.clientName]);
 
   // Autosave the in-progress selection (debounced) so a closed tab or reload
   // doesn't lose it. Saving an empty selection clears the stored draft.
@@ -1602,6 +1618,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
         >
+          {albumTitle && <p className="gallery-album-name">{albumTitle}</p>}
           <h1 className="gallery-title">Enter PIN</h1>
           <p className="gallery-subtitle">to view your photos</p>
           <PinEntry
@@ -1635,6 +1652,16 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             text-align: center;
             max-width: 320px;
             width: 100%;
+          }
+
+          .gallery-album-name {
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: var(--font-bold);
+            color: var(--color-accent);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: var(--space-4);
           }
 
           .gallery-title {
