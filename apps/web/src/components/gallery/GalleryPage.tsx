@@ -1614,7 +1614,14 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
         <style>{`
           .gallery-auth {
-            min-height: 100vh;
+            /* Fills its parent \`.gallery-content\` (already the correctly-sized
+               remaining space below \`.gallery-header\` via flex:1 in
+               GalleryLayout.astro) instead of re-adding a second 100vh here.
+               Stacking two full-viewport heights pushed this vertically-
+               centered PIN card down by roughly the header's height on
+               first mobile load — its true center landed well below the
+               screen's actual center. */
+            min-height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1628,13 +1635,23 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           }
 
           .gallery-title {
-            font-size: var(--text-3xl);
+            /* text-3xl read oversized as the very first thing shown on a phone
+               screen — start smaller and only grow at the md breakpoint,
+               matching the same 768px cutoff PinEntry.tsx already uses for
+               its digit boxes. */
+            font-size: var(--text-2xl);
             margin-bottom: var(--space-2);
           }
 
           .gallery-subtitle {
             color: var(--color-text-muted);
             margin-bottom: var(--space-8);
+          }
+
+          @media (min-width: 768px) {
+            .gallery-title {
+              font-size: var(--text-3xl);
+            }
           }
         `}</style>
       </div>
