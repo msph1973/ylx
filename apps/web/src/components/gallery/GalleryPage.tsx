@@ -1621,7 +1621,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
                centered PIN card down by roughly the header's height on
                first mobile load — its true center landed well below the
                screen's actual center. */
-            min-height: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
