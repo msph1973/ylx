@@ -210,6 +210,7 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [pinRevealed, setPinRevealed] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -259,6 +260,10 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
     } finally {
       setIsLoading(false);
     }
+  }, [albumId]);
+
+  useEffect(() => {
+    setPinRevealed(false);
   }, [albumId]);
 
   useEffect(() => {
@@ -765,12 +770,18 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
               <span className="metadata-value">{album.eventDate ? formatDate(album.eventDate) : '—'}</span>
             </div>
             <div className="metadata-item">
-              <span className="metadata-label">Status</span>
-              <span className="metadata-value">{status.label}</span>
-            </div>
-            <div className="metadata-item">
               <span className="metadata-label">PIN</span>
-              <span className="metadata-value pin">{album.pin}</span>
+              <span className="metadata-value pin">
+                {pinRevealed ? album.pin : '••••'}
+                <button
+                  type="button"
+                  className="pin-reveal-btn"
+                  onClick={() => setPinRevealed((visible) => !visible)}
+                  aria-label={pinRevealed ? 'Hide PIN' : 'Show PIN'}
+                >
+                  {pinRevealed ? 'Hide' : 'Show'}
+                </button>
+              </span>
             </div>
             <div className="metadata-item">
               <span className="metadata-label">Max Selections</span>
@@ -1087,11 +1098,14 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             justify-content: space-between;
             gap: var(--space-4);
             margin: 0 0 var(--space-5);
-            padding: var(--space-3) var(--space-4);
-            border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+            padding: var(--space-2-5) var(--space-3);
+            border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
             border-radius: var(--radius-md);
-            background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+            background: color-mix(in srgb, var(--color-accent) 6%, transparent);
             color: var(--color-text);
+          }
+          .drive-storage-warning strong {
+            font-size: var(--text-sm);
           }
           .drive-storage-warning p {
             margin: var(--space-1) 0 0;
@@ -1138,6 +1152,18 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
           .metadata-label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
           .metadata-value { font-size: var(--text-base); font-weight: var(--font-medium); color: var(--color-text); }
           .metadata-value.pin { font-family: var(--font-mono, monospace); letter-spacing: 0.1em; }
+          .pin-reveal-btn {
+            margin-left: var(--space-2);
+            padding: 0 var(--space-1);
+            background: none;
+            border: none;
+            color: var(--color-text-muted);
+            font-size: var(--text-xs);
+            font-family: var(--font-sans);
+            letter-spacing: normal;
+            cursor: pointer;
+          }
+          .pin-reveal-btn:hover { color: var(--color-text); }
 
           .share-stats {
             font-size: var(--text-sm);

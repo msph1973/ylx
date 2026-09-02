@@ -551,22 +551,22 @@ const GALLERY_VIEW_STYLES = `
           font-weight: var(--font-medium);
           font-size: var(--text-sm);
           cursor: pointer;
-          transition: all var(--transition-fast);
-          background-color: transparent;
-          border: 1px solid var(--color-lightbox-select-border);
-          color: var(--color-lightbox-text);
+          transition: background-color var(--transition-fast), color var(--transition-fast);
+          background-color: var(--color-accent);
+          border: 1px solid var(--color-accent);
+          color: var(--color-bg);
         }
 
         .lightbox-select.selected {
-          background-color: var(--color-accent);
-          border-color: var(--color-accent);
+          background-color: var(--color-success);
+          border-color: var(--color-success);
           color: var(--color-bg);
         }
 
         @media (hover: hover) {
           .lightbox-select:hover:not(.selected) {
-            border-color: var(--color-accent);
-            color: var(--color-accent);
+            background-color: var(--color-accent-hover);
+            border-color: var(--color-accent-hover);
           }
         }
 
@@ -819,7 +819,7 @@ const GALLERY_VIEW_STYLES = `
         .photo-download-btn {
           right: var(--space-2);
           background-color: var(--color-photo-download-bg);
-          color: #fff;
+          color: var(--color-lightbox-text-bright);
           transition: background-color var(--transition-fast), transform var(--transition-fast);
         }
         /* .photo-select-btn is a framer m.button (whileTap) — its transform is
@@ -1433,7 +1433,7 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
       const blob = await fetchAsBlob(photo.downloadUrl ?? photo.url);
       saveBlob(blob, photo.filename);
     } catch {
-      setDownloadError(`Gagal mengunduh ${photo.filename}. Silakan coba lagi.`);
+      setDownloadError(`Failed to download ${photo.filename}. Please try again.`);
     } finally {
       setIsDownloading(false);
     }
@@ -1441,13 +1441,13 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
 
   // Fetches every entry's blob (best-effort — a single failed fetch is
   // skipped, not fatal to the whole batch) and bundles them into one zip
-  // with the entry's folder as the path prefix (e.g. "Cetak/edit_1.jpg").
+  // with the entry's folder as the path prefix (e.g. "Final/edit_1.jpg").
   // Bounded via runWithConcurrency (same helper/convention as the admin
   // upload flows) instead of a fully-parallel Promise.allSettled, so a large
   // gallery's ZIP doesn't fire dozens of simultaneous blob fetches at once.
   const downloadManifestAsZip = useCallback(async (entries: DownloadManifestEntry[], zipFilename: string) => {
     if (entries.length === 0) {
-      setDownloadError('Tidak ada foto untuk diunduh.');
+      setDownloadError('No photos to download.');
       return;
     }
     setDownloadError(null);
@@ -1477,25 +1477,25 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
       );
       const failedCount = failedFlags.filter(Boolean).length;
       if (failedCount === entries.length) {
-        setDownloadError('Semua unduhan gagal. Silakan coba lagi.');
+        setDownloadError('All downloads failed. Please try again.');
         return;
       }
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       saveBlob(zipBlob, zipFilename);
       if (failedCount > 0) {
-        setDownloadError(`${failedCount} dari ${entries.length} foto gagal diunduh.`);
+        setDownloadError(`${failedCount} of ${entries.length} photos failed to download.`);
       }
     } catch {
-      setDownloadError('Gagal membuat file ZIP. Silakan coba lagi.');
+      setDownloadError('Failed to create the ZIP file. Please try again.');
     } finally {
       setIsDownloading(false);
     }
   }, []);
 
   const handleDownloadAll = useCallback(() => {
-    const folders: DownloadFolder[] = [{ folder: 'Cetak', photos: finalPhotos ?? [] }];
+    const folders: DownloadFolder[] = [{ folder: 'Final', photos: finalPhotos ?? [] }];
     if (album?.showOriginalAfterDelivery) {
-      folders.push({ folder: 'Semua Foto', photos: album.photos ?? [] });
+      folders.push({ folder: 'Originals', photos: album.photos ?? [] });
     }
     void downloadManifestAsZip(buildDownloadManifest(folders), `${sanitizeZipFilename(album?.title ?? 'gallery')}.zip`);
   }, [album, finalPhotos, downloadManifestAsZip]);
@@ -1506,12 +1506,12 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
       ? (album.photos ?? []).filter((photo) => selectedForDownload.has(photo.id))
       : [];
     const folders: DownloadFolder[] = [
-      { folder: 'Cetak', photos: selectedFinal },
-      { folder: 'Semua Foto', photos: selectedOriginal },
+      { folder: 'Final', photos: selectedFinal },
+      { folder: 'Originals', photos: selectedOriginal },
     ].filter((folder) => folder.photos.length > 0);
     void downloadManifestAsZip(
       buildDownloadManifest(folders),
-      `${sanitizeZipFilename(album?.title ?? 'gallery')}-terpilih.zip`
+      `${sanitizeZipFilename(album?.title ?? 'gallery')}-selected.zip`
     );
   }, [album, finalPhotos, selectedForDownload, downloadManifestAsZip]);
 
@@ -1779,7 +1779,7 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
                 className={`delivered-tab-btn ${effectiveDeliveredTab === 'cetak' ? 'active' : ''}`}
                 onClick={() => setActiveDeliveredTab('cetak')}
               >
-                Cetak
+                Final
               </button>
               <button
                 type="button"
@@ -1788,7 +1788,7 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
                 className={`delivered-tab-btn ${effectiveDeliveredTab === 'original' ? 'active' : ''}`}
                 onClick={() => setActiveDeliveredTab('original')}
               >
-                Semua Foto
+                Originals
               </button>
             </div>
           )}
@@ -1810,11 +1810,11 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
               // "original" tab (or a failed fetch) would otherwise leave this
               // enabled even though `finalPhotos` isn't a loaded array yet —
               // `handleDownloadAll` would then silently zip an incomplete/
-              // empty "Cetak" folder. Require finalPhotos to have actually
+              // empty "Final" folder. Require finalPhotos to have actually
               // loaded (non-null) and be error-free instead.
               disabled={isDownloading || finalPhotos === null || finalPhotosError !== null}
             >
-              Download Semua
+              Download All
             </button>
           </div>
           {downloadError && <p className="inline-error" role="alert">{downloadError}</p>}
@@ -1882,7 +1882,7 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
 
       {isDelivered && isDownloadSelectMode && selectedForDownload.size > 0 && (
         <div className="gallery-selection-bar download-selection-bar">
-          <span className="selection-count">{selectedForDownload.size} foto dipilih</span>
+          <span className="selection-count">{selectedForDownload.size} photos selected</span>
           <m.button
             type="button"
             className="submit-btn"
@@ -1894,9 +1894,9 @@ export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
             {isDownloading ? (
               <>
                 <span className="btn-spinner" aria-hidden="true" />
-                Mengunduh…
+                Downloading…
               </>
-            ) : `Download ${selectedForDownload.size} Foto Terpilih`}
+            ) : `Download ${selectedForDownload.size} Selected Photos`}
           </m.button>
         </div>
       )}
