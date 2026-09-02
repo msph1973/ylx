@@ -1,0 +1,14 @@
+STATUS.md
+  h_45c23cf41d175e 2,298-299
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "94b0ff92012540ea22cc07657de355312104e282",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
