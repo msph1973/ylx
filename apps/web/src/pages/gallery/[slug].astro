@@ -19,5 +19,5 @@ const vendorName = album?.vendorName ?? 'YLx';
 ---
 
 <GalleryLayout title={album?.title ?? 'Gallery'} vendorName={vendorName} clientName="">
-  <GalleryPage slug={slug!} client:load />
+  <GalleryPage slug={slug!} albumTitle={album?.title ?? null} client:load />
 </GalleryLayout>

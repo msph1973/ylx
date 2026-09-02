@@ -38,6 +38,11 @@ class LightboxErrorBoundary extends Component<{ children: ReactNode }, { hasErro
 
 interface GalleryPageProps {
   slug: string;
+  // Branding-only album title (never `pin`/`clientName`), fetched pre-PIN by
+  // [slug].astro from the same non-sensitive lookup already used for the
+  // <title> tag — shown above the PIN card so clients recognize which
+  // gallery they landed on before authenticating.
+  albumTitle?: string | null;
 }
 
 interface AlbumData {
@@ -906,7 +911,7 @@ function sanitizeZipFilename(name: string): string {
 // upload flows (see UPLOAD_CONCURRENCY in FinalPhotosSection.tsx/UploadPage.tsx).
 const DOWNLOAD_CONCURRENCY = 4;
 
-export function GalleryPage({ slug }: GalleryPageProps) {
+export function GalleryPage({ slug, albumTitle }: GalleryPageProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   // Blocks the PIN screen until the resume-session check finishes, so a
@@ -1184,6 +1189,20 @@ export function GalleryPage({ slug }: GalleryPageProps) {
     void fetchFinalPhotos();
   }, [isAuthenticated, album?.status, slug, fetchFinalPhotos]);
 
+  // GalleryLayout.astro's header is static server-rendered HTML (outside this
+  // React island) and must stay privacy-safe pre-PIN — it always renders the
+  // generic "Client" placeholder, never the real clientName. Once this island
+  // has a verified/resumed album (which does carry the real clientName), swap
+  // the header placeholder for it directly via the DOM instead of duplicating
+  // the header markup inside the island. Must reset back to the generic
+  // placeholder whenever authentication is lost (e.g. session expiry) —
+  // otherwise the previous client's real name would keep leaking on the PIN
+  // screen shown next.
+  useEffect(() => {
+    const el = document.getElementById('gallery-client-name');
+    if (!el) return;
+    el.textContent = isAuthenticated && album?.clientName ? album.clientName : 'Client';
+  }, [isAuthenticated, album?.clientName]);
 
   // Autosave the in-progress selection (debounced) so a closed tab or reload
   // doesn't lose it. Saving an empty selection clears the stored draft.
@@ -1602,6 +1621,7 @@ export function GalleryPage({ slug }: GalleryPageProps) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
         >
+          {albumTitle && <p className="gallery-album-name">{albumTitle}</p>}
           <h1 className="gallery-title">Enter PIN</h1>
           <p className="gallery-subtitle">to view your photos</p>
           <PinEntry
@@ -1614,7 +1634,22 @@ export function GalleryPage({ slug }: GalleryPageProps) {
 
         <style>{`
           .gallery-auth {
-            min-height: 100vh;
+            /* Fills its parent \`.gallery-content\` (the 1fr grid row in
+               GalleryLayout.astro, already correctly sized to the remaining
+               space below \`.gallery-header\`) instead of re-adding a second
+               100vh here. Stacking two full-viewport heights used to push
+               this vertically-centered PIN card down by roughly the
+               header's height on first mobile load — its true center landed
+               well below the screen's actual center. \`min-height: 100%\`
+               (not a hard \`height\`) because a grid row's used size — unlike
+               a flex item's flex-grow-derived size — reliably counts as
+               "definite" for a further-nested child's percentage height, but
+               a fixed \`height\` combined with \`align-items: center\` would
+               clip the PIN card top/bottom whenever it's taller than the
+               available space (short/landscape viewports, browser zoom,
+               larger accessibility font sizes) — \`min-height\` lets the box
+               grow to fit its content instead. */
+            min-height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1627,14 +1662,34 @@ export function GalleryPage({ slug }: GalleryPageProps) {
             width: 100%;
           }
 
+          .gallery-album-name {
+            font-family: var(--font-display);
+            font-size: var(--text-sm);
+            font-weight: var(--font-bold);
+            color: var(--color-accent);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: var(--space-4);
+          }
+
           .gallery-title {
-            font-size: var(--text-3xl);
+            /* text-3xl read oversized as the very first thing shown on a phone
+               screen — start smaller and only grow at the md breakpoint,
+               matching the same 768px cutoff PinEntry.tsx already uses for
+               its digit boxes. */
+            font-size: var(--text-2xl);
             margin-bottom: var(--space-2);
           }
 
           .gallery-subtitle {
             color: var(--color-text-muted);
             margin-bottom: var(--space-8);
+          }
+
+          @media (min-width: 768px) {
+            .gallery-title {
+              font-size: var(--text-3xl);
+            }
           }
         `}</style>
       </div>
