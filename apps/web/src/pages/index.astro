@@ -4,7 +4,7 @@ export const prerender = true;
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
-<BaseLayout title="Home">
+<BaseLayout title="Home" lang="id">
   <div class="home">
     <section class="home-hero" aria-hidden="false">
       <div class="home-backdrop" aria-hidden="true">
@@ -228,6 +228,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     background-color: var(--color-surface);
     padding: var(--space-10) var(--space-6);
     animation: home-reveal 700ms 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* Container (not viewport) query for .input-group below: the panel's
+       own rendered width is what actually constrains the input, and that
+       width isn't a fixed function of viewport width once the md grid
+       split kicks in (e.g. a 768–850px viewport still only gives this
+       panel ~40% of it) — a viewport media-query breakpoint can't track
+       that, so a viewport-width fix that covered narrow phones re-clipped
+       in that in-between desktop range. */
+    container-type: inline-size;
   }
 
   @media (min-width: 768px) {
@@ -296,11 +304,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     border-bottom-color: var(--color-accent);
   }
 
-  /* Stack input above button below ~640px — side-by-side leaves the
-     underline input too narrow for its placeholder on phone widths
-     (the panel here is a fraction of the viewport, not a centered card
-     like the previous design had), clipping the visible text. */
-  @media (max-width: 640px) {
+  /* Stack input above button whenever the panel itself renders narrower
+     than ~520px — covers both full-width mobile panels and the panel's
+     ~40% column at the md two-column split, where side-by-side leaves the
+     underline input too narrow for its placeholder and clips the text. */
+  @container (max-width: 520px) {
     .input-group {
       flex-direction: column;
       align-items: stretch;
