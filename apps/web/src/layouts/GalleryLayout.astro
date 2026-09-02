@@ -19,7 +19,12 @@ const displayClientName = clientName || 'Client';
   <div class="gallery-layout">
     <header class="gallery-header">
       <div class="gallery-brand">{vendorName ?? 'YLx'}</div>
-      <div class="gallery-client">{displayClientName}</div>
+      <div class="gallery-client">
+        {/* id targeted by GalleryPage.tsx once the PIN-authenticated client's
+            real clientName arrives client-side — this initial render must
+            stay privacy-safe (no real name pre-PIN), see displayClientName. */}
+        <span id="gallery-client-name">{displayClientName}</span>
+      </div>
     </header>
     <main class="gallery-content">
       <slot />
@@ -30,8 +35,15 @@ const displayClientName = clientName || 'Client';
 <style>
   .gallery-layout {
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+    min-height: 100dvh;
+    /* Grid (not flex) so `.gallery-content`'s row size counts as a definite
+       height for percentage-height descendants — Chrome/Safari have a known
+       flexbug where a flex item's flex-grow-derived height doesn't count as
+       "definite" for a further-nested child's percentage height, but a grid
+       track does. GalleryPage.tsx's PIN screen relies on this to fill the
+       exact space below the header instead of overflowing past 100vh. */
+    display: grid;
+    grid-template-rows: auto 1fr;
   }
 
   .gallery-header {
@@ -65,7 +77,8 @@ const displayClientName = clientName || 'Client';
   }
 
   .gallery-content {
-    flex: 1;
+    /* No sizing property needed — the 1fr row in .gallery-layout already
+       gives this its height; grid items fill their track by default. */
     padding: var(--space-6);
     padding-left: max(var(--space-6), env(safe-area-inset-left));
     padding-right: max(var(--space-6), env(safe-area-inset-right));
