@@ -1,0 +1,14 @@
+apps/web/src/pages/index.astro
+  h_45c23cf41d175e 5-9,16,20,35-49,117-168,226-231,242-250,256-258,264,268,275-286,298,309,322-328,344,385-394,398,411-429,442-446,515-585
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c0c4223636e35b602bd02542b98c6971b902e0ea",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
