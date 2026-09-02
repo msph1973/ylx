@@ -6,42 +6,52 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
 <BaseLayout title="Home">
   <div class="home">
-    <main class="home-content">
-      <div class="brand">
-        <h1 class="brand-name">YLx</h1>
-        <p class="brand-tagline">Photo Proofing Gallery</p>
+    <section class="home-hero" aria-hidden="false">
+      <div class="home-backdrop" aria-hidden="true">
+        <span class="home-glow"></span>
+        <span class="home-grain"></span>
       </div>
+      <div class="home-hero-content">
+        <h1 class="brand-name">YLx</h1>
+        <p class="brand-tagline">Galeri Foto Pernikahan</p>
+      </div>
+    </section>
 
-      <section class="gallery-access" aria-label="Access your gallery">
-        <h2 class="section-title">Access Your Gallery</h2>
-        <p class="section-desc">Enter your gallery link to view your photos.</p>
+    <section class="home-panel" aria-label="Akses galeri">
+      <div class="panel-content">
+        <h2 class="panel-title">Buka Galerimu</h2>
+        <p class="panel-desc">
+          Masukkan nama atau tempel link galeri yang diberikan fotografermu.
+        </p>
         <form class="gallery-form" id="gallery-form" novalidate>
+          <label for="gallery-slug" class="sr-only">Nama galeri atau link galeri</label>
           <div class="input-group">
-            <label for="gallery-slug" class="sr-only">Gallery link or album name</label>
             <input
               id="gallery-slug"
               type="text"
               name="slug"
               class="gallery-input"
-              placeholder="gallery link or album name"
+              placeholder="nama atau link galeri"
               autocomplete="off"
               autocorrect="off"
               autocapitalize="none"
               spellcheck="false"
               required
             />
-            <button type="submit" class="gallery-btn" aria-label="Open gallery">
-              Open
+            <button type="submit" class="gallery-btn" aria-label="Buka galeri">
+              Buka
             </button>
           </div>
           <p class="input-hint" id="gallery-error" role="alert" aria-live="polite"></p>
         </form>
-      </section>
+      </div>
 
       <div class="admin-link-wrap">
-        <a href="/admin" class="admin-link">Admin Dashboard</a>
+        <a href="/admin" class="admin-link" aria-label="Masuk ke dasbor admin">
+          Admin <span aria-hidden="true">&rarr;</span>
+        </a>
       </div>
-    </main>
+    </section>
   </div>
 </BaseLayout>
 
@@ -88,7 +98,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const source = extractSlugSource(input.value.trim());
     const slug = source.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     if (!slug) {
-      errorEl.textContent = 'Please enter a gallery name.';
+      errorEl.textContent = 'Masukkan nama galerimu dulu, ya.';
       input.focus();
       return;
     }
@@ -98,79 +108,183 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </script>
 
 <style>
+  /* Editorial two-panel gate: a large brand statement (left/top) paired
+     with a compact, functional access panel (right/bottom). Grid (not
+     flex) so each panel's row/column size is definite for the backdrop's
+     absolutely-positioned children, and so the split composes cleanly at
+     the md breakpoint instead of just centering everything, like the
+     previous single-column layout did. */
   .home {
     min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    grid-template-columns: 1fr;
+    /* Hero stays sized to its own content; the panel row (1fr, not auto)
+       absorbs any leftover viewport height — otherwise two "auto" rows
+       split the leftover space evenly, stretching the hero's empty space
+       under the tagline and stranding the admin link mid-panel instead of
+       pinned near its bottom. */
+    grid-template-rows: auto 1fr;
+  }
+
+  @media (min-width: 768px) {
+    .home {
+      grid-template-columns: 1.3fr 1fr;
+      grid-template-rows: 1fr;
+    }
+  }
+
+  /* Hero: the brand statement. Dominant by size and position (top-left,
+     largest type on the page), not by decoration. */
+  .home-hero {
+    position: relative;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    padding: var(--space-6);
+    overflow: hidden;
+    padding: var(--space-16) var(--space-6) var(--space-10);
   }
 
-  .home-content {
-    text-align: center;
-    width: 100%;
-    max-width: 420px;
+  @media (min-width: 768px) {
+    .home-hero {
+      padding: var(--space-10) var(--space-10) var(--space-10) var(--space-12);
+    }
   }
 
-  .brand {
-    margin-bottom: var(--space-10);
+  /* Decorative atmosphere standing in for photography (this surface
+     intentionally ships without real images per product decision) — a
+     soft accent glow plus a faint grain texture, both inert to assistive
+     tech and never competing with the wordmark's contrast. */
+  .home-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .home-glow {
+    position: absolute;
+    top: -20%;
+    left: -10%;
+    width: 70vw;
+    height: 70vw;
+    min-width: 420px;
+    min-height: 420px;
+    max-width: 900px;
+    max-height: 900px;
+    background: radial-gradient(
+      circle at 30% 30%,
+      color-mix(in srgb, var(--color-accent) 35%, transparent) 0%,
+      transparent 70%
+    );
+  }
+
+  .home-grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+
+  .home-hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 36rem;
+    animation: home-reveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .brand-name {
-    font-size: var(--text-6xl);
     font-family: var(--font-display);
-    color: var(--color-accent);
-    letter-spacing: 0.1em;
-    margin-bottom: var(--space-2);
+    font-weight: var(--font-bold);
+    font-size: clamp(3.5rem, 14vw, 6rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    text-wrap: balance;
+    margin-bottom: var(--space-3);
   }
 
   .brand-tagline {
-    font-size: var(--text-lg);
-    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-accent);
     text-transform: uppercase;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
+    margin-bottom: 0;
+    animation: home-reveal 700ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  /* Gallery access form */
-  .gallery-access {
-    padding: var(--space-6);
+  /* Panel: the functional action. Sans-serif and a fixed scale (product
+     vocabulary) on purpose — contrast against the hero's display serif
+     signals "this part is a tool", not more brand voice. */
+  .home-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-border);
     background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-xl);
-    margin-bottom: var(--space-6);
+    padding: var(--space-10) var(--space-6);
+    animation: home-reveal 700ms 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  .section-title {
-    font-size: var(--text-xl);
+  @media (min-width: 768px) {
+    .home-panel {
+      border-top: none;
+      border-left: 1px solid var(--color-border);
+      padding: var(--space-12) var(--space-10);
+    }
+  }
+
+  .panel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-4);
+    max-width: 26rem;
+  }
+
+  .panel-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-2xl);
     font-weight: var(--font-semibold);
     color: var(--color-text);
-    margin-bottom: var(--space-2);
+    margin-bottom: 0;
   }
 
-  .section-desc {
+  .panel-desc {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    margin-bottom: var(--space-5);
+    max-width: 32ch;
+    margin-bottom: 0;
   }
 
   .gallery-form {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    margin-top: var(--space-2);
   }
 
   .input-group {
     display: flex;
-    gap: var(--space-2);
+    align-items: flex-end;
+    gap: var(--space-3);
   }
 
+  /* Underline field instead of a boxed input — reads as "type here",
+     paired with the pill button below instead of a fully-bordered card. */
   .gallery-input {
     flex: 1;
     min-width: 0;
-    padding: var(--space-3) var(--space-4);
-    background-color: var(--color-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    padding: var(--space-3) 0;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--color-border);
+    border-radius: 0;
     color: var(--color-text);
     font-size: var(--text-base);
     font-family: var(--font-mono, monospace);
@@ -179,13 +293,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   .gallery-input:focus {
     outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-ring);
+    border-bottom-color: var(--color-accent);
   }
 
-  @media (max-width: 360px) {
+  /* Stack input above button below ~640px — side-by-side leaves the
+     underline input too narrow for its placeholder on phone widths
+     (the panel here is a fraction of the viewport, not a centered card
+     like the previous design had), clipping the visible text. */
+  @media (max-width: 640px) {
     .input-group {
       flex-direction: column;
+      align-items: stretch;
     }
 
     .gallery-btn {
@@ -194,20 +312,25 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   }
 
   .gallery-btn {
+    flex: none;
     padding: var(--space-3) var(--space-5);
     background-color: var(--color-accent);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-full);
     color: var(--color-bg);
     font-size: var(--text-base);
     font-weight: var(--font-semibold);
     cursor: pointer;
     white-space: nowrap;
-    transition: background-color var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
   }
 
   .gallery-btn:hover {
     background-color: var(--color-accent-hover);
+  }
+
+  .gallery-btn:active {
+    transform: scale(var(--press-scale));
   }
 
   .input-hint {
@@ -218,26 +341,37 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     margin: 0;
   }
 
-  /* Admin link */
+  /* Admin link: deliberately understated and pinned to the panel's
+     bottom so it never competes with the gallery-access CTA above it. */
   .admin-link-wrap {
-    text-align: center;
+    margin-top: var(--space-8);
   }
 
   .admin-link {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-height: 44px;
-    padding: var(--space-2) var(--space-4);
+    gap: var(--space-1);
+    min-height: var(--tap-target-min);
+    padding: var(--space-2) 0;
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: color var(--transition-fast);
+    transition: color var(--transition-fast), gap var(--transition-fast);
   }
 
   .admin-link:hover {
     color: var(--color-accent);
+    gap: var(--space-2);
+  }
+
+  @keyframes home-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   /* Screen-reader only */
