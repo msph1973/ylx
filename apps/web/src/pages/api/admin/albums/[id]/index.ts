@@ -213,7 +213,10 @@ function validateUpdateAlbumBody(body: Record<string, unknown>): { error: string
       return { error: `clientName must be a non-empty string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
     }
   }
-  if (eventDate !== undefined) {
+  // Empty string is a deliberate "clear the date" signal (eventDate is
+  // optional), distinct from undefined ("leave it untouched") — only a
+  // non-empty value must actually be a real calendar date.
+  if (eventDate !== undefined && eventDate !== "") {
     if (typeof eventDate !== "string" || !isValidCalendarDate(eventDate)) {
       return { error: "eventDate must be a valid calendar date in YYYY-MM-DD format" };
     }
@@ -281,7 +284,9 @@ async function buildAlbumPatch(
     patch.slug = { _type: "slug", current: await generateUniqueSlug(title, albumId, currentSlug) };
   }
   if (clientName !== undefined) patch.clientName = clientName;
-  if (eventDate !== undefined) patch.eventDate = eventDate;
+  // Empty string means "clear it" and is routed to `.unset()` by the caller
+  // instead (Sanity's "date" type rejects an empty string via `.set()`).
+  if (eventDate) patch.eventDate = eventDate;
   if (pin !== undefined) patch.pin = pin;
   if (maxSelections !== undefined) patch.maxSelections = maxSelections;
   if (vendorName !== undefined) patch.vendorName = vendorName.trim();
@@ -344,7 +349,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       );
     }
     const body = validation.value;
-    const { pin, maxSelections, customSlug } = body;
+    const { pin, maxSelections, customSlug, eventDate } = body;
 
     const customSlugResult = await resolveCustomSlugForUpdate(customSlug, albumId, existingAlbum.customSlug);
     if ("error" in customSlugResult) {
@@ -370,7 +375,10 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
 
     try {
       const patch = await buildAlbumPatch(body, albumId, resolvedCustomSlug, existingAlbum.slug?.current);
-      const unsetFields = resolvedCustomSlug === null ? ["customSlug"] : [];
+      const unsetFields = [
+        ...(resolvedCustomSlug === null ? ["customSlug"] : []),
+        ...(eventDate === "" ? ["eventDate"] : []),
+      ];
 
       if (Object.keys(patch).length === 0 && unsetFields.length === 0) {
         return new Response(

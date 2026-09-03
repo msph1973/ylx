@@ -112,7 +112,7 @@ interface DrivePhotoInput {
 interface CreateAlbumBody {
   title: string;
   clientName: string;
-  eventDate: string;
+  eventDate?: string;
   pin: string;
   maxSelections: number;
   customSlug?: string;
@@ -127,8 +127,8 @@ interface CreateAlbumBody {
 function validateCreateAlbumBody(body: Record<string, unknown>): { error: string } | { value: CreateAlbumBody } {
   const { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName } = body;
 
-  if (!title || !clientName || !eventDate || !pin || !maxSelections || !vendorName) {
-    return { error: "All fields are required: title, clientName, eventDate, pin, maxSelections, vendorName" };
+  if (!title || !clientName || !pin || !maxSelections || !vendorName) {
+    return { error: "All fields are required: title, clientName, pin, maxSelections, vendorName" };
   }
   if (typeof title !== "string" || title.length > MAX_TEXT_FIELD_LENGTH) {
     return { error: `title must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
@@ -139,7 +139,10 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
   if (typeof clientName !== "string" || clientName.length > MAX_TEXT_FIELD_LENGTH) {
     return { error: `clientName must be a string of at most ${MAX_TEXT_FIELD_LENGTH} characters` };
   }
-  if (typeof eventDate !== "string" || !isValidCalendarDate(eventDate)) {
+  // eventDate is optional: albums are commonly created before a date is
+  // finalized. Empty/absent is left out of the doc entirely (below);
+  // anything non-empty must still be a real calendar date.
+  if (eventDate !== undefined && eventDate !== "" && (typeof eventDate !== "string" || !isValidCalendarDate(eventDate))) {
     return { error: "eventDate must be a valid calendar date in YYYY-MM-DD format" };
   }
   if (typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
@@ -198,11 +201,6 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
     return { error: "driveFolderId/photos are only allowed when storageType is 'drive'" };
   }
 
-  // Compare in local timezone.
-  const today = new Date().toLocaleDateString("en-CA");
-  if (eventDate < today) {
-    return { error: "Event date cannot be in the past" };
-  }
   return { value: { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName: vendorName.trim(), storageType, driveFolderId, photos } };
 }
 
@@ -268,7 +266,9 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         slug: { _type: "slug", current: slug },
         ...(resolvedCustomSlug ? { customSlug: resolvedCustomSlug } : {}),
         clientName,
-        eventDate,
+        // Sanity's "date" type rejects an empty string outright — leave the
+        // field out entirely rather than write an invalid value.
+        ...(eventDate ? { eventDate } : {}),
         pin,
         maxSelections,
         vendorName,

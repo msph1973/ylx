@@ -35,15 +35,10 @@ const DEFAULT_FORM: AlbumFormData = {
   vendorName: '',
 };
 
-/** Get today as YYYY-MM-DD in local timezone (avoids UTC offset issues) */
-function getLocalTodayString(): string {
-  return new Date().toLocaleDateString('en-CA');
-}
-
 /** Returns an error message for the first invalid field, or `null` if the
  *  form is valid. Kept separate from `handleSubmit` so each rule reads as
  *  one guard clause instead of piling onto a single function's complexity. */
-export function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayString: string): string | null {
+export function validateAlbumForm(form: AlbumFormData): string | null {
   if (!form.title.trim()) {
     return 'Album title is required';
   }
@@ -52,9 +47,6 @@ export function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayStr
   }
   if (!form.vendorName.trim()) {
     return 'Vendor name is required';
-  }
-  if (!form.eventDate) {
-    return 'Event date is required';
   }
   if (!/^\d{4}$/.test(form.pin)) {
     return 'PIN must be exactly 4 digits';
@@ -69,9 +61,6 @@ export function validateAlbumForm(form: AlbumFormData, isEdit: boolean, todayStr
   if (maxSelectionsNum > 500) {
     return 'Max selections cannot exceed 500';
   }
-  if (!isEdit && form.eventDate < todayString) {
-    return 'Event date cannot be in the past';
-  }
   return null;
 }
 
@@ -79,9 +68,6 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
   const shouldReduceMotion = useReducedMotion();
   const isEdit = Boolean(album);
   const modalRef = useFocusTrap<HTMLDivElement>(isOpen);
-
-  // Today's date in YYYY-MM-DD in local timezone (used as min for date picker)
-  const todayString = getLocalTodayString();
 
   const [form, setForm] = useState<AlbumFormData>(DEFAULT_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -217,7 +203,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
       }
     }
 
-    const validationError = validateAlbumForm(form, isEdit, todayString);
+    const validationError = validateAlbumForm(form);
     if (validationError) {
       setError(validationError);
       return;
@@ -434,12 +420,14 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="album-eventDate">Event Date</label>
+                <label className="form-label" htmlFor="album-eventDate">
+                  Event Date
+                  <span className="form-hint">optional</span>
+                </label>
                 <DatePickerField
                   id="album-eventDate"
                   value={form.eventDate}
                   onChange={(eventDate) => setForm((prev) => ({ ...prev, eventDate }))}
-                  min={isEdit ? undefined : todayString}
                 />
               </div>
 
