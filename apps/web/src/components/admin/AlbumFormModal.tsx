@@ -48,9 +48,6 @@ export function validateAlbumForm(form: AlbumFormData): string | null {
   if (!form.vendorName.trim()) {
     return 'Vendor name is required';
   }
-  if (!form.eventDate) {
-    return 'Event date is required';
-  }
   if (!/^\d{4}$/.test(form.pin)) {
     return 'PIN must be exactly 4 digits';
   }
@@ -423,7 +420,10 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="album-eventDate">Event Date</label>
+                <label className="form-label" htmlFor="album-eventDate">
+                  Event Date
+                  <span className="form-hint">optional</span>
+                </label>
                 <DatePickerField
                   id="album-eventDate"
                   value={form.eventDate}

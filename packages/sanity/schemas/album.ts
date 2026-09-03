@@ -41,7 +41,7 @@ export default defineType({
       name: "eventDate",
       title: "Event Date",
       type: "date",
-      validation: (Rule) => Rule.required(),
+      description: "Optional — albums are often created before a date is finalized.",
     }),
     defineField({
       name: "pin",
@@ -175,7 +175,7 @@ export default defineType({
     prepare({ title, clientName, eventDate }) {
       return {
         title,
-        subtitle: `${clientName} - ${eventDate}`,
+        subtitle: eventDate ? `${clientName} - ${eventDate}` : clientName,
       };
     },
   },
