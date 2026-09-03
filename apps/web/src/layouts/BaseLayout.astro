@@ -5,13 +5,18 @@ export interface Props {
   title: string;
   description?: string;
   vendorName?: string;
+  /** BCP 47 language of this page's *content* (not the app's default) —
+      most pages are English, but a page rendering Bahasa Indonesia copy
+      (e.g. the homepage) must declare "id" so assistive tech doesn't read
+      it with English pronunciation. */
+  lang?: string;
 }
 
-const { title, description = 'Photo Proofing Gallery Platform', vendorName } = Astro.props;
+const { title, description = 'Photo Proofing Gallery Platform', vendorName, lang = 'en' } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />

@@ -2,46 +2,65 @@
 export const prerender = true;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Computed at build time (page is fully prerendered) — cheaper than a
+// client-side Date() call and avoids a layout-shift-prone hydration step
+// for what is purely decorative editorial flavor text.
+const editionYear = new Date().getFullYear();
 ---
 
-<BaseLayout title="Home">
+<BaseLayout title="Home" lang="id">
   <div class="home">
-    <main class="home-content">
-      <div class="brand">
-        <h1 class="brand-name">YLx</h1>
-        <p class="brand-tagline">Photo Proofing Gallery</p>
+    <section class="home-hero" aria-hidden="false">
+      <div class="home-backdrop" aria-hidden="true">
+        <span class="home-glow"><span class="home-glow-core"></span></span>
+        <span class="home-grain"></span>
       </div>
+      <div class="home-hero-content">
+        <p class="home-edition">Vol. I &middot; {editionYear} &mdash; Galeri Digital</p>
+        <h1 class="brand-name">YLx</h1>
+        <p class="brand-tagline">Galeri Foto Pernikahan</p>
+      </div>
+    </section>
 
-      <section class="gallery-access" aria-label="Access your gallery">
-        <h2 class="section-title">Access Your Gallery</h2>
-        <p class="section-desc">Enter your gallery link to view your photos.</p>
+    <section class="home-panel" aria-label="Akses galeri">
+      <div class="panel-content">
+        <h2 class="panel-title">Buka Galerimu</h2>
+        <p class="panel-desc">
+          Masukkan nama atau tempel link galeri yang diberikan fotografermu.
+        </p>
         <form class="gallery-form" id="gallery-form" novalidate>
+          <label for="gallery-slug" class="sr-only">Nama galeri atau link galeri</label>
           <div class="input-group">
-            <label for="gallery-slug" class="sr-only">Gallery link or album name</label>
-            <input
-              id="gallery-slug"
-              type="text"
-              name="slug"
-              class="gallery-input"
-              placeholder="gallery link or album name"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="none"
-              spellcheck="false"
-              required
-            />
-            <button type="submit" class="gallery-btn" aria-label="Open gallery">
-              Open
+            <div class="field">
+              <input
+                id="gallery-slug"
+                type="text"
+                name="slug"
+                class="gallery-input"
+                placeholder="nama atau link galeri"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="none"
+                spellcheck="false"
+                required
+              />
+              <span class="field-focus-line" aria-hidden="true"></span>
+            </div>
+            <button type="submit" class="gallery-btn" aria-label="Buka galeri">
+              Buka
             </button>
           </div>
           <p class="input-hint" id="gallery-error" role="alert" aria-live="polite"></p>
         </form>
-      </section>
+      </div>
 
       <div class="admin-link-wrap">
-        <a href="/admin" class="admin-link">Admin Dashboard</a>
+        <a href="/admin" class="admin-link" aria-label="Masuk ke dasbor admin">
+          Admin <span aria-hidden="true">&rarr;</span>
+        </a>
       </div>
-    </main>
+    </section>
   </div>
 </BaseLayout>
 
@@ -88,104 +107,341 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const source = extractSlugSource(input.value.trim());
     const slug = source.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     if (!slug) {
-      errorEl.textContent = 'Please enter a gallery name.';
+      errorEl.textContent = 'Masukkan nama galerimu dulu, ya.';
       input.focus();
       return;
     }
     errorEl.textContent = '';
     window.location.href = `/gallery/${slug}`;
   });
+
+  // Cursor-reactive glow: the hero's accent glow drifts a few pixels toward
+  // the pointer, like a spotlight loosely tracking it — a cheap way to make
+  // the backdrop feel alive without a real photo behind it. Skipped
+  // entirely for touch/stylus input (no "hover" to react to) and for
+  // prefers-reduced-motion, since this is a continuous rAF-driven effect
+  // that the global CSS reduced-motion rule (which only caps CSS
+  // animations/transitions) can't reach.
+  const hero = document.querySelector('.home-hero') as HTMLElement | null;
+  const glow = document.querySelector('.home-glow') as HTMLElement | null;
+  const canHover = window.matchMedia('(pointer: fine)').matches;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (hero && glow && canHover && !reducedMotion) {
+    const MAX_SHIFT = 26; // px — subtle, never lets the glow drift out of frame
+    const EASE = 0.08; // lerp factor: lower = lazier, more "spotlight lag"
+    let targetX = 0;
+    let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let rafId: number | null = null;
+
+    function step() {
+      currentX += (targetX - currentX) * EASE;
+      currentY += (targetY - currentY) * EASE;
+      glow!.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0)`;
+      if (Math.abs(targetX - currentX) > 0.05 || Math.abs(targetY - currentY) > 0.05) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        rafId = null;
+      }
+    }
+
+    function wake() {
+      if (rafId === null) rafId = requestAnimationFrame(step);
+    }
+
+    hero.addEventListener('pointermove', (e) => {
+      const rect = hero.getBoundingClientRect();
+      const relX = (e.clientX - rect.left) / rect.width - 0.5;
+      const relY = (e.clientY - rect.top) / rect.height - 0.5;
+      targetX = relX * MAX_SHIFT * 2;
+      targetY = relY * MAX_SHIFT * 2;
+      wake();
+    });
+
+    hero.addEventListener('pointerleave', () => {
+      targetX = 0;
+      targetY = 0;
+      wake();
+    });
+  }
 </script>
 
 <style>
+  /* Editorial two-panel gate: a large brand statement (left/top) paired
+     with a compact, functional access panel (right/bottom). Grid (not
+     flex) so each panel's row/column size is definite for the backdrop's
+     absolutely-positioned children, and so the split composes cleanly at
+     the md breakpoint instead of just centering everything, like the
+     previous single-column layout did. */
   .home {
     min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    grid-template-columns: 1fr;
+    /* Hero stays sized to its own content; the panel row (1fr, not auto)
+       absorbs any leftover viewport height — otherwise two "auto" rows
+       split the leftover space evenly, stretching the hero's empty space
+       under the tagline and stranding the admin link mid-panel instead of
+       pinned near its bottom. */
+    grid-template-rows: auto 1fr;
+  }
+
+  @media (min-width: 768px) {
+    .home {
+      grid-template-columns: 1.3fr 1fr;
+      grid-template-rows: 1fr;
+    }
+  }
+
+  /* Hero: the brand statement. Dominant by size and position (top-left,
+     largest type on the page), not by decoration. */
+  .home-hero {
+    position: relative;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    padding: var(--space-6);
+    overflow: hidden;
+    padding: var(--space-16) var(--space-6) var(--space-10);
   }
 
-  .home-content {
-    text-align: center;
-    width: 100%;
-    max-width: 420px;
+  @media (min-width: 768px) {
+    .home-hero {
+      padding: var(--space-10) var(--space-10) var(--space-10) var(--space-12);
+    }
   }
 
-  .brand {
-    margin-bottom: var(--space-10);
+  /* Decorative atmosphere standing in for photography (this surface
+     intentionally ships without real images per product decision) — a
+     soft accent glow plus a faint grain texture, both inert to assistive
+     tech and never competing with the wordmark's contrast. */
+  .home-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* Outer element only ever gets `opacity` (entrance) and an inline
+     `transform: translate3d()` written by the cursor-parallax script —
+     the "breathing" scale animation lives on the nested .home-glow-core
+     instead, so the two effects never fight over the same `transform`
+     (a CSS animation targeting a property always wins over an inline
+     style for it, which would otherwise freeze the parallax offset). */
+  .home-glow {
+    position: absolute;
+    top: -20%;
+    left: -10%;
+    width: 70vw;
+    height: 70vw;
+    min-width: 420px;
+    min-height: 420px;
+    max-width: 900px;
+    max-height: 900px;
+    opacity: 0;
+    animation: home-glow-reveal 900ms 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform;
+  }
+
+  .home-glow-core {
+    position: absolute;
+    inset: 0;
+    transform-origin: 30% 30%;
+    background: radial-gradient(
+      circle at 30% 30%,
+      color-mix(in srgb, var(--color-accent) 35%, transparent) 0%,
+      transparent 70%
+    );
+    /* Starts once the entrance (reveal + delay above) has settled, so the
+       idle loop doesn't visibly "kick in" mid-entrance. */
+    animation: home-glow-breathe 6s 1200ms ease-in-out infinite alternate;
+  }
+
+  .home-grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+    animation: home-grain-reveal 900ms 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .home-hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 36rem;
+  }
+
+  /* Magazine "issue tag" — a small typographic detail above the masthead,
+     purely decorative flavor text (not a real edition/version number). */
+  .home-edition {
+    font-family: var(--font-mono, monospace);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: var(--space-4);
+    animation: home-reveal 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .brand-name {
-    font-size: var(--text-6xl);
     font-family: var(--font-display);
-    color: var(--color-accent);
-    letter-spacing: 0.1em;
-    margin-bottom: var(--space-2);
+    font-weight: var(--font-bold);
+    font-size: clamp(3.5rem, 14vw, 6rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    text-wrap: balance;
+    margin-bottom: var(--space-3);
+    animation: home-wordmark-reveal 750ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .brand-tagline {
-    font-size: var(--text-lg);
-    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-accent);
     text-transform: uppercase;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
+    margin-bottom: 0;
+    animation: home-reveal 650ms 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  /* Gallery access form */
-  .gallery-access {
-    padding: var(--space-6);
+  /* Panel: the functional action. Sans-serif and a fixed scale (product
+     vocabulary) on purpose — contrast against the hero's display serif
+     signals "this part is a tool", not more brand voice. */
+  .home-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-border);
     background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-xl);
-    margin-bottom: var(--space-6);
+    padding: var(--space-10) var(--space-6);
+    /* Enters last in the choreographed sequence, and slides in from the
+       side it visually sits on once the md two-column split kicks in
+       (see the translateX override below) — stacked layouts below that
+       breakpoint keep the plain vertical version instead, since "from the
+       right" reads as meaningless motion when the panel is actually below
+       the hero, not beside it. */
+    animation: home-panel-reveal 700ms 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* Container (not viewport) query for .input-group below: the panel's
+       own rendered width is what actually constrains the input, and that
+       width isn't a fixed function of viewport width once the md grid
+       split kicks in (e.g. a 768–850px viewport still only gives this
+       panel ~40% of it) — a viewport media-query breakpoint can't track
+       that, so a viewport-width fix that covered narrow phones re-clipped
+       in that in-between desktop range. */
+    container-type: inline-size;
   }
 
-  .section-title {
-    font-size: var(--text-xl);
+  @media (min-width: 768px) {
+    .home-panel {
+      border-top: none;
+      border-left: 1px solid var(--color-border);
+      padding: var(--space-12) var(--space-10);
+      animation-name: home-panel-reveal-side;
+    }
+  }
+
+  .panel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-4);
+    max-width: 26rem;
+  }
+
+  .panel-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-2xl);
     font-weight: var(--font-semibold);
     color: var(--color-text);
-    margin-bottom: var(--space-2);
+    margin-bottom: 0;
   }
 
-  .section-desc {
+  .panel-desc {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    margin-bottom: var(--space-5);
+    max-width: 32ch;
+    margin-bottom: 0;
   }
 
   .gallery-form {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    margin-top: var(--space-2);
   }
 
   .input-group {
     display: flex;
-    gap: var(--space-2);
+    align-items: flex-end;
+    gap: var(--space-3);
   }
 
-  .gallery-input {
+  /* Wraps just the input (not the button) so .field-focus-line below can be
+     absolutely positioned under the input alone — pseudo-elements aren't
+     rendered on replaced elements like <input>, so the accent line needs
+     to be a real sibling node instead of an ::after on .gallery-input. */
+  .field {
+    position: relative;
     flex: 1;
     min-width: 0;
-    padding: var(--space-3) var(--space-4);
-    background-color: var(--color-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+  }
+
+  /* Underline field instead of a boxed input — reads as "type here",
+     paired with the pill button below instead of a fully-bordered card. */
+  .gallery-input {
+    width: 100%;
+    padding: var(--space-3) 0;
+    background-color: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--color-border);
+    border-radius: 0;
     color: var(--color-text);
     font-size: var(--text-base);
     font-family: var(--font-mono, monospace);
-    transition: border-color var(--transition-fast);
   }
 
   .gallery-input:focus {
     outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-accent-ring);
   }
 
-  @media (max-width: 360px) {
+  /* Focus micro-interaction: an accent line draws in left-to-right over the
+     always-visible base underline, instead of an instant color swap — a
+     small "sharper" flourish per the animation brief. */
+  .field-focus-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1.5px;
+    height: 1.5px;
+    background-color: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .gallery-input:focus + .field-focus-line {
+    transform: scaleX(1);
+  }
+
+  /* Stack input above button whenever the panel itself renders narrower
+     than ~520px — covers both full-width mobile panels and the panel's
+     ~40% column at the md two-column split, where side-by-side leaves the
+     underline input too narrow for its placeholder and clips the text. */
+  @container (max-width: 520px) {
     .input-group {
       flex-direction: column;
+      align-items: stretch;
+    }
+
+    .field {
+      flex: none;
+      width: 100%;
     }
 
     .gallery-btn {
@@ -194,20 +450,25 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   }
 
   .gallery-btn {
+    flex: none;
     padding: var(--space-3) var(--space-5);
     background-color: var(--color-accent);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-full);
     color: var(--color-bg);
     font-size: var(--text-base);
     font-weight: var(--font-semibold);
     cursor: pointer;
     white-space: nowrap;
-    transition: background-color var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
   }
 
   .gallery-btn:hover {
     background-color: var(--color-accent-hover);
+  }
+
+  .gallery-btn:active {
+    transform: scale(var(--press-scale));
   }
 
   .input-hint {
@@ -218,26 +479,108 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     margin: 0;
   }
 
-  /* Admin link */
+  /* Admin link: deliberately understated and pinned to the panel's
+     bottom so it never competes with the gallery-access CTA above it. */
   .admin-link-wrap {
-    text-align: center;
+    margin-top: var(--space-8);
   }
 
   .admin-link {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-height: 44px;
-    padding: var(--space-2) var(--space-4);
+    gap: var(--space-1);
+    min-height: var(--tap-target-min);
+    padding: var(--space-2) 0;
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: color var(--transition-fast);
+    transition: color var(--transition-fast), gap var(--transition-fast);
   }
 
   .admin-link:hover {
     color: var(--color-accent);
+    gap: var(--space-2);
+  }
+
+  @keyframes home-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Blur-to-focus: the wordmark resolves into sharpness rather than just
+     fading in, the one deliberately "designed" hero moment on this page
+     (see brief: exactly one such moment, not one per element). */
+  @keyframes home-wordmark-reveal {
+    from {
+      opacity: 0;
+      filter: blur(16px);
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes home-glow-reveal {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Idle "breathing" once the entrance has settled — transform/opacity
+     only, cheap to run indefinitely. */
+  @keyframes home-glow-breathe {
+    from {
+      transform: scale(1);
+      opacity: 1;
+    }
+    to {
+      transform: scale(1.035);
+      opacity: 0.85;
+    }
+  }
+
+  @keyframes home-grain-reveal {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 0.05;
+    }
+  }
+
+  @keyframes home-panel-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Same entrance, but slides in from the side it visually sits on once the
+     md two-column split puts it beside the hero instead of below it. */
+  @keyframes home-panel-reveal-side {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
   /* Screen-reader only */
