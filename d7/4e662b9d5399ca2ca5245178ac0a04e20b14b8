@@ -1,0 +1,20 @@
+apps/web/src/components/admin/AlbumFormModal.tsx
+  h_45c23cf41d175e 423-426
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 115,130-131,142-145,269-271
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 216-219,287-289,352,378-381
+packages/sanity/schemas/album.ts
+  h_45c23cf41d175e 44,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d74e662b9d5399ca2ca5245178ac0a04e20b14b8",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
