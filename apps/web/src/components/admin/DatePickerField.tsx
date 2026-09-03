@@ -125,8 +125,10 @@ export function buildMonthGrid(
  * and behaves consistently across browsers, instead of relying on the OS's
  * own (visually inconsistent, sometimes hard-to-discover) date widget.
  *
- * Disabled days (`min`) are greyed out directly in the grid, reinforcing the
- * "no past dates" rule visually rather than only via an invisible attribute.
+ * `min` is optional and unused for the event date (weddings are commonly
+ * proofed after they already happened, so past dates must stay pickable);
+ * it exists only so a future caller with an actual lower-bound requirement
+ * doesn't have to re-add this plumbing from scratch.
  */
 export function DatePickerField({ id, value, onChange, min }: DatePickerFieldProps) {
   const shouldReduceMotion = useReducedMotion();

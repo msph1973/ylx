@@ -198,11 +198,6 @@ function validateCreateAlbumBody(body: Record<string, unknown>): { error: string
     return { error: "driveFolderId/photos are only allowed when storageType is 'drive'" };
   }
 
-  // Compare in local timezone.
-  const today = new Date().toLocaleDateString("en-CA");
-  if (eventDate < today) {
-    return { error: "Event date cannot be in the past" };
-  }
   return { value: { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName: vendorName.trim(), storageType, driveFolderId, photos } };
 }
 
