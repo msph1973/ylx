@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { isValidInviteEmail } from "@ylx/shared";
 import { sanityClient, sanityWriteClient } from "../client";
 
 const ADMIN_ROLES = ["superadmin", "vendor"] as const;
@@ -181,7 +182,6 @@ export async function createAdmin(data: {
   }
 }
 
-const INVITE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VENDOR_NAME_MAX_LENGTH = 80;
 
 // Invite-only vendor onboarding (S2 multitenant): creates an `admin` doc
@@ -197,7 +197,7 @@ export async function createInvitedVendor(data: {
   invitedBy: string;
 }): Promise<Omit<AdminUser, "password"> | null> {
   const email = data.email.trim().toLowerCase();
-  if (!INVITE_EMAIL_PATTERN.test(email)) {
+  if (!isValidInviteEmail(email)) {
     throw new Error("Invalid email format");
   }
 

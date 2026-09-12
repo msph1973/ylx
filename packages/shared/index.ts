@@ -16,6 +16,7 @@ export type {
 } from "./types/realtime.js";
 
 export { validatePin } from "./utils/pin.js";
+export { isValidInviteEmail } from "./utils/email.js";
 
 export { DRIVE_STORAGE, SANITY_STORAGE, STORAGE_TYPES, isStorageType } from "./types/storage.js";
 export type { StorageType } from "./types/storage.js";

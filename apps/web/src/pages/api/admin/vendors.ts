@@ -4,12 +4,12 @@ import {
   getAdminByEmail,
   listVendors,
 } from "@ylx/sanity/lib/admin";
+import { isValidInviteEmail } from "@ylx/shared";
 import { sanityWriteClient } from "@ylx/sanity/client";
 import { validateBrand } from "../../../lib/brand";
 import { requireSuperAdmin } from "../../../lib/auth";
 import { captureError } from "../../../lib/errorTracking";
 
-const INVITE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VENDOR_NAME_MAX_LENGTH = 80;
 
 function json(body: unknown, status: number): Response {
@@ -65,7 +65,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     const { email, name } = rawBody as Record<string, unknown>;
 
-    if (typeof email !== "string" || !INVITE_EMAIL_PATTERN.test(email.trim().toLowerCase())) {
+    if (typeof email !== "string" || !isValidInviteEmail(email.trim().toLowerCase())) {
       return json({ error: "Valid email is required" }, 400);
     }
     if (typeof name !== "string" || name.trim().length === 0) {
@@ -126,7 +126,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     }
 
     const { email, brand } = rawBody as Record<string, unknown>;
-    if (typeof email !== "string" || !INVITE_EMAIL_PATTERN.test(email.trim().toLowerCase())) {
+    if (typeof email !== "string" || !isValidInviteEmail(email.trim().toLowerCase())) {
       return json({ error: "Valid email is required" }, 400);
     }
     if (typeof brand !== "object" || brand === null || Array.isArray(brand)) {
