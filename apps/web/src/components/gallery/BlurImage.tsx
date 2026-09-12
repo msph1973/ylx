@@ -6,6 +6,9 @@ interface BlurImageProps {
   lqip?: string | null;
   className?: string;
   loading?: 'lazy' | 'eager';
+  /** Priority hint for the current/above-fold image (e.g. lightbox, eager tile).
+   *  Undefined by default so below-fold tiles keep the browser default. */
+  fetchPriority?: 'high' | 'low' | 'auto';
   /** Responsive candidates (e.g. "url400 1x, url800 2x"). When set, the browser
    *  picks the right density/width so retina screens aren't served a soft image. */
   srcSet?: string;
@@ -23,7 +26,7 @@ interface BlurImageProps {
  * is what makes the blur-up actually show — an opacity:0 <img> would also hide
  * its own background. Falls back to a plain fade-in when no LQIP is present.
  */
-export const BlurImage = React.memo(function BlurImage({ src, alt, lqip, className, loading = 'lazy', srcSet, sizes, draggable, onTouchStart, onTouchEnd, onTouchCancel }: BlurImageProps) {
+export const BlurImage = React.memo(function BlurImage({ src, alt, lqip, className, loading = 'lazy', fetchPriority, srcSet, sizes, draggable, onTouchStart, onTouchEnd, onTouchCancel }: BlurImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
   const ref = useRef<HTMLImageElement>(null);
@@ -55,6 +58,7 @@ export const BlurImage = React.memo(function BlurImage({ src, alt, lqip, classNa
         sizes={sizes}
         alt={alt}
         loading={loading}
+        fetchPriority={fetchPriority}
         decoding="async"
         draggable={draggable}
         // On error there's no `onLoad` to reveal the tile, so it would otherwise

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlbumCard, ALBUM_CARD_STYLES, type AlbumCardData } from './AlbumCard';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useAdminRealtime } from '@/hooks/useAdminRealtime';
@@ -241,6 +241,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
   ];
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className="album-list-wrap">
       <div className="list-toolbar">
         <div className="toolbar-primary">
@@ -293,7 +294,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
 
       <AnimatePresence>
         {selectionMode && (
-          <motion.div
+          <m.div
             className="selection-bar"
             initial={shouldReduceMotion ? {} : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -321,7 +322,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
               </svg>
               Delete{selectedCount > 0 ? ` (${selectedCount})` : ''}
             </button>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -348,7 +349,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
           <div className="album-list">
             <AnimatePresence mode="popLayout">
               {paginatedAlbums.map((album) => (
-                <motion.div
+                <m.div
                   key={album.id}
                   layout
                   initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
@@ -363,7 +364,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
                     selected={selectedIds.has(album.id)}
                     onToggleSelect={toggleSelect}
                   />
-                </motion.div>
+                </m.div>
               ))}
             </AnimatePresence>
           </div>
@@ -723,5 +724,6 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
           comment on ALBUM_CARD_STYLES for why. */}
       <style>{ALBUM_CARD_STYLES}</style>
     </div>
+    </LazyMotion>
   );
 });

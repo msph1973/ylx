@@ -3,6 +3,7 @@ import { motion, type Variants } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 import { MAX_TEXT_LENGTH } from '@ylx/sanity/lib/constants';
+import { BlurImage } from '@/components/gallery/BlurImage';
 
 // Notes can be up to MAX_TEXT_LENGTH (500) chars — unclamped they blow the
 // row height apart. Clamp to 2 lines and only offer the expand toggle when
@@ -103,7 +104,15 @@ export function SelectionRow({ selection, variants, onSaveReply }: SelectionRowP
     >
       <span className="col-thumb" role="cell">
         {thumbnailUrl ? (
-          <img className="thumb" src={thumbnailUrl} alt="" loading="lazy" draggable={false} />
+          <BlurImage
+            className="thumb"
+            src={thumbnailUrl}
+            alt=""
+            lqip={selection.photo.lqip}
+            srcSet={selection.photo.thumbnailSrcSet ?? undefined}
+            loading="lazy"
+            draggable={false}
+          />
         ) : (
           <span className="thumb thumb-placeholder" aria-hidden="true" />
         )}

@@ -210,8 +210,11 @@ export function PhotoLightbox({
           key={photo.id}
           className="lightbox-img"
           src={photo.url}
+          srcSet={photo.thumbnailSrcSet ?? undefined}
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
           lqip={photo.lqip}
           loading="eager"
+          fetchPriority="high"
           alt={`Photo ${currentIndex + 1} of ${photos.length}: ${photo.filename}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}

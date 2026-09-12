@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface ConfirmDialogProps {
@@ -43,9 +43,10 @@ export function ConfirmDialog({
   }, [isBusy, onCancel]);
 
   return (
+    <LazyMotion features={domAnimation}>
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           className="confirm-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -54,7 +55,7 @@ export function ConfirmDialog({
           onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}
           onKeyDown={(e) => { if (e.key === 'Escape') handleCancel(); }}
         >
-          <motion.div
+          <m.div
             ref={dialogRef}
             className="confirm-dialog"
             role="dialog"
@@ -91,7 +92,7 @@ export function ConfirmDialog({
                 {isBusy ? (busyLabel ?? confirmLabel) : confirmLabel}
               </button>
             </div>
-          </motion.div>
+          </m.div>
 
           <style>{`
             .confirm-backdrop {
@@ -218,8 +219,9 @@ export function ConfirmDialog({
               }
             }
           `}</style>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
+    </LazyMotion>
   );
 }

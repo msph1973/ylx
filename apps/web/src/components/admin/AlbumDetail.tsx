@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { AlbumWithSelections, Photo } from '@ylx/shared';
 import { DRIVE_STORAGE, formatDate } from '@ylx/shared';
 import { SelectionTable } from './SelectionTable';
@@ -639,8 +639,9 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
   const isActive = album.status === 'active';
 
   return (
+    <LazyMotion features={domAnimation}>
     <AnimatePresence mode="wait">
-      <motion.div
+      <m.div
         key="album-detail"
         className="album-detail"
         initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}
@@ -1586,7 +1587,8 @@ export function AlbumDetail({ albumId, onBack, onDeleted, onUpdated }: AlbumDeta
             }
           }
         `}</style>
-      </motion.div>
+      </m.div>
     </AnimatePresence>
+    </LazyMotion>
   );
 }

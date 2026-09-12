@@ -142,6 +142,7 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
           lqip={photo.lqip}
           loading={isAboveFold ? 'eager' : 'lazy'}
+          fetchPriority={isAboveFold ? 'high' : undefined}
           alt={`Photo ${index + 1} of ${totalPhotos}`}
         />
         <AnimatePresence initial={false}>

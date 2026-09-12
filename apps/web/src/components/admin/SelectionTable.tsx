@@ -162,6 +162,23 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
 
         .thumb-placeholder { background-color: var(--color-surface-elevated); }
 
+        .thumb.blur-wrap {
+          background-size: cover;
+          background-position: center;
+        }
+
+        .thumb.blur-wrap .blur-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0;
+          transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .thumb.blur-wrap .blur-img.loaded {
+          opacity: 1;
+        }
+
         .filename {
           font-family: var(--font-mono);
           font-size: var(--text-sm);
@@ -226,7 +243,8 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
         }
 
         .reply-btn {
-          min-height: 32px;
+          min-height: var(--tap-target-min);
+          min-width: var(--tap-target-min);
           padding: var(--space-1) var(--space-2);
           background: none;
           border: 1px solid var(--color-border);
@@ -267,7 +285,8 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
 
         .reply-save,
         .reply-cancel {
-          min-height: 32px;
+          min-height: var(--tap-target-min);
+          min-width: var(--tap-target-min);
           padding: var(--space-1) var(--space-2);
           border-radius: var(--radius-sm);
           font-size: var(--text-xs);

@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { resizeImageInWorker } from '../../lib/imageResizeClient';
 import { runWithConcurrency } from '../../lib/concurrency';
 import {
@@ -407,6 +406,7 @@ export default function UploadPage() {
     : 0;
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className="upload-page">
       <div className="upload-header">
         <h2>Upload Photos</h2>
@@ -536,7 +536,7 @@ export default function UploadPage() {
           <div className="file-list">
             <AnimatePresence>
               {files.map((uploadFile) => (
-                <motion.div
+                <m.div
                   key={uploadFile.id}
                   className={`file-item ${uploadFile.status}`}
                   initial={shouldReduceMotion ? {} : { opacity: 0, height: 0 }}
@@ -592,7 +592,7 @@ export default function UploadPage() {
                       </>
                     )}
                   </div>
-                </motion.div>
+                </m.div>
               ))}
             </AnimatePresence>
           </div>
@@ -1084,5 +1084,6 @@ export default function UploadPage() {
         }
       `}</style>
     </div>
+    </LazyMotion>
   );
 }

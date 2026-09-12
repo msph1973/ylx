@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 interface DatePickerFieldProps {
   id: string;
@@ -276,6 +276,7 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
   };
 
   return (
+    <LazyMotion features={domAnimation}>
     <div
       className="dp-wrapper"
       ref={wrapperRef}
@@ -311,7 +312,7 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             className={flipUp ? 'dp-popover dp-popover-up' : 'dp-popover'}
             role="dialog"
             aria-label="Choose a date"
@@ -362,7 +363,7 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
                 </button>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -514,5 +515,6 @@ export function DatePickerField({ id, value, onChange, min }: DatePickerFieldPro
         }
       `}</style>
     </div>
+    </LazyMotion>
   );
 }
