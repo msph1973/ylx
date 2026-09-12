@@ -6,6 +6,7 @@ import {
 } from "@ylx/sanity/lib/admin";
 import { isValidInviteEmail } from "@ylx/shared";
 import { sanityWriteClient } from "@ylx/sanity/client";
+import { CACHE_KEYS, invalidateCache } from "../../../lib/cache";
 import { validateBrand } from "../../../lib/brand";
 import { requireSuperAdmin } from "../../../lib/auth";
 import { captureError } from "../../../lib/errorTracking";
@@ -47,6 +48,12 @@ export const GET: APIRoute = async ({ cookies }) => {
 };
 
 export const POST: APIRoute = async ({ request, cookies }) => {
+  // Auth boundary first: unauthenticated callers never reach body parsing.
+  const earlySession = await requireSuperAdmin(cookies);
+  if (!earlySession) {
+    return json({ error: "Forbidden" }, 403);
+  }
+
   let rawBody: unknown;
   try {
     rawBody = await request.json();
@@ -58,11 +65,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   try {
-    const session = await requireSuperAdmin(cookies);
-    if (!session) {
-      return json({ error: "Forbidden" }, 403);
-    }
-
+    const session = earlySession;
     const { email, name } = rawBody as Record<string, unknown>;
 
     if (typeof email !== "string" || !isValidInviteEmail(email.trim().toLowerCase())) {
@@ -109,6 +112,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 // Body: { email: string, brand: { logoUrl?: string, accentColor?: string } }.
 // Provided fields replace the whole brand object (empty object clears it).
 export const PUT: APIRoute = async ({ request, cookies }) => {
+  // Auth boundary first: unauthenticated callers never reach body parsing.
+  const earlySession = await requireSuperAdmin(cookies);
+  if (!earlySession) {
+    return json({ error: "Forbidden" }, 403);
+  }
+
   let rawBody: unknown;
   try {
     rawBody = await request.json();
@@ -120,11 +129,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
   }
 
   try {
-    const session = await requireSuperAdmin(cookies);
-    if (!session) {
-      return json({ error: "Forbidden" }, 403);
-    }
-
+    const session = earlySession;
     const { email, brand } = rawBody as Record<string, unknown>;
     if (typeof email !== "string" || !isValidInviteEmail(email.trim().toLowerCase())) {
       return json({ error: "Valid email is required" }, 400);
@@ -153,6 +158,19 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     if (logoUrl !== undefined) nextBrand.logoUrl = logoUrl;
     if (accentColor !== undefined) nextBrand.accentColor = accentColor;
     await sanityWriteClient.patch(doc._id).set({ brand: nextBrand }).commit();
+
+    // Brand renders server-side in galleries (cached per slug): bust every
+    // gallery cache entry for this vendor's albums so the new brand shows
+    // without waiting for TTL expiry.
+    const slugs = await sanityWriteClient.fetch<{ slug?: { current: string }; customSlug?: string }[]>(
+      `*[_type == "album" && owner._ref == $ownerId]{ slug, customSlug }`,
+      { ownerId: doc._id }
+    );
+    await invalidateCache([
+      ...slugs.flatMap((a) =>
+        [a.slug?.current, a.customSlug].filter((s): s is string => typeof s === "string" && s.length > 0)
+      ).map((s) => CACHE_KEYS.albumBySlug(s)),
+    ]);
 
     return json({ success: true }, 200);
   } catch (err) {

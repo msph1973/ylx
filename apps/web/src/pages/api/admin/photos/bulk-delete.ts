@@ -130,8 +130,10 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("photo:deleted", { albumId, photoIds: uniquePhotoIds }),
-      ...(selectionIds.length > 0 ? [publishAdminEvent("selection:changed", { albumId })] : []),
+      publishAdminEvent("photo:deleted", { albumId, photoIds: uniquePhotoIds }, album?.owner?._ref),
+      ...(selectionIds.length > 0
+        ? [publishAdminEvent("selection:changed", { albumId }, album?.owner?._ref)]
+        : []),
       publishAlbumEvent(albumId, "photo:deleted", { photoIds: uniquePhotoIds }),
     ]);
 

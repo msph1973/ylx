@@ -1,13 +1,14 @@
 import type { APIRoute } from "astro";
 import { createAdmin } from "@ylx/sanity/lib/admin";
-import { requireAdmin } from "../../../lib/auth";
+import { requireSuperAdmin } from "../../../lib/auth";
 import { captureError } from "../../../lib/errorTracking";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  // Admin-only, unconditionally (REVIEW.md §2.1 — no auth bypass on this route).
-  // The first admin is seeded out-of-band via scripts/seed-admin.mjs (CLI), so
-  // there is no chicken-and-egg problem and this endpoint stays fully guarded.
-  if (!(await requireAdmin(cookies))) {
+  // Superadmin-only, unconditionally (REVIEW.md §2.1 — no auth bypass here).
+  // S2: requireAdmin also admits vendors, who must never mint accounts
+  // (they could grant themselves superadmin). The first superadmin is seeded
+  // out-of-band via scripts/seed-admin.mjs (CLI), so no chicken-and-egg.
+  if (!(await requireSuperAdmin(cookies))) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

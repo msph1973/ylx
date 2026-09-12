@@ -122,7 +122,7 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     ]);
 
     await Promise.all([
-      publishAdminEvent("album:updated", { albumId, action: "reorder-photos" }),
+      publishAdminEvent("album:updated", { albumId, action: "reorder-photos" }, album.owner?._ref),
       publishAlbumEvent(albumId, "album:updated", { action: "reorder-photos" }),
     ]);
 

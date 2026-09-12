@@ -92,7 +92,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     await publishAdminEvent("selection:replied", {
       albumId: selection.albumId,
       selectionId,
-    });
+    }, selection.ownerRef ?? undefined
+    );
     // Admin-only `gallery/[slug]/selections.ts` GET caches this album's
     // selections (15s/60s SWR) — without invalidating, a saved reply can
     // appear stale to whoever is viewing that endpoint.

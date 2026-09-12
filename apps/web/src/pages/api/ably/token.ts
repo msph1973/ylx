@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import Ably from "ably";
 import { requireAdmin } from "../../../lib/auth";
+import { adminOwnerChannel } from "../../../lib/ably";
 import { hasAlbumAccess } from "../../../lib/gallerySession";
 
 // Mints a short-lived, subscribe-only Ably token for the browser so the full
@@ -36,8 +37,17 @@ export const GET: APIRoute = async ({ cookies, url }) => {
     capability[`album:${albumId}`] = ["subscribe"];
   }
 
-  if (await requireAdmin(cookies)) {
-    capability["admin:updates"] = ["subscribe"];
+  // S2 tenant isolation: superadmins keep the global channel; vendors get
+  // only their owner-scoped channel so rival activity (album ids, actions)
+  // never reaches another tenant. ownerId is server-issued (HMAC session),
+  // charset-validated before interpolation like albumId above.
+  const adminSession = await requireAdmin(cookies);
+  if (adminSession) {
+    if (adminSession.role === "superadmin") {
+      capability["admin:updates"] = ["subscribe"];
+    } else if (/^[A-Za-z0-9_.-]+$/.test(adminSession.ownerId)) {
+      capability[adminOwnerChannel(adminSession.ownerId)] = ["subscribe"];
+    }
   }
 
   // Ably itself rejects a token-request exchange with an empty capability,

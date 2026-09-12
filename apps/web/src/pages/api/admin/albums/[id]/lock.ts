@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       ...(existing.customSlug ? [CACHE_KEYS.albumBySlug(existing.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("album:locked", { albumId }),
+      publishAdminEvent("album:locked", { albumId }, existing.owner?._ref),
       publishAlbumEvent(albumId, "album:locked"),
     ]);
 

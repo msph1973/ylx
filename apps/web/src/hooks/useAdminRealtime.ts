@@ -1,8 +1,23 @@
 import { useEffect, useRef } from "react";
 import type Ably from "ably";
-import { getAblyClient } from "@/lib/ably";
+import { adminOwnerChannel, getAblyClient } from "@/lib/ably";
 
 const ADMIN_CHANNEL_NAME = "admin:updates";
+
+// S2 tenant isolation: resolve which admin channel this browser may hear.
+// Superadmins keep the global channel; vendors get their owner-scoped one.
+// Fail closed (null): without a proven role the dashboard works without
+// realtime rather than risking rival activity leaking across tenants.
+async function resolveAdminChannel(): Promise<string | null> {
+  const res = await fetch("/api/auth/session", { credentials: "same-origin" });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { role?: unknown; ownerId?: unknown };
+  if (body.role === "superadmin") return ADMIN_CHANNEL_NAME;
+  if (body.role === "vendor" && typeof body.ownerId === "string" && /^[A-Za-z0-9_.-]+$/.test(body.ownerId)) {
+    return adminOwnerChannel(body.ownerId);
+  }
+  return null;
+}
 
 export function useAdminRealtime(onUpdate: () => void): void {
   // Read the latest callback from a ref instead of putting `onUpdate` in the
@@ -22,7 +37,13 @@ export function useAdminRealtime(onUpdate: () => void): void {
       ably = await getAblyClient();
       if (cancelled) return;
 
-      channel = ably.channels.get(ADMIN_CHANNEL_NAME);
+      const channelName = await resolveAdminChannel();
+      if (cancelled) return;
+      if (channelName === null) {
+        console.warn("[AdminRealtime] no admin session for realtime; continuing without it");
+        return;
+      }
+      channel = ably.channels.get(channelName);
 
       handler = () => {
         onUpdateRef.current();
@@ -56,9 +77,11 @@ export function useAdminRealtime(onUpdate: () => void): void {
       // too since the admin dashboard can stay mounted for a long session.
       if (ably) {
         try {
-          ably.channels.release(ADMIN_CHANNEL_NAME);
+          // Release our own channel instance, not a fixed name: vendors
+          // listen on their owner channel, superadmins on the global one.
+          if (channel) ably.channels.release(channel.name);
         } catch (err) {
-          console.warn(`[AdminRealtime] failed to release channel "${ADMIN_CHANNEL_NAME}":`, err);
+          console.warn(`[AdminRealtime] failed to release channel "${channel?.name}":`, err);
         }
       }
     };

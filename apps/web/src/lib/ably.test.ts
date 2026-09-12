@@ -78,4 +78,24 @@ describe("publishAdminEvent / publishAlbumEvent (server-side publish)", () => {
 
     expect(restConstructorMock).toHaveBeenCalledTimes(1);
   });
+
+  it("fans out to the owner channel without dropping the global one", async () => {
+    const { publishAdminEvent } = await import("./ably");
+
+    await publishAdminEvent("album:updated", { albumId: "a1" }, "admin.v1");
+
+    expect(channelsGetMock).toHaveBeenCalledWith("admin:updates");
+    expect(channelsGetMock).toHaveBeenCalledWith("admin:admin.v1");
+    expect(publishMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("dedupes an owner channel equal to the global name input", async () => {
+    const { publishAdminEvent } = await import("./ably");
+
+    await publishAdminEvent("album:updated", { albumId: "a1" }, ["admin.v1", "admin.v1"]);
+
+    const calls = channelsGetMock.mock.calls as unknown as Array<[string]>;
+    const adminCalls = calls.filter(([c]) => c === "admin:admin.v1");
+    expect(adminCalls).toHaveLength(1);
+  });
 });

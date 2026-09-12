@@ -152,7 +152,7 @@ expect(cacheSetRawMock).toHaveBeenCalledWith(
     expect(publishAdminEventMock).toHaveBeenCalledWith("draft:progress", {
       albumId: "album-1",
       count: 7,
-    });
+    }, undefined);
   });
 
   it.each([

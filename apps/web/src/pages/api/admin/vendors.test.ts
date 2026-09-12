@@ -6,6 +6,8 @@ const listVendorsMock = vi.fn();
 const createInvitedVendorMock = vi.fn();
 const getAdminByEmailMock = vi.fn();
 const sanityPatchMock = vi.fn();
+const sanityFetchMock = vi.fn();
+const invalidateCacheMock = vi.fn();
 const captureErrorMock = vi.fn();
 
 vi.mock("../../../lib/auth", () => ({
@@ -25,6 +27,13 @@ vi.mock("@ylx/sanity/lib/admin", () => ({
 vi.mock("@ylx/sanity/client", () => ({
   sanityWriteClient: {
     patch: (...args: unknown[]) => sanityPatchMock(...args),
+    fetch: (...args: unknown[]) => sanityFetchMock(...args),
+  },
+}));
+vi.mock("../../../lib/cache", () => ({
+  invalidateCache: (...args: unknown[]) => invalidateCacheMock(...args),
+  CACHE_KEYS: {
+    albumBySlug: (slug: string) => `cache:gallery:album:${slug}`,
   },
 }));
 vi.mock("../../../lib/errorTracking", () => ({
@@ -53,6 +62,8 @@ beforeEach(() => {
   listVendorsMock.mockReset().mockResolvedValue([]);
   createInvitedVendorMock.mockReset();
   getAdminByEmailMock.mockReset();
+  sanityFetchMock.mockReset().mockResolvedValue([]);
+  invalidateCacheMock.mockReset().mockResolvedValue(undefined);
   sanityPatchMock.mockReset().mockImplementation(() => ({
     set: () => ({ commit: () => Promise.resolve({ _id: "admin.aaa" }) }),
   }));
@@ -180,6 +191,7 @@ describe("PUT /api/admin/vendors (brand)", () => {
     );
     expect(res.status).toBe(200);
     expect(sanityPatchMock).toHaveBeenCalledWith("admin.aaa");
+    expect(invalidateCacheMock).toHaveBeenCalled();
   });
 
   it("returns 400 for a non-hex accent", async () => {

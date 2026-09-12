@@ -11,7 +11,8 @@ import { getCached, CACHE_KEYS } from "../../../../lib/cache";
 // under the `gallery/[slug]` route — the admin dashboard uses it to poll a
 // single album's selections.
 export const GET: APIRoute = async ({ params, cookies }) => {
-  if (!(await requireAdmin(cookies))) {
+  const session = await requireAdmin(cookies);
+  if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -31,6 +32,23 @@ export const GET: APIRoute = async ({ params, cookies }) => {
   const album = await sanityClient.fetch(albumBySlugQuery, { slug });
 
   if (!album) {
+    return new Response(JSON.stringify({ error: "Album not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // S2 tenant isolation: vendors only poll their own albums (404, not 403).
+  // albumBySlugQuery projects owner->{_id,...}; ownerless legacy albums
+  // are superadmin-only.
+  const albumOwnerId =
+    album.owner !== null &&
+    typeof album.owner === "object" &&
+    "_id" in album.owner &&
+    typeof album.owner._id === "string"
+      ? album.owner._id
+      : undefined;
+  if (session.role !== "superadmin" && albumOwnerId !== session.ownerId) {
     return new Response(JSON.stringify({ error: "Album not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },

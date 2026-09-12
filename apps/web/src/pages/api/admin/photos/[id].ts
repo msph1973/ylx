@@ -112,8 +112,10 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("photo:deleted", { photoId, albumId }),
-      ...(selectionIds.length > 0 ? [publishAdminEvent("selection:changed", { albumId })] : []),
+      publishAdminEvent("photo:deleted", { photoId, albumId }, album?.owner?._ref),
+      ...(selectionIds.length > 0
+        ? [publishAdminEvent("selection:changed", { albumId }, album?.owner?._ref)]
+        : []),
       ...(albumId ? [publishAlbumEvent(albumId, "photo:deleted", { photoId })] : []),
     ]);
 

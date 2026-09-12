@@ -2,6 +2,10 @@
 export const prerender = true;
 
 import BaseLayout from "../../layouts/BaseLayout.astro";
+
+// Public OAuth client ID (not a secret). Absent until the deploy sets it —
+// the Google section hides itself and password login keeps working.
+const googleClientId = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID as string | undefined;
 ---
 
 <BaseLayout title="Admin Login">
@@ -40,8 +44,15 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
         <button type="submit" class="login-btn">Sign In</button>
       </form>
+
+      {googleClientId && (
+        <div class="google-separator" aria-hidden="true"><span>or</span></div>
+        <div id="google-btn" data-client-id={googleClientId}></div>
+      )}
     </div>
   </main>
+
+  <script is:inline src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
     .login-page {
@@ -140,6 +151,25 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       opacity: 0.5;
       cursor: not-allowed;
     }
+    .google-separator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0 12px;
+      color: var(--color-text-muted);
+      font-size: 0.85rem;
+    }
+    .google-separator::before,
+    .google-separator::after {
+      content: "";
+      flex: 1;
+      border-top: 1px solid var(--color-border);
+    }
+    #google-btn {
+      display: flex;
+      justify-content: center;
+      min-height: 44px;
+    }
   </style>
 
   <script>
@@ -180,5 +210,78 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         submitBtn.textContent = "Sign In";
       }
     });
+    // Google Identity Services for invited vendors (S2). The button
+    // container only exists when PUBLIC_GOOGLE_CLIENT_ID is set.
+    const googleBtn = document.getElementById("google-btn");
+    if (googleBtn) {
+      interface GoogleCredentialResponse {
+        credential: string;
+      }
+      interface GoogleAccounts {
+        accounts: {
+          id: {
+            initialize(options: {
+              client_id: string;
+              callback: (response: GoogleCredentialResponse) => void;
+            }): void;
+            renderButton(element: HTMLElement, options: Record<string, string>): void;
+          };
+        };
+      }
+      const waitForGis = (): Promise<GoogleAccounts> =>
+        new Promise((resolve, reject) => {
+          const deadline = Date.now() + 10000;
+          const tick = (): void => {
+            const g = (window as unknown as { google?: GoogleAccounts }).google;
+            if (g) {
+              resolve(g);
+              return;
+            }
+            if (Date.now() > deadline) {
+              reject(new Error("GIS unavailable"));
+              return;
+            }
+            window.setTimeout(tick, 100);
+          };
+          tick();
+        });
+      waitForGis()
+        .then((g) => {
+          g.accounts.id.initialize({
+            client_id: googleBtn.dataset.clientId ?? "",
+            callback: (response: GoogleCredentialResponse) => {
+              void (async (): Promise<void> => {
+                errorMessage.textContent = "";
+                try {
+                  const googleRes = await fetch("/api/auth/google", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ idToken: response.credential }),
+                  });
+                  if (!googleRes.ok) {
+                    const data = (await googleRes.json()) as { error?: string };
+                    errorMessage.textContent = data.error ?? "Google sign-in failed";
+                    return;
+                  }
+                  window.location.href = "/admin";
+                } catch {
+                  errorMessage.textContent = "Network error. Please try again.";
+                }
+              })();
+            },
+          });
+          g.accounts.id.renderButton(googleBtn, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            text: "signin_with",
+            shape: "rectangular",
+            logo_alignment: "left",
+          });
+        })
+        .catch(() => {
+          googleBtn.textContent = "Google sign-in unavailable — use email + password.";
+        });
+    }
   </script>
 </BaseLayout>

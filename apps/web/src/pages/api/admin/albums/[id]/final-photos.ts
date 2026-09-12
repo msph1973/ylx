@@ -307,7 +307,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
           ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
         ]);
         await Promise.all([
-          publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }),
+          publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }, album.owner?._ref),
           publishAlbumEvent(albumId, "finalPhoto:uploaded", { photoId, filename }),
         ]);
       }
@@ -367,7 +367,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }),
+      publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }, album.owner?._ref),
       publishAlbumEvent(albumId, "finalPhoto:uploaded", { photoId, filename }),
     ]);
 
@@ -505,7 +505,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("finalPhoto:deleted", { albumId, photoId }),
+      publishAdminEvent("finalPhoto:deleted", { albumId, photoId }, album.owner?._ref),
       publishAlbumEvent(albumId, "finalPhoto:deleted", { photoId }),
     ]);
 

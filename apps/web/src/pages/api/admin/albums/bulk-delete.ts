@@ -85,7 +85,10 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       ...slugs.map((slug) => CACHE_KEYS.albumBySlug(slug)),
     ]);
     // A single realtime event lets every open dashboard refetch once.
-    await publishAdminEvent("album:deleted", { albumIds: ids });
+    // S2: fan out to each affected owner's channel (mixed-owner batches are
+    // superadmin-only; vendors always batch a single owner — their own).
+    const ownerIds = [...new Set(albums.map((a) => a.owner?._ref).filter((o): o is string => typeof o === "string"))];
+    await publishAdminEvent("album:deleted", { albumIds: ids }, ownerIds);
 
     return new Response(
       JSON.stringify({ success: true, deleted: ids.length }),

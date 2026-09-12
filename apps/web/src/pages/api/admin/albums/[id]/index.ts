@@ -427,7 +427,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       // Notify open admin dashboards so they refetch. publishAdminEvent never
       // throws (failures are logged inside), so an already-committed update
       // can't turn into a 500 here.
-      await publishAdminEvent("album:updated", { albumId });
+      await publishAdminEvent("album:updated", { albumId }, existingAlbum.owner?._ref);
 
       return new Response(
         JSON.stringify({
@@ -502,10 +502,12 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
 
     // Tenant guard (S2): vendors cannot delete another vendor's album.
     // 404 (not 403) so foreign ids are indistinguishable from missing ones.
-    // A missing album still falls through to the cascade below (existing
-    // behavior for idempotent deletes); only a present-but-foreign album
-    // is rejected here.
-    if (album && session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
+    // A missing album falls through to the cascade below ONLY for
+    // superadmins (existing idempotent-delete behavior, e.g. retry after a
+    // partial cleanup). Vendors get 404 on a miss: orphan selections or
+    // photos left under that id cannot be attributed to any owner, so no
+    // vendor may cascade-delete through them.
+    if (session.role !== "superadmin" && album?.owner?._ref !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
@@ -521,7 +523,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
-    await publishAdminEvent("album:deleted", { albumId });
+    await publishAdminEvent("album:deleted", { albumId }, album?.owner?._ref);
 
     return new Response(
       JSON.stringify({ success: true }),

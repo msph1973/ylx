@@ -11,17 +11,18 @@ import {
 } from "@ylx/sanity/lib/queries";
 import { MAX_TEXT_LENGTH } from "@ylx/sanity/lib/constants";
 import { captureError } from "../../../../lib/errorTracking";
-
 interface SubmitAlbum {
   _id: string;
   _rev: string;
+  // Projected by albumBySlugQuery; routes the admin event to the owning
+  // vendor's channel (S2). Absent on pre-S2 cached payloads.
+  owner?: { _id: string };
   title: string;
   clientName: string;
   status: string;
   maxSelections: number;
   photos?: { _id: string }[];
 }
-
 export const POST: APIRoute = async ({ params, request, cookies }) => {
   const slug = params.slug;
   if (!slug) {
@@ -276,7 +277,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   await publishAdminEvent("submission:received", {
     albumId: album._id,
     count: uniquePhotoIds.length,
-  });
+  }, album.owner?._id);
 
   // Email the admin(s) too (ROADMAP #1). notifyAdminsOfSubmission is designed
   // to be the same no-throw shape as publishAdminEvent (missing config is a

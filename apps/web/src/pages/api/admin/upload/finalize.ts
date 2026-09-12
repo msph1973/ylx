@@ -281,7 +281,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       ...(albumData.slug?.current ? [CACHE_KEYS.albumBySlug(albumData.slug.current)] : []),
       ...(albumData.customSlug ? [CACHE_KEYS.albumBySlug(albumData.customSlug)] : []),
     ]);
-    await publishAdminEvent("photo:uploaded", { photoId, filename });
+    await publishAdminEvent("photo:uploaded", { photoId, filename }, albumOwnerRef);
 
     return new Response(
       JSON.stringify({ success: true, photoId }),
