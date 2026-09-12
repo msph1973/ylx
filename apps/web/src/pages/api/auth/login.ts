@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { validateAdminPassword } from "@ylx/sanity/lib/admin";
-import { signSession } from "../../../lib/auth";
+import { signSession, type AdminRole } from "../../../lib/auth";
 import {
   isRateLimited,
   isLimitReached,
@@ -80,11 +80,24 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
       );
     }
 
+    // S2: pre-migration docs still carry legacy roles. Reject them with the
+    // same generic 401 (never reveal which half failed) until the one-shot
+    // role migration runs; getSession would reject their cookies anyway.
+    if (validated.role !== "superadmin" && validated.role !== "vendor") {
+      await recordFailedAttempt(emailKey);
+      return new Response(
+        JSON.stringify({ error: "Invalid email or password" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const session = signSession({
       id: validated._id,
       email: validated.email,
       name: validated.name,
-      role: validated.role,
+      // Gate above rejected legacy roles, so only vendor|superadmin reach here.
+      role: validated.role as AdminRole,
+      ownerId: validated._id,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       sessionVersion: validated.sessionVersion ?? 0,
     });

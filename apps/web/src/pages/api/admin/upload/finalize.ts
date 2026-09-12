@@ -152,6 +152,25 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
+    // S2 tenant isolation: vendors only append to their own albums (404, not
+    // 403 — anti-enumerasi). The owner reference is read with runtime
+    // narrowing (no unchecked cast); ownerless legacy albums are
+    // superadmin-only.
+    const albumOwnerRef =
+      "owner" in album &&
+      album.owner !== null &&
+      typeof album.owner === "object" &&
+      "_ref" in album.owner &&
+      typeof album.owner._ref === "string"
+        ? album.owner._ref
+        : undefined;
+    if (session.role !== "superadmin" && albumOwnerRef !== session.ownerId) {
+      return new Response(JSON.stringify({ error: "Album not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (!asset || asset._type !== "sanity.imageAsset") {
       // Asset doesn't exist or isn't an image — delete the invalid reference
       // and reject the request.
