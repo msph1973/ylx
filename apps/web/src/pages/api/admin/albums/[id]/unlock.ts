@@ -27,12 +27,20 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     // album actually exists — without this, a bad id falls through to a
     // Sanity patch on a missing document and surfaces as a raw 500 instead
     // of a clean 404 (mirrors the existence check in lock.ts).
-    const album = await sanityClient.fetch<{ slug?: { current: string }; customSlug?: string } | null>(
-      `*[_type == "album" && _id == $albumId][0]{ slug, customSlug }`,
+    const album = await sanityClient.fetch<{ owner?: { _ref: string }; slug?: { current: string }; customSlug?: string } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ owner, slug, customSlug }`,
       { albumId }
     );
 
     if (!album) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Tenant guard (S2): vendors unlock only their own albums — 404, not 403.
+    if (session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }

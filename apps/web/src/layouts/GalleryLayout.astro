@@ -1,24 +1,42 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import { validateBrand } from '../lib/brand';
 
 export interface Props {
   title: string;
   clientName?: string;
   vendorName?: string;
+  brand?: { logoUrl?: string; accentColor?: string } | null;
 }
 
-const { title, clientName, vendorName } = Astro.props;
+const { title, clientName, vendorName, brand = null } = Astro.props;
 // A default parameter only triggers on `undefined` — callers that pass an
 // empty string (e.g. before the client name is known) would otherwise
 // render a permanently-blank element, so fall back on any falsy value.
 const displayClientName = clientName || 'Client';
+// Brand comes from the CMS (server-validated on write via validateBrand),
+// but the gallery reads it on a public route — re-gate per field so a
+// malformed stored value degrades to the YLx fallback instead of
+// injecting a bad CSS value or mixed-content image.
+const accent =
+  brand?.accentColor !== undefined && validateBrand({ accentColor: brand.accentColor }).ok
+    ? brand.accentColor
+    : null;
+const logoUrl =
+  brand?.logoUrl !== undefined && validateBrand({ logoUrl: brand.logoUrl }).ok
+    ? brand.logoUrl
+    : null;
 ---
 
 <BaseLayout title={title} vendorName={vendorName}>
   <link slot="head" rel="preconnect" href="https://cdn.sanity.io" />
-  <div class="gallery-layout">
+  <div class="gallery-layout" style={accent ? `--color-accent: ${accent}` : undefined}>
     <header class="gallery-header">
-      <div class="gallery-brand">{vendorName ?? 'YLx'}</div>
+      {logoUrl ? (
+        <img class="gallery-logo" src={logoUrl} alt={vendorName ?? 'YLx'} />
+      ) : (
+        <div class="gallery-brand">{vendorName ?? 'YLx'}</div>
+      )}
       <div class="gallery-client">
         {/* id targeted by GalleryPage.tsx once the PIN-authenticated client's
             real clientName arrives client-side — this initial render must
@@ -67,6 +85,12 @@ const displayClientName = clientName || 'Client';
     font-weight: var(--font-bold);
     color: var(--color-accent);
     letter-spacing: 0.05em;
+  }
+
+  .gallery-logo {
+    height: 2rem;
+    max-width: 12rem;
+    object-fit: contain;
   }
 
   .gallery-client {

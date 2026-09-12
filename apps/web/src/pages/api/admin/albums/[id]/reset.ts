@@ -29,12 +29,22 @@ export const POST: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
-    const album = await sanityClient.fetch<{ status: string; slug?: { current: string }; customSlug?: string } | null>(
-      `*[_type == "album" && _id == $albumId][0]{ status, slug, customSlug }`,
+    const album = await sanityClient.fetch<{ status: string; owner?: { _ref: string }; slug?: { current: string }; customSlug?: string } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ status, owner, slug, customSlug }`,
       { albumId }
     );
 
     if (!album) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Tenant guard (S2): vendors reset only their own albums — 404, not 403.
+    // Placed before the delivered-status check so foreign ids never leak
+    // their status through a different error.
+    if (session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }

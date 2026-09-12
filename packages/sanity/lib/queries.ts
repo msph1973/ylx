@@ -15,6 +15,7 @@ export const albumBySlugQuery = `*[_type == "album" && (slug.current == $slug ||
   lastUnlockedAt,
   showOriginalAfterDelivery,
   vendorName,
+  "owner": owner->{_id, name, brand},
   photos[]-> {
     _id,
     filename,
@@ -67,6 +68,29 @@ export const allAlbumsQuery = `*[_type == "album"] | order(_createdAt desc) {
 // albumPinBySlugQuery above, just for every album at once instead of one.
 export const allAlbumPinsQuery = `*[_type == "album"]{ _id, pin }`;
 
+// Tenant-scoped variants of the two list queries above, for vendor sessions
+// (`owner._ref == $ownerId`, bound to session.ownerId). Superadmins keep
+// using the unfiltered queries. Vendors must fetch these FRESH on every
+// request — never through the shared `albumsList()` Upstash cache, whose key
+// is global and would leak one vendor's list to another.
+export const ownedAlbumsQuery = `*[_type == "album" && owner._ref == $ownerId] | order(_createdAt desc) {
+  _id,
+  title,
+  clientName,
+  eventDate,
+  status,
+  storageType,
+  customSlug,
+  shareCount,
+  lastAccessedAt,
+  maxSelections,
+  vendorName,
+  "photoCount": count(photos),
+  "selectionCount": count(*[_type == "selection" && album._ref == ^._id])
+}`;
+
+export const ownedAlbumPinsQuery = `*[_type == "album" && owner._ref == $ownerId]{ _id, pin }`;
+
 export const selectionsByAlbumQuery = `*[_type == "selection" && album._ref == $albumId] {
   _id,
   "albumId": album._ref,
@@ -99,6 +123,11 @@ export const albumWithSelectionsQuery = `*[_type == "album" && _id == $albumId][
   storageType,
   vendorName,
   showOriginalAfterDelivery,
+  // Tenant guard: admin detail/lock/unlock/reset/reorder endpoints read
+  // owner._ref from this projection and 404 vendors whose ownerId differs.
+  // Ownerless legacy albums (no owner) are superadmin-only: undefined
+  // owner fails the vendor check by construction.
+  owner,
   photos[]-> {
     _id,
     filename,
