@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, type Variants } from 'framer-motion';
+import { m, type Variants } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { formatDate } from '@ylx/shared';
 import { MAX_TEXT_LENGTH } from '@ylx/sanity/lib/constants';
@@ -96,7 +96,7 @@ export function SelectionRow({ selection, variants, onSaveReply }: SelectionRowP
   const thumbnailUrl = selection.photo.thumbnailUrl;
 
   return (
-    <motion.div
+    <m.div
       className="table-row"
       role="row"
       variants={variants}
@@ -110,6 +110,7 @@ export function SelectionRow({ selection, variants, onSaveReply }: SelectionRowP
             alt=""
             lqip={selection.photo.lqip}
             srcSet={selection.photo.thumbnailSrcSet ?? undefined}
+            sizes="36px"
             loading="lazy"
             draggable={false}
           />
@@ -158,6 +159,6 @@ export function SelectionRow({ selection, variants, onSaveReply }: SelectionRowP
         )}
       </span>
       <span className="col-date date" role="cell">{formatDate(selection.selectedAt)}</span>
-    </motion.div>
+    </m.div>
   );
 }

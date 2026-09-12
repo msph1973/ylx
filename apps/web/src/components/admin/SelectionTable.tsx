@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { SelectionRow } from './SelectionRow';
 
@@ -59,7 +59,7 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
         <span className="col-date" role="columnheader">Selected</span>
       </div>
 
-      <motion.div className="table-body" role="rowgroup" variants={containerVariants} initial="hidden" animate="show">
+      <m.div className="table-body" role="rowgroup" variants={containerVariants} initial="hidden" animate="show">
         {selections.map((selection) => (
           <SelectionRow
             key={selection.id}
@@ -68,7 +68,7 @@ export function SelectionTable({ selections, onReplySaved }: SelectionTableProps
             onSaveReply={handleSaveReply}
           />
         ))}
-      </motion.div>
+      </m.div>
 
       <style>{`
         .selection-table-container {

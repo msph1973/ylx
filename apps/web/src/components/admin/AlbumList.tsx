@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domMax, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { AlbumCard, ALBUM_CARD_STYLES, type AlbumCardData } from './AlbumCard';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useAdminRealtime } from '@/hooks/useAdminRealtime';
@@ -241,7 +241,7 @@ export const AlbumList = forwardRef<AlbumListHandle, AlbumListProps>(function Al
   ];
 
   return (
-    <LazyMotion features={domAnimation}>
+    <LazyMotion features={domMax}>
     <div className="album-list-wrap">
       <div className="list-toolbar">
         <div className="toolbar-primary">
