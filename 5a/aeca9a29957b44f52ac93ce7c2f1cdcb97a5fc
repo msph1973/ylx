@@ -1,0 +1,40 @@
+apps/web/src/components/admin/AlbumDetail.tsx
+  h_45c23cf41d175e 2,642,644,1590,1592
+apps/web/src/components/admin/AlbumFormModal.tsx
+  h_45c23cf41d175e 2,265,268,278,510-511,726
+apps/web/src/components/admin/AlbumList.tsx
+  h_45c23cf41d175e 2,244,297,325,352,367,727
+apps/web/src/components/admin/ConfirmDialog.tsx
+  h_45c23cf41d175e 2,46,49,58,95,222,225
+apps/web/src/components/admin/CopyFilenamesButton.tsx
+  h_45c23cf41d175e 2,27,70,91,94,102,191
+apps/web/src/components/admin/DatePickerField.tsx
+  h_45c23cf41d175e 2,279,315,366,518
+apps/web/src/components/admin/SelectionRow.tsx
+  h_45c23cf41d175e 6,107-115
+apps/web/src/components/admin/SelectionTable.tsx
+  h_45c23cf41d175e 165-181,246-247,288-289
+apps/web/src/components/admin/UploadPage.tsx
+  h_45c23cf41d175e 2,409,539,595,1087
+apps/web/src/components/gallery/BlurImage.tsx
+  h_45c23cf41d175e 9-11,29,61
+apps/web/src/components/gallery/GalleryPage.tsx
+  h_45c23cf41d175e 145
+apps/web/src/components/gallery/PhotoLightbox.tsx
+  h_45c23cf41d175e 213-214,217
+apps/web/src/layouts/AdminLayout.astro
+  h_45c23cf41d175e 81
+apps/web/src/pages/admin/login.astro
+  h_45c23cf41d175e 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5aaeca9a29957b44f52ac93ce7c2f1cdcb97a5fc",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
