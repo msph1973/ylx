@@ -38,6 +38,13 @@ export default defineType({
       validation: (Rule) => Rule.required().max(80),
     }),
     defineField({
+      name: "owner",
+      title: "Owner",
+      type: "reference",
+      to: [{ type: "admin" }],
+      description: "Vendor pemilik album. Diisi otomatis server-side saat create.",
+    }),
+    defineField({
       name: "eventDate",
       title: "Event Date",
       type: "date",

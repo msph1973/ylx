@@ -3,11 +3,19 @@ import type { AstroCookies } from "astro";
 import { getAdminSessionVersion } from "@ylx/sanity/lib/admin";
 import { getCached, invalidateCache, CACHE_KEYS } from "./cache";
 
+// S2 multitenant roles. Legacy Sanity values ("admin"/"photographer") are
+// migrated in data once (apps/web/scripts/migrate-s2-roles.ts); code does
+// not recognize them — getSession below rejects them outright.
+export type AdminRole = "superadmin" | "vendor";
+
 export interface AdminSession {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: AdminRole;
+  // Tenant filter — always == id (the admin doc _id). Server-set at login;
+  // never accepted from client input.
+  ownerId: string;
   expiresAt: number;
   // Must match the admin doc's current `sessionVersion` in Sanity or the
   // session is treated as revoked (see M-1 in new-audit.md: stateless HMAC
@@ -105,7 +113,8 @@ export async function getSession(cookies: AstroCookies): Promise<AdminSession | 
     typeof session.id !== "string" ||
     typeof session.email !== "string" ||
     typeof session.name !== "string" ||
-    typeof session.role !== "string" ||
+    (session.role !== "superadmin" && session.role !== "vendor") ||
+    typeof session.ownerId !== "string" ||
     !Number.isFinite(session.expiresAt) ||
     typeof session.sessionVersion !== "number"
   ) {
@@ -129,8 +138,19 @@ export async function getSession(cookies: AstroCookies): Promise<AdminSession | 
 
 export async function requireAdmin(cookies: AstroCookies): Promise<AdminSession | null> {
   const session = await getSession(cookies);
-  if (!session || (session.role !== "admin" && session.role !== "photographer")) {
+  if (!session || (session.role !== "superadmin" && session.role !== "vendor")) {
     return null;
   }
+  return session;
+}
+
+// Superadmin-only gate (vendor invite management, full tenant visibility).
+// Returns null for vendor sessions and anonymous callers alike — callers
+// translate null to 403 (authenticated vendor) / 401 (anonymous) upstream.
+export async function requireSuperAdmin(
+  cookies: AstroCookies
+): Promise<AdminSession | null> {
+  const session = await requireAdmin(cookies);
+  if (!session || session.role !== "superadmin") return null;
   return session;
 }

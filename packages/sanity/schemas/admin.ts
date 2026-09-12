@@ -15,7 +15,9 @@ export default defineType({
       name: "password",
       title: "Password",
       type: "string",
-      validation: (Rule) => Rule.required().min(8),
+      // Deliberately NOT Rule.required(): invited vendors have no password
+      // (Google-only login), so a required rule would block their docs.
+      validation: (Rule) => Rule.min(8),
       hidden: true,
     }),
     defineField({
@@ -30,11 +32,12 @@ export default defineType({
       type: "string",
       options: {
         list: [
-          { title: "Admin", value: "admin" },
-          { title: "Photographer", value: "photographer" },
+          { title: "Superadmin", value: "superadmin" },
+          { title: "Vendor", value: "vendor" },
         ],
       },
-      initialValue: "photographer",
+      initialValue: "vendor",
+      validation: (Rule) => Rule.required(),
     }),
     defineField({
       name: "sessionVersion",
@@ -46,6 +49,17 @@ export default defineType({
       readOnly: true,
       hidden: true,
     }),
+    defineField({
+      name: "brand",
+      title: "Brand",
+      type: "object",
+      fields: [
+        { name: "logoUrl", title: "Logo URL", type: "url" },
+        { name: "accentColor", title: "Accent color", type: "string" },
+      ],
+    }),
+    defineField({ name: "invitedBy", title: "Invited by", type: "string", hidden: true }),
+    defineField({ name: "disabled", title: "Disabled", type: "boolean", initialValue: false }),
   ],
   preview: {
     select: {

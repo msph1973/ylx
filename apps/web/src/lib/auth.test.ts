@@ -41,7 +41,8 @@ describe("getSession — session revocation (M-1)", () => {
       id: "admin-fresh-1",
       email: "a@x.test",
       name: "A",
-      role: "admin",
+      ownerId: "admin-fresh-1",
+      role: "superadmin",
       expiresAt: Date.now() + 60_000,
       sessionVersion: 2,
     });
@@ -59,7 +60,8 @@ describe("getSession — session revocation (M-1)", () => {
       id: "admin-stale-2",
       email: "a@x.test",
       name: "A",
-      role: "admin",
+      ownerId: "admin-stale-2",
+      role: "superadmin",
       expiresAt: Date.now() + 60_000,
       sessionVersion: 2,
     });
@@ -76,7 +78,8 @@ describe("getSession — session revocation (M-1)", () => {
       id: "admin-deleted-3",
       email: "a@x.test",
       name: "A",
-      role: "admin",
+      ownerId: "admin-deleted-3",
+      role: "superadmin",
       expiresAt: Date.now() + 60_000,
       sessionVersion: 0,
     });
@@ -96,7 +99,8 @@ describe("getSession — session revocation (M-1)", () => {
       id: "admin-legacy-4",
       email: "a@x.test",
       name: "A",
-      role: "admin",
+      ownerId: "admin-legacy-4",
+      role: "superadmin",
       expiresAt: Date.now() + 60_000,
     };
     const payload = Buffer.from(JSON.stringify(payloadObj)).toString("base64url");
@@ -116,7 +120,8 @@ describe("getSession — session revocation (M-1)", () => {
       id: "admin-expired-5",
       email: "a@x.test",
       name: "A",
-      role: "admin",
+      ownerId: "admin-expired-5",
+      role: "superadmin",
       expiresAt: Date.now() - 1000,
       sessionVersion: 0,
     });
@@ -126,7 +131,7 @@ describe("getSession — session revocation (M-1)", () => {
     expect(getAdminSessionVersionMock).not.toHaveBeenCalled();
   });
 
-  it("requireAdmin rejects a revoked session even with an admin role", async () => {
+  it("requireAdmin rejects a revoked session even with a superadmin role", async () => {
     const { signSession, requireAdmin } = await import("./auth");
     getAdminSessionVersionMock.mockResolvedValue(1); // bumped past this cookie's version
 
@@ -134,7 +139,8 @@ describe("getSession — session revocation (M-1)", () => {
       id: "admin-revoked-6",
       email: "a@x.test",
       name: "A",
-      role: "admin",
+      ownerId: "admin-revoked-6",
+      role: "superadmin",
       expiresAt: Date.now() + 60_000,
       sessionVersion: 0,
     });
@@ -157,12 +163,120 @@ describe("getSession — session revocation (M-1)", () => {
       id: "admin-fetch-error-7",
       email: "a@x.test",
       name: "A",
-      role: "admin",
+      ownerId: "admin-fetch-error-7",
+      role: "superadmin",
       expiresAt: Date.now() + 60_000,
       sessionVersion: 2,
     });
 
     await expect(getSession(makeCookies(cookieValue))).resolves.toBeNull();
     await expect(requireAdmin(makeCookies(cookieValue))).resolves.toBeNull();
+  });
+});
+
+
+describe("S2 roles \u2014 strict union + superadmin gate", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    getAdminSessionVersionMock.mockReset();
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  });
+
+  // Sign an arbitrary payload (bypasses signSession's type) to simulate
+  // cookies issued before the S2 role migration.
+  function signRaw(payloadObj: Record<string, unknown>): string {
+    const payload = Buffer.from(JSON.stringify(payloadObj)).toString("base64url");
+    const signature = crypto
+      .createHmac("sha256", "test-session-secret")
+      .update(payload)
+      .digest("base64url");
+    return `${payload}.${signature}`;
+  }
+
+  function legacyRoleCookie(role: string): string {
+    return signRaw({
+      id: "admin-legacy-role",
+      email: "a@x.test",
+      name: "A",
+      role,
+      ownerId: "admin-legacy-role",
+      expiresAt: Date.now() + 60_000,
+      sessionVersion: 0,
+    });
+  }
+
+  it.each(["admin", "photographer"])("rejects legacy role value %j", async (role) => {
+    // Dynamic import: each test re-imports auth.ts fresh so vi.resetModules()
+    // gives it a clean module-scope SESSION_SECRET read (file-wide pattern).
+    const { getSession, requireAdmin } = await import("./auth");
+    getAdminSessionVersionMock.mockResolvedValue(0);
+
+    await expect(getSession(makeCookies(legacyRoleCookie(role)))).resolves.toBeNull();
+    await expect(requireAdmin(makeCookies(legacyRoleCookie(role)))).resolves.toBeNull();
+  });
+
+  it("rejects a session without ownerId (pre-S2 cookie shape)", async () => {
+    const { getSession } = await import("./auth");
+    getAdminSessionVersionMock.mockResolvedValue(0);
+
+    const cookieValue = signRaw({
+      id: "admin-no-owner",
+      email: "a@x.test",
+      name: "A",
+      role: "superadmin",
+      expiresAt: Date.now() + 60_000,
+      sessionVersion: 0,
+    });
+
+    await expect(getSession(makeCookies(cookieValue))).resolves.toBeNull();
+  });
+
+  it("requireSuperAdmin allows superadmin, rejects vendor and anonymous", async () => {
+    const { signSession, requireSuperAdmin } = await import("./auth");
+    getAdminSessionVersionMock.mockResolvedValue(0);
+
+    const superCookie = signSession({
+      id: "admin-super-1",
+      email: "s@x.test",
+      name: "S",
+      role: "superadmin",
+      ownerId: "admin-super-1",
+      expiresAt: Date.now() + 60_000,
+      sessionVersion: 0,
+    });
+    const vendorCookie = signSession({
+      id: "admin-vendor-1",
+      email: "v@x.test",
+      name: "V",
+      role: "vendor",
+      ownerId: "admin-vendor-1",
+      expiresAt: Date.now() + 60_000,
+      sessionVersion: 0,
+    });
+
+    const superSession = await requireSuperAdmin(makeCookies(superCookie));
+    expect(superSession?.id).toBe("admin-super-1");
+    await expect(requireSuperAdmin(makeCookies(vendorCookie))).resolves.toBeNull();
+    await expect(requireSuperAdmin(makeCookies(undefined))).resolves.toBeNull();
+  });
+
+  it("requireAdmin accepts both superadmin and vendor", async () => {
+    const { signSession, requireAdmin } = await import("./auth");
+    getAdminSessionVersionMock.mockResolvedValue(0);
+
+    for (const role of ["superadmin", "vendor"] as const) {
+      const cookieValue = signSession({
+        id: `admin-${role}`,
+        email: `${role}@x.test`,
+        name: role,
+        role,
+        ownerId: `admin-${role}`,
+        expiresAt: Date.now() + 60_000,
+        sessionVersion: 0,
+      });
+      const session = await requireAdmin(makeCookies(cookieValue));
+      expect(session?.role).toBe(role);
+    }
   });
 });
