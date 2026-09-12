@@ -1,0 +1,22 @@
+apps/web/src/components/admin/AlbumCard.test.tsx
+  h_45c23cf41d175e 2,22-31,80,86,92,108
+apps/web/src/components/admin/AlbumCard.tsx
+  h_45c23cf41d175e 2,303,376
+apps/web/src/components/admin/AlbumList.tsx
+  h_45c23cf41d175e 2,244
+apps/web/src/components/admin/SelectionRow.tsx
+  h_45c23cf41d175e 2,99,113,162
+apps/web/src/components/admin/SelectionTable.tsx
+  h_45c23cf41d175e 2,62,71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c25ff9846728b00439ed3c2a26821496496e8963",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
