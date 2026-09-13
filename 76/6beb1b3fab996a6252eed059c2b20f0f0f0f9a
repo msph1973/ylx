@@ -1,0 +1,16 @@
+apps/web/src/components/admin/AdminPage.tsx
+  h_45c23cf41d175e 116-146
+apps/web/src/components/admin/AlbumFormModal.tsx
+  h_45c23cf41d175e 362,641-648,758-762
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "766beb1b3fab996a6252eed059c2b20f0f0f0f9a",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
