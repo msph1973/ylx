@@ -1,0 +1,145 @@
+---
+export const prerender = true;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Kebijakan Privasi" lang="id">
+  <main class="legal-page">
+    <h1>Kebijakan Privasi YLx</h1>
+    <p class="legal-updated">Terakhir diperbarui: September 2026</p>
+
+    <h2>1. Siapa kami</h2>
+    <p>
+      YLx ("kami") adalah platform galeri foto untuk fotografer pernikahan di
+      <strong>ylex.my.id</strong>. Pengelola layanan: admin@ylex.my.id.
+      Kebijakan ini menjelaskan data apa yang kami kumpulkan, mengapa, dan
+      hak Anda atas data tersebut.
+    </p>
+
+    <h2>2. Data yang kami kumpulkan</h2>
+    <h3>2.1 Akun fotografer / vendor</h3>
+    <ul>
+      <li>Nama, alamat email, dan (untuk login kata sandi) hash kata sandi bcrypt.</li>
+      <li>Logo dan warna aksen brand yang Anda atur untuk galeri Anda.</li>
+      <li>Catatan undangan: siapa yang mengundang akun Anda dan status aktif/nonaktif.</li>
+    </ul>
+    <h3>2.2 Login dengan Google (opsional)</h3>
+    <p>
+      Bila Anda masuk memakai akun Google, Google memberikan kepada kami:
+      nama, alamat email, dan status verifikasi email Anda. Cakupan yang kami
+      minta hanyalah <code>openid</code>, <code>email</code>, dan
+      <code>profile</code>. Kami <strong>tidak</strong> meminta atau menerima
+      akses ke Gmail, Google Drive pribadi, kontak, kalender, atau data Google
+      lain milik Anda.
+    </p>
+    <h3>2.3 Data galeri dan klien</h3>
+    <ul>
+      <li>Album: judul, nama klien, tanggal acara, PIN galeri, batas pilihan, foto, dan status alur.</li>
+      <li>Pilihan foto klien beserta catatan yang mereka tulis.</li>
+      <li>Klien galeri tidak membuat akun — mereka hanya memasukkan PIN yang diberikan fotografer.</li>
+    </ul>
+    <h3>2.4 Data teknis otomatis</h3>
+    <ul>
+      <li>Cookie sesi login bertanda-tangan (<code>admin_session</code>, kedaluwarsa 24 jam) dan cookie sesi galeri PIN.</li>
+      <li>Log server standar (alamat IP, waktu akses) untuk pembatasan laju dan keamanan; log error teknis tanpa isi foto.</li>
+    </ul>
+
+    <h2>3. Untuk apa data dipakai</h2>
+    <ul>
+      <li>Autentikasi dan pengamanan akun (termasuk pembatasan upaya login).</li>
+      <li>Mengoperasikan galeri: isolasi data tiap vendor, alur seleksi klien, dan notifikasi real-time dashboard.</li>
+      <li>Menampilkan brand Anda (nama, logo, warna) di galeri klien Anda.</li>
+      <li>Diagnostik error dan penyalahgunaan. Tidak ada profil iklan, tidak ada penjualan data.</li>
+    </ul>
+
+    <h2>4. Pihak ketiga yang memproses data (sub-prosesor)</h2>
+    <ul>
+      <li><strong>Google</strong> — login opsional (data §2.2) dan penyimpanan foto album Google Drive.</li>
+      <li><strong>Sanity.io</strong> — basis data CMS (metadata album, akun, pilihan).</li>
+      <li><strong>Vercel</strong> — hosting aplikasi.</li>
+      <li><strong>Ably</strong> — notifikasi real-time dashboard (hanya ID album dan jenis kejadian, bukan isi foto).</li>
+      <li><strong>Sentry</strong> — pelaporan error teknis (opsional, hanya bila diaktifkan).</li>
+    </ul>
+    <p>
+      Kami tidak membagikan data Anda ke pihak lain selain sub-prosesor di atas
+      dan kewajiban hukum yang berlaku.
+    </p>
+
+    <h2>5. Penyimpanan dan retensi</h2>
+    <ul>
+      <li>Foto tersimpan di Sanity atau folder Google Drive yang Anda tautkan, sesuai paket album.</li>
+      <li>Cookie sesi kedaluwarsa dalam 24 jam; keluar (logout) mencabut sesi seketika.</li>
+      <li>Data album dihapus bila Anda menghapus album; data akun dihapus atas permintaan (§7).</li>
+    </ul>
+
+    <h2>6. Keamanan</h2>
+    <p>
+      Kata sandi di-hash bcrypt (12 putaran) dan tidak pernah tersimpan
+      polos; sesi ditandatangani HMAC dan dapat dicabut; endpoint admin
+      mensyaratkan login dan data tiap vendor terisolasi dari vendor lain;
+      traffic terenkripsi TLS.
+    </p>
+
+    <h2>7. Hak Anda</h2>
+    <p>
+      Anda berhak meminta salinan, koreksi, atau penghapusan data pribadi
+      Anda, serta mencabut akses Google YLx kapan saja dari pengaturan akun
+      Google Anda (Pengaturan → Keamanan → Akses pihak ketiga). Hubungi
+      admin@ylex.my.id — kami merespons maksimal 30 hari.
+    </p>
+
+    <h2>8. Anak-anak</h2>
+    <p>
+      Layanan ini ditujukan untuk fotografer profesional dan klien dewasa.
+      Kami tidak dengan sengaja mengumpulkan data anak di bawah 13 tahun;
+      temuan semacam itu akan dihapus setelah dilaporkan ke admin@ylex.my.id.
+    </p>
+
+    <h2>9. Perubahan kebijakan</h2>
+    <p>
+      Perubahan material akan diumumkan lewat dashboard admin dengan tanggal
+      pembaruan di atas. Penggunaan layanan setelah perubahan berarti
+      persetujuan atas versi terbaru.
+    </p>
+
+    <h2>10. Kontak</h2>
+    <p>
+      Pertanyaan privasi dan permintaan hak data: admin@ylex.my.id
+      (pengelola YLx, ylex.my.id).
+    </p>
+  </main>
+
+  <style>
+    .legal-page {
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-4);
+    }
+    .legal-page h1 {
+      font-size: var(--text-2xl);
+      margin-bottom: var(--space-2);
+    }
+    .legal-updated {
+      color: var(--color-text-muted);
+      font-size: 0.85rem;
+      margin-bottom: var(--space-6);
+    }
+    .legal-page h2 {
+      font-size: var(--text-lg);
+      margin-top: var(--space-6);
+      margin-bottom: var(--space-2);
+    }
+    .legal-page h3 {
+      font-size: var(--text-base);
+      margin-top: var(--space-4);
+      margin-bottom: var(--space-2);
+    }
+    .legal-page ul {
+      padding-left: var(--space-5);
+    }
+    .legal-page code {
+      font-size: 0.85em;
+    }
+  </style>
+</BaseLayout>
