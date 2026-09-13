@@ -1,5 +1,5 @@
 import React, { useState, useId } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { Selection } from '@ylx/shared';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import {
@@ -24,6 +24,7 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
   };
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className="copy-filenames-wrapper">
       <label className="sr-only" htmlFor={formatSelectId}>
         Copy format
@@ -66,7 +67,7 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
       <div aria-live="polite" aria-atomic="true">
       <AnimatePresence>
         {copied && (
-          <motion.div
+          <m.div
             className="copied-feedback"
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
             animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
@@ -87,10 +88,10 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
               <polyline points="20 6 9 17 4 12" />
             </svg>
             Copied!
-          </motion.div>
+          </m.div>
         )}
         {error && (
-          <motion.div
+          <m.div
             className="error-feedback"
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
             animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
@@ -98,7 +99,7 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
             transition={shouldReduceMotion ? { duration: 0.01 } : { type: 'spring', stiffness: 300, damping: 25 }}
           >
             Copy failed
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
       </div>
@@ -187,5 +188,6 @@ export function CopyFilenamesButton({ selections }: CopyFilenamesButtonProps) {
         }
       `}</style>
     </div>
+    </LazyMotion>
   );
 }

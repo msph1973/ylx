@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import { formatDate } from '@ylx/shared';
 import { getAlbumStatusMeta } from '@/lib/albumStatus';
 
@@ -300,7 +300,7 @@ export const AlbumCard = React.memo(function AlbumCard({
   };
 
   return (
-    <motion.button
+    <m.button
       type="button"
       className={`album-card${selected ? ' is-selected' : ''}`}
       onClick={handleClick}
@@ -373,6 +373,6 @@ export const AlbumCard = React.memo(function AlbumCard({
           <span className="pin-display">PIN: {album.pin}</span>
         )}
       </div>
-    </motion.button>
+    </m.button>
   );
 });

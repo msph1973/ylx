@@ -142,6 +142,10 @@ const GalleryPhotoTile = React.memo(function GalleryPhotoTile({
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
           lqip={photo.lqip}
           loading={isAboveFold ? 'eager' : 'lazy'}
+          // Base (mobile-first) grid is 2 columns, so only the first row gets
+          // high fetch priority; eager loading above covers the rest. Keeps
+          // short narrow viewports from promoting below-fold second-row tiles.
+          fetchPriority={index < 2 ? 'high' : undefined}
           alt={`Photo ${index + 1} of ${totalPhotos}`}
         />
         <AnimatePresence initial={false}>

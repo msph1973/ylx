@@ -212,6 +212,7 @@ export function PhotoLightbox({
           src={photo.url}
           lqip={photo.lqip}
           loading="eager"
+          fetchPriority="high"
           alt={`Photo ${currentIndex + 1} of ${photos.length}: ${photo.filename}`}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}

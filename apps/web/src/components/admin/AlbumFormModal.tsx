@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { DRIVE_STORAGE, SANITY_STORAGE } from '@ylx/shared';
 import type { StorageType } from '@ylx/shared';
 import type { AlbumCardData } from './AlbumCard';
@@ -262,9 +262,10 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
   };
 
   return (
+    <LazyMotion features={domAnimation}>
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           className="modal-backdrop"
           variants={backdropVariants}
           initial="hidden"
@@ -274,7 +275,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}
           onKeyDown={(e) => { if (e.key === 'Escape' && !isSubmitting) onClose(); }}
         >
-          <motion.div
+          <m.div
             ref={modalRef}
             className="modal"
             role="dialog"
@@ -506,8 +507,8 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                 </button>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
       <style>{`
         .modal-backdrop {
@@ -722,5 +723,6 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
         }
       `}</style>
     </AnimatePresence>
+    </LazyMotion>
   );
 }

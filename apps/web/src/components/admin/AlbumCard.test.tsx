@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { LazyMotion, domAnimation } from 'framer-motion';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AlbumCard, getSelectionProgress, type AlbumCardData } from './AlbumCard';
 
@@ -16,6 +17,16 @@ function makeAlbum(overrides: Partial<AlbumCardData> = {}): AlbumCardData {
     draftUpdatedAt: null,
     ...overrides,
   };
+}
+
+// AlbumCard renders an `m.button`, which requires a LazyMotion ancestor
+// (same provider the production AlbumList supplies).
+function renderCard(album: AlbumCardData) {
+  render(
+    <LazyMotion features={domAnimation} strict>
+      <AlbumCard album={album} onClick={vi.fn()} />
+    </LazyMotion>
+  );
 }
 
 describe('getSelectionProgress', () => {
@@ -66,29 +77,19 @@ describe('getSelectionProgress', () => {
 
 describe('AlbumCard progress rendering', () => {
   it('shows the live badge and count for an in-progress draft', () => {
-    render(
-      <AlbumCard
-        album={makeAlbum({ draftCount: 8, draftUpdatedAt: Date.now() })}
-        onClick={vi.fn()}
-      />
-    );
+    renderCard(makeAlbum({ draftCount: 8, draftUpdatedAt: Date.now() }));
     expect(screen.getByText(/8\/40 selected/)).toBeInTheDocument();
     expect(screen.getByText('selecting now')).toBeInTheDocument();
   });
 
   it('shows submitted progress without the live badge', () => {
-    render(
-      <AlbumCard
-        album={makeAlbum({ status: 'submitted', selectionCount: 25 })}
-        onClick={vi.fn()}
-      />
-    );
+    renderCard(makeAlbum({ status: 'submitted', selectionCount: 25 }));
     expect(screen.getByText(/25\/40 selected/)).toBeInTheDocument();
     expect(screen.queryByText('selecting now')).not.toBeInTheDocument();
   });
 
   it('renders no progress section when there is nothing to show', () => {
-    render(<AlbumCard album={makeAlbum()} onClick={vi.fn()} />);
+    renderCard(makeAlbum());
     expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
   });
 });
@@ -104,12 +105,7 @@ describe('AlbumCard event date formatting (timezone-safe)', () => {
     // render the PREVIOUS day. Stubbing TZ reproduces that environment.
     vi.stubEnv('TZ', 'America/Los_Angeles');
 
-    render(
-      <AlbumCard
-        album={makeAlbum({ eventDate: '2026-05-01' })}
-        onClick={vi.fn()}
-      />
-    );
+    renderCard(makeAlbum({ eventDate: '2026-05-01' }));
 
     expect(screen.getByText('May 1, 2026')).toBeInTheDocument();
     expect(screen.queryByText('April 30, 2026')).not.toBeInTheDocument();
