@@ -1,0 +1,14 @@
+apps/web/src/components/admin/AdminPage.tsx
+  h_45c23cf41d175e 160-185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "eaeb09219f075d83d99a31b7c185a4a283c6355f",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
