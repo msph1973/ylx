@@ -1,0 +1,68 @@
+---
+export const prerender = true;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Syarat Layanan" lang="id">
+  <main class="legal-page">
+    <h1>Syarat Layanan YLx</h1>
+    <p class="legal-updated">Terakhir diperbarui: September 2026</p>
+
+    <h2>Layanan</h2>
+    <p>
+      YLx adalah platform galeri foto untuk fotografer: pembuatan album
+      terkunci PIN, seleksi foto oleh klien, dan serah-terima hasil final.
+      Akun vendor dibuat berbasis undangan oleh administrator.
+    </p>
+
+    <h2>Akun Anda</h2>
+    <ul>
+      <li>Jagalah kerahasiaan kata sandi dan akses Google Anda.</li>
+      <li>Satu akun vendor mewakili satu bisnis fotografi; album dan data Anda terisolasi dari vendor lain.</li>
+      <li>Administrator dapat menonaktifkan akun yang melanggar.</li>
+    </ul>
+
+    <h2>Konten</h2>
+    <ul>
+      <li>Anda memegang hak atas foto yang Anda unggah dan bertanggung jawab atas izin subjek di dalamnya.</li>
+      <li>Jangan mengunggah konten melanggar hukum atau melanggar hak pihak ketiga.</li>
+    </ul>
+
+    <h2>Ketersediaan</h2>
+    <p>
+      Layanan diberikan sebagaimana adanya; kami berupaya menjaga keandalan
+      namun tidak menjamin bebas gangguan. Album PIN yang dibagikan adalah
+      tanggung jawab pemilik album.
+    </p>
+
+    <h2>Kontak</h2>
+    <p>Pertanyaan layanan: <a href="mailto:admin@ylex.my.id">admin@ylex.my.id</a></p>
+  </main>
+
+  <style>
+    .legal-page {
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-4);
+    }
+    .legal-page h1 {
+      font-size: var(--text-2xl);
+      margin-bottom: var(--space-2);
+    }
+    .legal-updated {
+      color: var(--color-text-muted);
+      font-size: 0.85rem;
+      margin-bottom: var(--space-6);
+    }
+    .legal-page h2 {
+      font-size: var(--text-lg);
+      margin-top: var(--space-6);
+      margin-bottom: var(--space-2);
+    }
+    .legal-page ul {
+      padding-left: var(--space-5);
+      list-style: disc;
+    }
+  </style>
+</BaseLayout>
