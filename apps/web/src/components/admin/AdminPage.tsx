@@ -113,6 +113,13 @@ export default function AdminPage({ adminName }: AdminPageProps) {
           gap: var(--space-3);
         }
 
+        .profile-link {
+          display: inline-flex;
+          align-items: center;
+          min-height: var(--tap-target-min);
+          white-space: nowrap;
+        }
+
         .btn-new-album {
           display: flex;
           align-items: center;
@@ -149,6 +156,32 @@ export default function AdminPage({ adminName }: AdminPageProps) {
           background-color: var(--color-surface);
           color: var(--color-text);
           border-color: var(--color-accent);
+        }
+
+        /* Narrow-screen compaction lives AFTER the base button rules so
+        equal-specificity declarations win the cascade. */
+        @media (max-width: 480px) {
+          .admin-toolbar {
+            gap: var(--space-3);
+          }
+          .admin-user {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .toolbar-actions {
+            flex: 0 0 auto;
+            gap: var(--space-2);
+          }
+          .btn-new-album,
+          .logout-btn {
+            padding-left: var(--space-3);
+            padding-right: var(--space-3);
+            font-size: var(--text-xs);
+            white-space: nowrap;
+          }
         }
       `}</style>
     </div>

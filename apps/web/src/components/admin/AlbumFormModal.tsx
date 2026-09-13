@@ -359,7 +359,7 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                   )}
                   {storageType === DRIVE_STORAGE && (
                     <div style={{ marginTop: 'var(--space-2)' }}>
-                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                      <div className="drive-link-row">
                         <input
                           className="form-input"
                           type="url"
@@ -638,6 +638,14 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           color: var(--color-text-muted);
         }
 
+        .drive-link-row {
+          display: flex;
+          gap: var(--space-2);
+        }
+        .drive-link-row .form-input {
+          flex: 1;
+          min-width: 0;
+        }
         .form-input {
           padding: var(--space-2-5) var(--space-3);
           min-height: var(--tap-target-min);
@@ -746,6 +754,11 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
           .btn-primary,
           .btn-secondary {
             width: 100%;
+          }
+          /* Drive link row stacks instead of fighting for one line: the
+          global .btn-secondary width above would crush the URL input. */
+          .drive-link-row {
+            flex-direction: column;
           }
         }
       `}</style>
