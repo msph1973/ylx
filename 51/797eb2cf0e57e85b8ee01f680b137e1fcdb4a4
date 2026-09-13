@@ -1,0 +1,52 @@
+apps/web/package.json
+  h_45c23cf41d175e 30
+apps/web/src/layouts/GalleryLayout.astro
+  h_45c23cf41d175e 3,9,12,17-28,33,35-39,90-95
+apps/web/src/lib/brand.test.ts
+  h_45c23cf41d175e 1-58
+apps/web/src/lib/brand.ts
+  h_45c23cf41d175e 1-61
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 6,48-56,58-64,68-72,279-282,287
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 50-52,93,134-143,340,350-357,498-499,503-514
+apps/web/src/pages/api/admin/albums/[id]/lock.ts
+  h_45c23cf41d175e 26-27,38-45
+apps/web/src/pages/api/admin/albums/[id]/reorder.ts
+  h_45c23cf41d175e 20,61,72-79
+apps/web/src/pages/api/admin/albums/[id]/reset.ts
+  h_45c23cf41d175e 32-33,44-53
+apps/web/src/pages/api/admin/albums/[id]/unlock.ts
+  h_45c23cf41d175e 30-31,42-49
+apps/web/src/pages/api/admin/albums/bulk-delete.ts
+  h_45c23cf41d175e 16,51,54-72
+apps/web/src/pages/api/admin/photos/[id].ts
+  h_45c23cf41d175e 15,58,76-86
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  h_45c23cf41d175e 16,62-63,65,81-90
+apps/web/src/pages/api/admin/tenant-scope.test.ts
+  h_45c23cf41d175e 1-517
+apps/web/src/pages/api/admin/vendors.ts
+  h_45c23cf41d175e 1-163
+apps/web/src/pages/api/auth/google.test.ts
+  h_45c23cf41d175e 1-181
+apps/web/src/pages/api/auth/google.ts
+  h_45c23cf41d175e 1-128
+apps/web/src/pages/gallery/[slug].astro
+  h_45c23cf41d175e 16-27,30,33
+packages/sanity/lib/queries.ts
+  h_45c23cf41d175e 18,71-93,126-130
+pnpm-lock.yaml
+  h_45c23cf41d175e 68-70,6612-6615,6686-6689,7187-7191,7453-7458,7925-7932,8075-8081,8162-8183,8343-8361,9136-9141,9192-9206,10241-10246,10263-10271,13172-13176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "51797eb2cf0e57e85b8ee01f680b137e1fcdb4a4",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}

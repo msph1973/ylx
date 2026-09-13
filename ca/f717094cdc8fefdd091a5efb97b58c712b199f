@@ -1,0 +1,24 @@
+apps/web/scripts/migrate-s2-roles.ts
+  h_45c23cf41d175e 1-73
+apps/web/src/lib/auth.test.ts
+  h_45c23cf41d175e 44-45,63-64,81-82,102-103,123-124,134,142-143,166-167,176-282
+apps/web/src/lib/auth.ts
+  h_45c23cf41d175e 6-10,15-18,116-117,141,146-156
+docs/compose/plans/2026-09-12-s2-multitenant.md
+  h_45c23cf41d175e 1-325
+packages/sanity/schemas/admin.ts
+  h_45c23cf41d175e 18-20,35-36,39-40,52-62
+packages/sanity/schemas/album.ts
+  h_45c23cf41d175e 40-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "caf717094cdc8fefdd091a5efb97b58c712b199f",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}

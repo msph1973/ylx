@@ -1,0 +1,16 @@
+apps/web/scripts/seed-e2e-admin.mjs
+  h_45c23cf41d175e 43-44
+apps/web/tests/helpers/adminSession.ts
+  h_45c23cf41d175e 16-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "06601c363205d0db05e242dffc09fbec53da69fe",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}

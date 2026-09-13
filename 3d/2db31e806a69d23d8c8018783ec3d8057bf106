@@ -1,0 +1,22 @@
+apps/web/src/pages/api/admin/vendors.ts
+  h_45c23cf41d175e 7,68,129
+packages/sanity/lib/admin.ts
+  h_45c23cf41d175e 3,200
+packages/shared/index.ts
+  h_45c23cf41d175e 19
+packages/shared/utils/email.test.ts
+  h_45c23cf41d175e 1-30
+packages/shared/utils/email.ts
+  h_45c23cf41d175e 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3d2db31e806a69d23d8c8018783ec3d8057bf106",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}

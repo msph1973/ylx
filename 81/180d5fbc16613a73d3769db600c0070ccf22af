@@ -1,0 +1,80 @@
+apps/web/src/hooks/useAdminRealtime.ts
+  h_45c23cf41d175e 3,7-21,40-46,80-82,84
+apps/web/src/lib/ably.test.ts
+  h_45c23cf41d175e 81-100
+apps/web/src/lib/ably.ts
+  h_45c23cf41d175e 64-87
+apps/web/src/lib/securityHeaders.ts
+  h_45c23cf41d175e 39-42,46
+apps/web/src/pages/admin/login.astro
+  h_45c23cf41d175e 5-8,47-51,55-56,154-172,213-285
+apps/web/src/pages/api/ably/token.test.ts
+  h_45c23cf41d175e 1-61
+apps/web/src/pages/api/ably/token.ts
+  h_45c23cf41d175e 4,40-50
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 338
+apps/web/src/pages/api/admin/albums/[id]/deliver.test.ts
+  h_45c23cf41d175e 110-114
+apps/web/src/pages/api/admin/albums/[id]/deliver.ts
+  h_45c23cf41d175e 115-119
+apps/web/src/pages/api/admin/albums/[id]/final-photos.ts
+  h_45c23cf41d175e 310,370,508
+apps/web/src/pages/api/admin/albums/[id]/index.ts
+  h_45c23cf41d175e 430,505-510,526
+apps/web/src/pages/api/admin/albums/[id]/lock.ts
+  h_45c23cf41d175e 58
+apps/web/src/pages/api/admin/albums/[id]/reorder.ts
+  h_45c23cf41d175e 125
+apps/web/src/pages/api/admin/albums/[id]/reset.test.ts
+  h_45c23cf41d175e 98
+apps/web/src/pages/api/admin/albums/[id]/reset.ts
+  h_45c23cf41d175e 106
+apps/web/src/pages/api/admin/albums/[id]/unlock.ts
+  h_45c23cf41d175e 82
+apps/web/src/pages/api/admin/albums/bulk-delete.ts
+  h_45c23cf41d175e 88-91
+apps/web/src/pages/api/admin/photos/[id].ts
+  h_45c23cf41d175e 115-118
+apps/web/src/pages/api/admin/photos/bulk-delete.ts
+  h_45c23cf41d175e 133-136
+apps/web/src/pages/api/admin/selections/[id].ts
+  h_45c23cf41d175e 95-96
+apps/web/src/pages/api/admin/upload/finalize.ts
+  h_45c23cf41d175e 284
+apps/web/src/pages/api/admin/vendors.test.ts
+  h_45c23cf41d175e 9-10,30-36,65-66,194
+apps/web/src/pages/api/admin/vendors.ts
+  h_45c23cf41d175e 9,51-56,68,115-120,132,162-174
+apps/web/src/pages/api/auth/create-admin.test.ts
+  h_45c23cf41d175e 1-78
+apps/web/src/pages/api/auth/create-admin.ts
+  h_45c23cf41d175e 3,7-11
+apps/web/src/pages/api/auth/session.test.ts
+  h_45c23cf41d175e 1-28
+apps/web/src/pages/api/auth/session.ts
+  h_45c23cf41d175e 1-19
+apps/web/src/pages/api/gallery/[slug]/draft.test.ts
+  h_45c23cf41d175e 155
+apps/web/src/pages/api/gallery/[slug]/draft.ts
+  h_45c23cf41d175e 49,53-56,165-166
+apps/web/src/pages/api/gallery/[slug]/selections.test.ts
+  h_45c23cf41d175e 1-78
+apps/web/src/pages/api/gallery/[slug]/selections.ts
+  h_45c23cf41d175e 14-15,41-57
+apps/web/src/pages/api/gallery/[slug]/submit.ts
+  h_45c23cf41d175e 17-19,280
+apps/web/vercel.json
+  h_45c23cf41d175e 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "81180d5fbc16613a73d3769db600c0070ccf22af",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
