@@ -265,7 +265,16 @@ const googleClientId = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID as string | undef
                     errorMessage.textContent = data.error ?? "Google sign-in failed";
                     return;
                   }
-                  window.location.href = "/admin";
+                  // S2 onboarding: invited vendors pick their own display name
+                  // (never taken from Google) before reaching the dashboard.
+                  try {
+                    const profileRes = await fetch("/api/admin/profile");
+                    const profile = (await profileRes.json()) as { profileComplete?: boolean };
+                    window.location.href =
+                      profileRes.ok && profile.profileComplete === false ? "/admin/profile" : "/admin";
+                  } catch {
+                    window.location.href = "/admin";
+                  }
                 } catch {
                   errorMessage.textContent = "Network error. Please try again.";
                 }

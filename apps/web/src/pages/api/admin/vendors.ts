@@ -6,7 +6,7 @@ import {
 } from "@ylx/sanity/lib/admin";
 import { isValidInviteEmail } from "@ylx/shared";
 import { sanityWriteClient } from "@ylx/sanity/client";
-import { CACHE_KEYS, invalidateCache } from "../../../lib/cache";
+import { invalidateVendorGalleries } from "../../../lib/vendorGalleries";
 import { validateBrand } from "../../../lib/brand";
 import { requireSuperAdmin } from "../../../lib/auth";
 import { captureError } from "../../../lib/errorTracking";
@@ -158,19 +158,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     if (logoUrl !== undefined) nextBrand.logoUrl = logoUrl;
     if (accentColor !== undefined) nextBrand.accentColor = accentColor;
     await sanityWriteClient.patch(doc._id).set({ brand: nextBrand }).commit();
-
-    // Brand renders server-side in galleries (cached per slug): bust every
-    // gallery cache entry for this vendor's albums so the new brand shows
-    // without waiting for TTL expiry.
-    const slugs = await sanityWriteClient.fetch<{ slug?: { current: string }; customSlug?: string }[]>(
-      `*[_type == "album" && owner._ref == $ownerId]{ slug, customSlug }`,
-      { ownerId: doc._id }
-    );
-    await invalidateCache([
-      ...slugs.flatMap((a) =>
-        [a.slug?.current, a.customSlug].filter((s): s is string => typeof s === "string" && s.length > 0)
-      ).map((s) => CACHE_KEYS.albumBySlug(s)),
-    ]);
+    await invalidateVendorGalleries(doc._id);
 
     return json({ success: true }, 200);
   } catch (err) {

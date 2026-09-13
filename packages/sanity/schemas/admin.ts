@@ -60,6 +60,14 @@ export default defineType({
     }),
     defineField({ name: "invitedBy", title: "Invited by", type: "string", hidden: true }),
     defineField({ name: "disabled", title: "Disabled", type: "boolean", initialValue: false }),
+    defineField({
+      name: "profileComplete",
+      title: "Profile complete",
+      description:
+        "Set when the vendor saves their own display name (invited vendors start false and pick it after first Google login, never taken from the Google account).",
+      type: "boolean",
+      initialValue: false,
+    }),
   ],
   preview: {
     select: {

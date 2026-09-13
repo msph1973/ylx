@@ -18,6 +18,8 @@ interface AdminUser {
   password?: string;
   invitedBy?: string;
   disabled?: boolean;
+  brand?: { logoUrl?: string; accentColor?: string };
+  profileComplete?: boolean;
   sessionVersion?: number;
 }
 
@@ -30,6 +32,8 @@ interface SanityAdminDoc {
   password?: string;
   invitedBy?: string;
   disabled?: boolean;
+  brand?: { logoUrl?: string; accentColor?: string };
+  profileComplete?: boolean;
   sessionVersion?: number;
 }
 
@@ -49,6 +53,8 @@ export async function getAdminByEmail(email: string): Promise<AdminUser | null> 
     password,
     invitedBy,
     disabled,
+    brand,
+    profileComplete,
     sessionVersion
   }`;
 
@@ -250,6 +256,8 @@ export async function listVendors(): Promise<Array<Omit<AdminUser, "password">>>
     role,
     invitedBy,
     disabled,
+    brand,
+    profileComplete,
     sessionVersion
   }`;
   const result = await sanityClient.fetch<Array<Omit<AdminUser, "password">>>(query);

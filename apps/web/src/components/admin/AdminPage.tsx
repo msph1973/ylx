@@ -52,6 +52,7 @@ export default function AdminPage({ adminName }: AdminPageProps) {
           <span className="admin-user">Welcome back, {adminName}</span>
         )}
         <div className="toolbar-actions">
+          <a className="profile-link" href="/admin/profile">Profil</a>
           {!selectedAlbumId && (
             <button
               className="btn-new-album"
