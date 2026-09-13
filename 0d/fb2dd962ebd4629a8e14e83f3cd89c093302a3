@@ -1,0 +1,32 @@
+apps/web/src/components/admin/AdminPage.tsx
+  h_45c23cf41d175e 55
+apps/web/src/lib/vendorGalleries.test.ts
+  h_45c23cf41d175e 1-48
+apps/web/src/lib/vendorGalleries.ts
+  h_45c23cf41d175e 1-18
+apps/web/src/pages/admin/login.astro
+  h_45c23cf41d175e 268-277
+apps/web/src/pages/admin/profile.astro
+  h_45c23cf41d175e 1-154
+apps/web/src/pages/api/admin/profile.test.ts
+  h_45c23cf41d175e 1-123
+apps/web/src/pages/api/admin/profile.ts
+  h_45c23cf41d175e 1-122
+apps/web/src/pages/api/admin/vendors.ts
+  h_45c23cf41d175e 9,161
+packages/sanity/lib/admin.ts
+  h_45c23cf41d175e 21-22,35-36,56-57,259-260
+packages/sanity/schemas/admin.ts
+  h_45c23cf41d175e 63-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0dfb2dd962ebd4629a8e14e83f3cd89c093302a3",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
