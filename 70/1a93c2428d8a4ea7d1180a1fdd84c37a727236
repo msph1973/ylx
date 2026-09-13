@@ -1,0 +1,28 @@
+apps/web/src/components/admin/AlbumFormModal.tsx
+  h_45c23cf41d175e 75-94,334-344,355-359
+apps/web/src/components/admin/UploadPage.tsx
+  h_45c23cf41d175e 2,25,72-74,451-455,615
+apps/web/src/pages/api/admin/albums.ts
+  h_45c23cf41d175e 257-267
+apps/web/src/pages/api/admin/tenant-scope.test.ts
+  h_45c23cf41d175e 286-291,296,304-321
+apps/web/src/pages/api/admin/upload/credentials.test.ts
+  h_45c23cf41d175e 1-60
+apps/web/src/pages/api/admin/upload/credentials.ts
+  h_45c23cf41d175e 13-16,40-48
+apps/web/src/pages/api/admin/upload/finalize.test.ts
+  h_45c23cf41d175e 1-76
+apps/web/src/pages/api/admin/upload/finalize.ts
+  h_45c23cf41d175e 3,159-160,176-188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "701a93c2428d8a4ea7d1180a1fdd84c37a727236",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
