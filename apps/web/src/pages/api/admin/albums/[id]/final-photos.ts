@@ -28,6 +28,8 @@ interface FinalPhotoBody {
 interface AlbumRaw {
   _id: string;
   _type: string;
+  // Tenant owner (S2). Absent on pre-S2 legacy albums (superadmin-only).
+  owner?: { _ref: string };
   status?: string;
   storageType?: StorageType;
   slug?: { current: string };
@@ -186,7 +188,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
     // own ids, so fetch them concurrently to cut serverless latency.
     const [album, asset] = await Promise.all([
       sanityClient.fetch<AlbumRaw | null>(
-        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, storageType, slug, customSlug, "finalPhotos": finalPhotos[]{ _ref } }`,
+        `*[_type == "album" && _id == $albumId][0]{ _id, _type, owner, status, storageType, slug, customSlug, "finalPhotos": finalPhotos[]{ _ref } }`,
         { albumId }
       ),
       // Fetch asset metadata to validate MIME type and file size server-side.
@@ -197,6 +199,16 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
 
     if (!album || album._type !== "album") {
       await deleteOrphanedAsset(assetId);
+      return new Response(JSON.stringify({ error: "Album not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // S2 tenant isolation (404, not 403 — anti-enumerasi). Ownership is
+    // checked BEFORE any asset cleanup so a forged albumId never triggers
+    // deletes; the orphaned-asset branches below only run for owned albums.
+    if (session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
       return new Response(JSON.stringify({ error: "Album not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
@@ -295,7 +307,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
           ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
         ]);
         await Promise.all([
-          publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }),
+          publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }, album.owner?._ref),
           publishAlbumEvent(albumId, "finalPhoto:uploaded", { photoId, filename }),
         ]);
       }
@@ -355,7 +367,7 @@ export const POST: APIRoute = async ({ request, params, cookies }) => {
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }),
+      publishAdminEvent("finalPhoto:uploaded", { albumId, photoId, filename }, album.owner?._ref),
       publishAlbumEvent(albumId, "finalPhoto:uploaded", { photoId, filename }),
     ]);
 
@@ -420,7 +432,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
   try {
     const [album, photo] = await Promise.all([
       sanityClient.fetch<AlbumRaw | null>(
-        `*[_type == "album" && _id == $albumId][0]{ _id, _type, status, storageType, slug, customSlug, finalPhotos[]{_ref} }`,
+        `*[_type == "album" && _id == $albumId][0]{ _id, _type, owner, status, storageType, slug, customSlug, finalPhotos[]{_ref} }`,
         { albumId }
       ),
       sanityClient.fetch<PhotoRaw | null>(
@@ -430,6 +442,14 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
     ]);
 
     if (!album || album._type !== "album") {
+      return new Response(JSON.stringify({ error: "Album not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // S2 tenant isolation (404, not 403 — anti-enumerasi).
+    if (session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
       return new Response(JSON.stringify({ error: "Album not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
@@ -485,7 +505,7 @@ export const DELETE: APIRoute = async ({ request, params, cookies }) => {
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("finalPhoto:deleted", { albumId, photoId }),
+      publishAdminEvent("finalPhoto:deleted", { albumId, photoId }, album.owner?._ref),
       publishAlbumEvent(albumId, "finalPhoto:deleted", { photoId }),
     ]);
 

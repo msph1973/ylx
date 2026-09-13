@@ -61,8 +61,30 @@ export function getChannelName(albumId: string): string {
   return `album:${albumId}`;
 }
 
-export function publishAdminEvent(eventType: string, data?: Record<string, unknown>): Promise<void> {
-  return publish("admin:updates", eventType, data);
+// Owner-scoped admin channel (S2): vendors subscribe here instead of the
+// global admin:updates, so one tenant never receives another's activity.
+export function adminOwnerChannel(ownerId: string): string {
+  return `admin:${ownerId}`;
+}
+
+export function publishAdminEvent(
+  eventType: string,
+  data?: Record<string, unknown>,
+  ownerIds?: string | readonly string[]
+): Promise<void> {
+  // Superadmins listen on the global channel; vendors listen on their own
+  // owner channel. Fan out to both so each audience stays covered without
+  // leaking rival activity across tenants. publish() never throws, so the
+  // parallel fan-out cannot fail the caller's mutation.
+  const channels = ["admin:updates"];
+  const owners = typeof ownerIds === "string" ? [ownerIds] : (ownerIds ?? []);
+  for (const id of owners) {
+    if (typeof id === "string" && id.length > 0) {
+      const ownerChannel = adminOwnerChannel(id);
+      if (!channels.includes(ownerChannel)) channels.push(ownerChannel);
+    }
+  }
+  return Promise.all(channels.map((c) => publish(c, eventType, data))).then(() => undefined);
 }
 
 export function publishAlbumEvent(albumId: string, eventType: string, data?: Record<string, unknown>): Promise<void> {

@@ -13,7 +13,9 @@ function signAdminSession(): string {
     id: 'playwright-admin',
     email: 'admin@ylx.test',
     name: 'Playwright Admin',
-    role: 'admin',
+    role: 'superadmin',
+    // S2: sessions must carry the tenant owner id (== admin doc id).
+    ownerId: 'playwright-admin',
     expiresAt: Date.now() + 60 * 60 * 1000,
     // `getSession()` verifies this against the `playwright-admin` doc's
     // current `sessionVersion` in Sanity (M-1 session revocation). The doc is

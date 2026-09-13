@@ -23,12 +23,20 @@ export const POST: APIRoute = async ({ params, cookies }) => {
   }
 
   try {
-    const existing = await sanityClient.fetch<{ _id: string; status: string; slug?: { current: string }; customSlug?: string } | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, status, slug, customSlug }`,
+    const existing = await sanityClient.fetch<{ _id: string; status: string; owner?: { _ref: string }; slug?: { current: string }; customSlug?: string } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ _id, status, owner, slug, customSlug }`,
       { albumId }
     );
 
     if (!existing) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Tenant guard (S2): vendors lock only their own albums — 404, not 403.
+    if (session.role !== "superadmin" && existing.owner?._ref !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
@@ -47,7 +55,7 @@ export const POST: APIRoute = async ({ params, cookies }) => {
       ...(existing.customSlug ? [CACHE_KEYS.albumBySlug(existing.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("album:locked", { albumId }),
+      publishAdminEvent("album:locked", { albumId }, existing.owner?._ref),
       publishAlbumEvent(albumId, "album:locked"),
     ]);
 

@@ -13,6 +13,8 @@ import { captureError } from "../../../../../lib/errorTracking";
 
 interface AlbumRaw {
   _id: string;
+  // Tenant owner (S2). Absent on pre-S2 legacy albums (superadmin-only).
+  owner?: { _ref: string };
   status?: string;
   storageType?: StorageType;
   finalPhotos?: { _ref: string }[];
@@ -54,7 +56,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
 
   try {
     const album = await sanityClient.fetch<AlbumRaw | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, status, storageType, finalPhotos, slug, customSlug }`,
+      `*[_type == "album" && _id == $albumId][0]{ _id, owner, status, storageType, finalPhotos, slug, customSlug }`,
       { albumId }
     );
 
@@ -66,6 +68,16 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     }
 
     if (!album) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // S2 tenant isolation: vendors only touch their own albums. 404 (not
+    // 403) so one vendor cannot enumerate another's album ids. Ownerless
+    // legacy albums fail the vendor check by construction.
+    if (session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
@@ -100,7 +112,11 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       ...(album.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("album:delivered", { albumId, showOriginalAfterDelivery: includeOriginals }),
+      publishAdminEvent(
+        "album:delivered",
+        { albumId, showOriginalAfterDelivery: includeOriginals },
+        album.owner?._ref
+      ),
       publishAlbumEvent(albumId, "album:delivered", { albumId, showOriginalAfterDelivery: includeOriginals }),
     ]);
 

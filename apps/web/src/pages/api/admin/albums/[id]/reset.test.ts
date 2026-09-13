@@ -95,7 +95,7 @@ describe("POST /api/admin/albums/[id]/reset", () => {
 
     // Reset publishes its own event distinct from a plain unlock, so the
     // gallery can tell the two apart (revise-in-place vs. start-from-empty).
-    expect(publishAdminEventMock).toHaveBeenCalledWith("album:reset", { albumId: "album-1" });
+    expect(publishAdminEventMock).toHaveBeenCalledWith("album:reset", { albumId: "album-1" }, undefined);
     expect(publishAlbumEventMock).toHaveBeenCalledWith("album-1", "album:reset");
   });
 

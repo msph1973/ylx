@@ -17,6 +17,7 @@ interface AlbumPhotoReference {
 
 interface AlbumReferences {
   _id: string;
+  owner?: { _ref: string };
   slug?: { current: string };
   customSlug?: string;
   photos?: AlbumPhotoReference[];
@@ -57,11 +58,19 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     }
 
     const album = await sanityClient.fetch<AlbumReferences | null>(
-      `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug, photos[]{ _key, _ref } }`,
+      `*[_type == "album" && _id == $albumId][0]{ _id, owner, slug, customSlug, photos[]{ _key, _ref } }`,
       { albumId }
     );
 
     if (!album) {
+      return new Response(JSON.stringify({ error: "Album not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Tenant guard (S2): vendors reorder only their own albums — 404, not 403.
+    if (session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
       return new Response(JSON.stringify({ error: "Album not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
@@ -113,7 +122,7 @@ export const PATCH: APIRoute = async ({ params, cookies, request }) => {
     ]);
 
     await Promise.all([
-      publishAdminEvent("album:updated", { albumId, action: "reorder-photos" }),
+      publishAdminEvent("album:updated", { albumId, action: "reorder-photos" }, album.owner?._ref),
       publishAlbumEvent(albumId, "album:updated", { action: "reorder-photos" }),
     ]);
 

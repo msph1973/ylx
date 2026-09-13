@@ -46,11 +46,14 @@ export const PUT: APIRoute = async ({ params, cookies, request, clientAddress })
   // These two lookups are keyed only by slug with no interdependency, so
   // run them concurrently to cut the request's serverless latency in half.
   const [album, pinRecord] = await Promise.all([
-    getCached<SanityAlbumRaw | null>(
+    getCached<(SanityAlbumRaw & { owner?: { _id: string } }) | null>(
       CACHE_KEYS.albumBySlug(slug),
       30,
       120,
-      () => sanityClient.fetch<SanityAlbumRaw | null>(albumBySlugQuery, { slug })
+      () =>
+        sanityClient.fetch<(SanityAlbumRaw & { owner?: { _id: string } }) | null>(albumBySlugQuery, {
+          slug,
+        })
     ),
     sanityClient.fetch<{ pin: string } | null>(albumPinBySlugQuery, { slug }),
   ]);
@@ -159,7 +162,8 @@ export const PUT: APIRoute = async ({ params, cookies, request, clientAddress })
 
   const progress: GalleryDraftProgress = { count, seq: typeof seq === "number" ? seq : 0, updatedAt: Date.now() };
   await cacheSetRaw(CACHE_KEYS.galleryDraft(album._id), progress, DRAFT_TTL_SECONDS);
-  await publishAdminEvent("draft:progress", { albumId: album._id, count });
+  // S2: route to the owning vendor's channel (albumBySlugQuery projects owner).
+  await publishAdminEvent("draft:progress", { albumId: album._id, count }, album.owner?._id);
 
   return new Response(JSON.stringify({ success: true }), {
     status: 200,

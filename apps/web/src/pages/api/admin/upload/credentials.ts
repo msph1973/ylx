@@ -10,8 +10,10 @@ import { requireAdmin } from "../../../../lib/auth";
 //
 // That browser-side upload needs a write token. We never bundle it into client JS;
 // instead the authenticated admin fetches it at runtime from this endpoint (guarded
-// by `requireAdmin`). Exposure is therefore limited to the single admin's own
-// authenticated session — acceptable for this single-admin internal tool.
+// by `requireSuperAdmin`). S2: vendors are Drive-only and must NEVER receive
+// this instance-wide write token — it would bypass every tenant ownership
+// check via direct Sanity API calls. Exposure is therefore limited to the
+// superadmin's own authenticated session.
 //
 // NOTE (deploy): the app's origin(s) must be added to the Sanity project's CORS
 // origins allowlist (manage.sanity.io → API → CORS origins) or the browser upload
@@ -32,6 +34,15 @@ export const GET: APIRoute = async ({ cookies }) => {
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  // S2: vendors upload through their own Google Drive folders (scanned
+  // server-side); only the superadmin may mint direct-to-Sanity uploads.
+  // Unauthenticated stays 401 (the uploader UI keys its relogin prompt off it).
+  if (session.role !== "superadmin") {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }

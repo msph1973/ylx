@@ -3,7 +3,7 @@ import type { APIRoute } from "astro";
 import { sanityClient, sanityWriteClient } from "@ylx/sanity/client";
 import { DRIVE_STORAGE, isStorageType, SANITY_STORAGE } from "@ylx/shared";
 import type { StorageType } from "@ylx/shared";
-import { allAlbumsQuery, allAlbumPinsQuery } from "@ylx/sanity/lib/queries";
+import { allAlbumsQuery, allAlbumPinsQuery, ownedAlbumsQuery, ownedAlbumPinsQuery } from "@ylx/sanity/lib/queries";
 import { requireAdmin } from "../../../lib/auth";
 import { generateUniqueSlug, resolveCustomSlug, releaseSlugLock } from "../../../lib/slug";
 import { publishAdminEvent } from "../../../lib/ably";
@@ -45,14 +45,31 @@ export const GET: APIRoute = async ({ cookies }) => {
   try {
     // The album list and the PIN list are independent reads, so run them
     // concurrently to cut serverless latency.
+    // Tenant scope (S2): vendors only see their own albums. The shared
+    // `albumsList()` Upstash cache key is global, so vendor reads bypass it
+    // entirely and fetch fresh with `owner._ref == $ownerId` — caching a
+    // vendor list under the global key would leak it to other vendors, and
+    // no per-owner invalidation scheme can stay correct across actors.
+    // Superadmins keep the cached unfiltered read (mutations already bust
+    // the global key). Ownerless legacy albums match no vendor filter, so
+    // only superadmins see them.
+    const isSuper = session.role === "superadmin";
     const [albums, pinRecords] = await Promise.all([
-      getCached(CACHE_KEYS.albumsList(), 30, 120, () =>
-        sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery)
-      ),
+      isSuper
+        ? getCached(CACHE_KEYS.albumsList(), 30, 120, () =>
+            sanityClient.fetch<SanityAlbumRaw[]>(allAlbumsQuery)
+          )
+        : sanityClient.fetch<SanityAlbumRaw[]>(ownedAlbumsQuery, {
+            ownerId: session.ownerId,
+          }),
       // PINs are fetched fresh (never through the 30s/120s SWR cache above) so
       // they're never copied into Upstash — allAlbumsQuery intentionally no
       // longer projects `pin` for exactly this reason.
-      sanityClient.fetch<AlbumPinRecord[]>(allAlbumPinsQuery),
+      isSuper
+        ? sanityClient.fetch<AlbumPinRecord[]>(allAlbumPinsQuery)
+        : sanityClient.fetch<AlbumPinRecord[]>(ownedAlbumPinsQuery, {
+            ownerId: session.ownerId,
+          }),
     ]);
     const pinsById = new Map(pinRecords.map((r) => [r._id, r.pin]));
 
@@ -237,6 +254,17 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     }
     const { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName, storageType, driveFolderId, photos } = validation.value;
 
+    // S2 tenant storage rule: vendors are Drive-only. They never receive the
+    // Sanity write token (see upload/credentials), so a sanity-backed album
+    // would be unfillable — reject it outright instead of creating dead data.
+    // Superadmins keep both backends.
+    if (session.role !== "superadmin" && storageType !== DRIVE_STORAGE) {
+      return new Response(
+        JSON.stringify({ error: "Vendor albums must use Google Drive storage" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Pre-generated so the slug/customSlug reservation locks (created before
     // the album document itself) can record which album owns each one.
     const albumId = randomUUID();
@@ -259,10 +287,15 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       const slug = await generateUniqueSlug(title, albumId);
       createdSlugLock = slug;
 
+      // Tenant ownership (S2): the album's vendor is always the caller's
+      // session — any `owner` the client sent is ignored (the create-body
+      // validator strips unknown fields before this point, so it cannot
+      // reach the doc even if a future change forgets this line's intent).
       const doc = await sanityWriteClient.create({
         _id: albumId,
         _type: "album",
         title,
+        owner: { _type: "reference", _ref: session.ownerId },
         slug: { _type: "slug", current: slug },
         ...(resolvedCustomSlug ? { customSlug: resolvedCustomSlug } : {}),
         clientName,
@@ -313,7 +346,7 @@ export const POST: APIRoute = async ({ cookies, request }) => {
         }
       }
       await invalidateCache(CACHE_KEYS.albumsList());
-      await publishAdminEvent("album:created", { albumId: doc._id });
+      await publishAdminEvent("album:created", { albumId: doc._id }, session.ownerId);
       return new Response(
         JSON.stringify({
           album: {

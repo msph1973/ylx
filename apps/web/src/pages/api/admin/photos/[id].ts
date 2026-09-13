@@ -12,6 +12,7 @@ interface PhotoRaw {
 
 interface AlbumSlugRaw {
   _id: string;
+  owner?: { _ref: string };
   slug?: { current: string };
   customSlug?: string;
 }
@@ -54,7 +55,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       // Fetch album slug and customSlug for cache invalidation
       albumId
         ? sanityClient.fetch<AlbumSlugRaw | null>(
-            `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
+            `*[_type == "album" && _id == $albumId][0]{ _id, owner, slug, customSlug }`,
             { albumId }
           )
         : Promise.resolve(null),
@@ -71,6 +72,17 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
           )
         : Promise.resolve([]),
     ]);
+
+    // Tenant guard (S2): a photo inherits its parent album's owner. Vendors
+    // delete only photos of their own albums — 404, not 403, so foreign
+    // photo ids are indistinguishable from missing ones. A missing parent
+    // album also fails the vendor check (orphan photos are superadmin-only).
+    if (session.role !== "superadmin" && album?.owner?._ref !== session.ownerId) {
+      return new Response(
+        JSON.stringify({ error: "Photo not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     const tx = sanityWriteClient.transaction();
 
@@ -100,8 +112,10 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("photo:deleted", { photoId, albumId }),
-      ...(selectionIds.length > 0 ? [publishAdminEvent("selection:changed", { albumId })] : []),
+      publishAdminEvent("photo:deleted", { photoId, albumId }, album?.owner?._ref),
+      ...(selectionIds.length > 0
+        ? [publishAdminEvent("selection:changed", { albumId }, album?.owner?._ref)]
+        : []),
       ...(albumId ? [publishAlbumEvent(albumId, "photo:deleted", { photoId })] : []),
     ]);
 

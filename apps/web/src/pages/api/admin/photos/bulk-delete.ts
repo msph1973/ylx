@@ -13,6 +13,7 @@ interface PhotoRecord {
 
 interface AlbumSlugRaw {
   _id: string;
+  owner?: { _ref: string };
   slug?: { current: string };
   customSlug?: string;
 }
@@ -58,9 +59,10 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     // rejection path. The album lookup has no bearing on that validation, so
     // it can still run alongside the photos fetch.
     const [album, photos] = await Promise.all([
-      // Fetch album slug and customSlug for cache invalidation
+      // Fetch album owner (tenant guard below) plus slug and customSlug
+      // for cache invalidation
       sanityClient.fetch<AlbumSlugRaw | null>(
-        `*[_type == "album" && _id == $albumId][0]{ _id, slug, customSlug }`,
+        `*[_type == "album" && _id == $albumId][0]{ _id, owner, slug, customSlug }`,
         { albumId }
       ),
       sanityClient.fetch<PhotoRecord[]>(
@@ -72,6 +74,16 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     if (photos.length !== uniquePhotoIds.length || photos.some((photo) => photo.album?._ref !== albumId)) {
       return new Response(JSON.stringify({ error: "One or more photos do not belong to this album" }), {
         status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Tenant guard (S2): photos inherit their parent album's owner. 404
+    // (not 403) so vendors cannot probe foreign album ids. A missing album
+    // also fails the vendor check.
+    if (session.role !== "superadmin" && album?.owner?._ref !== session.ownerId) {
+      return new Response(JSON.stringify({ error: "Album not found" }), {
+        status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -118,8 +130,10 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
     await Promise.all([
-      publishAdminEvent("photo:deleted", { albumId, photoIds: uniquePhotoIds }),
-      ...(selectionIds.length > 0 ? [publishAdminEvent("selection:changed", { albumId })] : []),
+      publishAdminEvent("photo:deleted", { albumId, photoIds: uniquePhotoIds }, album?.owner?._ref),
+      ...(selectionIds.length > 0
+        ? [publishAdminEvent("selection:changed", { albumId }, album?.owner?._ref)]
+        : []),
       publishAlbumEvent(albumId, "photo:deleted", { photoIds: uniquePhotoIds }),
     ]);
 

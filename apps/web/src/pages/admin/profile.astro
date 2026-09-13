@@ -1,0 +1,154 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { requireAdmin } from '../../lib/auth';
+
+const session = await requireAdmin(Astro.cookies);
+
+if (!session) {
+  return Astro.redirect('/admin/login');
+}
+---
+
+<AdminLayout title="Profil Vendor">
+  <main class="profile-page">
+    <div class="profile-card">
+      <h1>Profil Vendor</h1>
+      <p class="profile-desc">
+        Nama ini tampil di dashboard dan galeri Anda. Nama akun Google tidak dipakai.
+      </p>
+
+      <form id="profile-form" class="profile-form">
+        <div class="form-group">
+          <label for="name">Nama tampilan</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            maxlength="80"
+            autocomplete="organization"
+            placeholder="Nama studio / fotografer"
+          />
+        </div>
+
+        <div id="onboarding-note" class="profile-note" hidden>
+          Selamat datang! Isi nama tampilan Anda untuk mulai memakai dashboard.
+        </div>
+        <div id="error-message" class="error-message" role="alert"></div>
+        <div id="success-message" class="success-message" role="status"></div>
+
+        <button type="submit" class="profile-btn">Simpan</button>
+        <a class="profile-back" href="/admin">Kembali ke dashboard</a>
+      </form>
+    </div>
+  </main>
+
+  <style>
+    .profile-page {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: var(--space-8) var(--space-4);
+    }
+    .profile-card {
+      width: 100%;
+      max-width: 28rem;
+    }
+    .profile-card h1 {
+      font-size: var(--text-xl);
+      margin-bottom: var(--space-2);
+    }
+    .profile-desc {
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+      margin-bottom: var(--space-5);
+    }
+    .profile-note {
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      margin-bottom: var(--space-3);
+      font-size: 0.9rem;
+    }
+    .profile-form .form-group {
+      margin-bottom: var(--space-4);
+    }
+    .profile-form label {
+      display: block;
+      margin-bottom: var(--space-2);
+    }
+    .profile-form input {
+      width: 100%;
+      min-height: 44px;
+    }
+    .profile-btn {
+      width: 100%;
+      min-height: 44px;
+      cursor: pointer;
+    }
+    .profile-back {
+      display: inline-block;
+      margin-top: var(--space-3);
+      font-size: 0.9rem;
+    }
+  </style>
+
+  <script>
+    const form = document.getElementById('profile-form') as HTMLFormElement;
+    const nameInput = document.getElementById('name') as HTMLInputElement;
+    const note = document.getElementById('onboarding-note') as HTMLElement;
+    const errorMessage = document.getElementById('error-message') as HTMLElement;
+    const successMessage = document.getElementById('success-message') as HTMLElement;
+    const submitBtn = form?.querySelector("button[type='submit']") as HTMLButtonElement;
+
+    const loadProfile = async (): Promise<void> => {
+      try {
+        const res = await fetch('/api/admin/profile');
+        if (!res.ok) {
+          window.location.href = '/admin/login';
+          return;
+        }
+        const data = (await res.json()) as { name?: string; profileComplete?: boolean };
+        if (data.profileComplete !== false && typeof data.name === 'string') {
+          nameInput.value = data.name;
+        }
+        if (data.profileComplete === false) {
+          note.hidden = false;
+        }
+      } catch {
+        window.location.href = '/admin/login';
+      }
+    };
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMessage.textContent = '';
+      successMessage.textContent = '';
+      submitBtn.disabled = true;
+      try {
+        const res = await fetch('/api/admin/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: nameInput.value }),
+        });
+        const data = (await res.json()) as { error?: string };
+        if (!res.ok) {
+          errorMessage.textContent = data.error ?? 'Gagal menyimpan';
+          return;
+        }
+        successMessage.textContent = 'Tersimpan. Mengalihkan ke dashboard…';
+        window.setTimeout(() => {
+          window.location.href = '/admin';
+        }, 800);
+      } catch {
+        errorMessage.textContent = 'Network error. Please try again.';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    void loadProfile();
+  </script>
+</AdminLayout>

@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { isValidInviteEmail } from "@ylx/shared";
 import { sanityClient, sanityWriteClient } from "../client";
 
-const ADMIN_ROLES = ["admin", "photographer"] as const;
+const ADMIN_ROLES = ["superadmin", "vendor"] as const;
 type AdminRole = (typeof ADMIN_ROLES)[number];
 
 function isAdminRole(value: string): value is AdminRole {
@@ -15,6 +16,10 @@ interface AdminUser {
   name: string;
   role: string;
   password?: string;
+  invitedBy?: string;
+  disabled?: boolean;
+  brand?: { logoUrl?: string; accentColor?: string };
+  profileComplete?: boolean;
   sessionVersion?: number;
 }
 
@@ -25,6 +30,10 @@ interface SanityAdminDoc {
   name: string;
   role: string;
   password?: string;
+  invitedBy?: string;
+  disabled?: boolean;
+  brand?: { logoUrl?: string; accentColor?: string };
+  profileComplete?: boolean;
   sessionVersion?: number;
 }
 
@@ -42,6 +51,10 @@ export async function getAdminByEmail(email: string): Promise<AdminUser | null> 
     name,
     role,
     password,
+    invitedBy,
+    disabled,
+    brand,
+    profileComplete,
     sessionVersion
   }`;
 
@@ -122,7 +135,7 @@ export async function createAdmin(data: {
   // Validated here (not just at the schema level) so every caller of
   // createAdmin() is protected, not only the ones that happen to go through
   // Studio's own validation UI.
-  const role = data.role ?? "photographer";
+  const role = data.role ?? "vendor";
   if (!isAdminRole(role)) {
     throw new Error(`Invalid role "${role}": must be one of ${ADMIN_ROLES.join(", ")}`);
   }
@@ -173,4 +186,80 @@ export async function createAdmin(data: {
     }
     throw err;
   }
+}
+
+const VENDOR_NAME_MAX_LENGTH = 80;
+
+// Invite-only vendor onboarding (S2 multitenant): creates an `admin` doc
+// with `role: "vendor"` and NO password — the vendor authenticates via
+// Google login matched on the normalized email. Reuses the deterministic
+// `adminIdForEmail` _id scheme, so `.create()` atomically rejects a second
+// doc for the same email with a 409 (mapped to null), exactly like
+// `createAdmin()` above. Validation lives here (not just at the route
+// layer) so every caller is protected.
+export async function createInvitedVendor(data: {
+  email: string;
+  name: string;
+  invitedBy: string;
+}): Promise<Omit<AdminUser, "password"> | null> {
+  const email = data.email.trim().toLowerCase();
+  if (!isValidInviteEmail(email)) {
+    throw new Error("Invalid email format");
+  }
+
+  const name = data.name.trim();
+  if (name.length === 0) {
+    throw new Error("Name is required");
+  }
+  if ([...name].length > VENDOR_NAME_MAX_LENGTH) {
+    throw new Error("Name must be at most 80 characters");
+  }
+
+  if (typeof data.invitedBy !== "string" || data.invitedBy.length === 0) {
+    throw new Error("invitedBy is required");
+  }
+
+  const existing = await getAdminByEmail(email);
+  if (existing) {
+    return null;
+  }
+
+  try {
+    const result = await sanityWriteClient.create<SanityAdminDoc>({
+      _id: adminIdForEmail(email),
+      _type: "admin",
+      email,
+      name,
+      role: "vendor",
+      invitedBy: data.invitedBy,
+      sessionVersion: 0,
+    });
+
+    const { password: _password, ...vendorWithoutPassword } = result;
+    return vendorWithoutPassword;
+  } catch (err) {
+    if (isConflictError(err)) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+// All vendor accounts on this instance (superadmin-only callers — enforced
+// at the route layer). Password hashes are omitted from the projection so
+// they can never leak into a list response.
+export async function listVendors(): Promise<Array<Omit<AdminUser, "password">>> {
+  const query = `*[_type == "admin" && role == "vendor"] | order(email asc) {
+    _id,
+    email,
+    name,
+    role,
+    invitedBy,
+    disabled,
+    brand,
+    profileComplete,
+    sessionVersion
+  }`;
+  const result = await sanityClient.fetch<Array<Omit<AdminUser, "password">>>(query);
+  return result ?? [];
 }

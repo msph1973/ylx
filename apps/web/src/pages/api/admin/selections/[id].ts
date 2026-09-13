@@ -57,12 +57,25 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
       return photographerReply;
     }
 
-    const selection = await sanityClient.fetch<{ _id: string; albumId: string } | null>(
-      "*[_type == 'selection' && _id == $id][0]{ _id, 'albumId': album._ref }",
+    const selection = await sanityClient.fetch<{
+      _id: string;
+      albumId: string;
+      // Tenant owner via parent album (S2). Null on legacy ownerless albums.
+      ownerRef?: string | null;
+    } | null>(
+      "*[_type == 'selection' && _id == $id][0]{ _id, 'albumId': album._ref, 'ownerRef': album->owner._ref }",
       { id: selectionId }
     );
 
     if (!selection) {
+      return new Response(
+        JSON.stringify({ error: "Selection not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // S2 tenant isolation via the parent album's owner (404, not 403).
+    if (session.role !== "superadmin" && selection.ownerRef !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Selection not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
@@ -79,7 +92,8 @@ export const PATCH: APIRoute = async ({ params, request, cookies }) => {
     await publishAdminEvent("selection:replied", {
       albumId: selection.albumId,
       selectionId,
-    });
+    }, selection.ownerRef ?? undefined
+    );
     // Admin-only `gallery/[slug]/selections.ts` GET caches this album's
     // selections (15s/60s SWR) — without invalidating, a saved reply can
     // appear stale to whoever is viewing that endpoint.

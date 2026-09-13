@@ -47,6 +47,9 @@ interface SanityAlbumDetailRaw {
   clientName: string;
   eventDate: string;
   pin: string;
+  // Tenant owner (S2). Absent on pre-S2 legacy albums, which are
+  // superadmin-only — see the guard in GET/PUT/DELETE below.
+  owner?: { _ref: string };
   slug: { current: string };
   customSlug?: string;
   shareCount?: number;
@@ -87,6 +90,7 @@ function buildPhotoUrls(photo: SanityPhotoRaw) {
 
 interface SanityAlbumSlugsRaw {
   _id: string;
+  owner?: { _ref: string };
   slug?: { current: string };
   customSlug?: string;
 }
@@ -121,6 +125,16 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     ]);
 
     if (!album) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Tenant guard (S2): vendors only see their own albums. 404 (not 403)
+    // so one vendor cannot probe another's album ids. Ownerless legacy
+    // albums fail the vendor check by construction (`undefined !== ownerId`).
+    if (session.role !== "superadmin" && album.owner?._ref !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
@@ -323,10 +337,18 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     // Verify album exists before patching; slug/customSlug are needed so a
     // rename can release the old reservation lock once the new one is secured.
     const existingAlbum = await sanityClient.fetch<SanityAlbumSlugsRaw | null>(
-      `*[_type == "album" && _id == $id][0]{_id, slug, customSlug}`,
+      `*[_type == "album" && _id == $id][0]{_id, owner, slug, customSlug}`,
       { id: albumId }
     );
     if (!existingAlbum) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Tenant guard (S2): 404 (not 403) so vendors cannot probe foreign ids.
+    if (session.role !== "superadmin" && existingAlbum.owner?._ref !== session.ownerId) {
       return new Response(
         JSON.stringify({ error: "Album not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
@@ -405,7 +427,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       // Notify open admin dashboards so they refetch. publishAdminEvent never
       // throws (failures are logged inside), so an already-committed update
       // can't turn into a 500 here.
-      await publishAdminEvent("album:updated", { albumId });
+      await publishAdminEvent("album:updated", { albumId }, existingAlbum.owner?._ref);
 
       return new Response(
         JSON.stringify({
@@ -473,10 +495,24 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
 
   try {
     // Fetch album slug and customSlug for cache invalidation before deletion
-    const album = await sanityClient.fetch<{ slug?: { current: string }; customSlug?: string } | null>(
-      `*[_type == "album" && _id == $albumId][0]{ slug, customSlug }`,
+    const album = await sanityClient.fetch<{ owner?: { _ref: string }; slug?: { current: string }; customSlug?: string } | null>(
+      `*[_type == "album" && _id == $albumId][0]{ owner, slug, customSlug }`,
       { albumId }
     );
+
+    // Tenant guard (S2): vendors cannot delete another vendor's album.
+    // 404 (not 403) so foreign ids are indistinguishable from missing ones.
+    // A missing album falls through to the cascade below ONLY for
+    // superadmins (existing idempotent-delete behavior, e.g. retry after a
+    // partial cleanup). Vendors get 404 on a miss: orphan selections or
+    // photos left under that id cannot be attributed to any owner, so no
+    // vendor may cascade-delete through them.
+    if (session.role !== "superadmin" && album?.owner?._ref !== session.ownerId) {
+      return new Response(
+        JSON.stringify({ error: "Album not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     // Cascade-delete the album with its selections, submissions, and photos.
     await cascadeDeleteAlbums([albumId]);
@@ -487,7 +523,7 @@ export const DELETE: APIRoute = async ({ params, cookies }) => {
       ...(album?.slug?.current ? [CACHE_KEYS.albumBySlug(album.slug.current)] : []),
       ...(album?.customSlug ? [CACHE_KEYS.albumBySlug(album.customSlug)] : []),
     ]);
-    await publishAdminEvent("album:deleted", { albumId });
+    await publishAdminEvent("album:deleted", { albumId }, album?.owner?._ref);
 
     return new Response(
       JSON.stringify({ success: true }),

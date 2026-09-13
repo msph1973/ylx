@@ -36,11 +36,14 @@ export const CONTENT_SECURITY_POLICY = [
   // — clients never fetch() Drive URLs (no CORS headers); downloads are
   // top-level navigations.
   "img-src 'self' https://cdn.sanity.io https://drive.google.com https://*.googleusercontent.com data:",
-  "script-src 'self' 'unsafe-inline'",
+  // accounts.google.com: Google Identity Services (admin login button) —
+  // script (gsi/client), button iframe (frame-src), config fetch.
+  "script-src 'self' 'unsafe-inline' https://accounts.google.com",
+  "frame-src 'self' https://accounts.google.com",
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://*.sanity.io https://*.ably.io wss://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com https://*.ably.net wss://*.ably.net https://*.ingest.us.sentry.io",
+  "connect-src 'self' https://*.sanity.io https://*.ably.io wss://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com https://*.ably.net wss://*.ably.net https://*.ingest.us.sentry.io https://accounts.google.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

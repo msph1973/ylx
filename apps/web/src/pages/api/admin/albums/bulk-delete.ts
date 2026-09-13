@@ -13,6 +13,7 @@ interface BulkDeleteBody {
 
 interface AlbumSlugRaw {
   _id: string;
+  owner?: { _ref: string };
   slug?: { current: string };
   customSlug?: string;
 }
@@ -47,9 +48,28 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 
     // Fetch album slugs and customSlugs for cache invalidation before deletion
     const albums = await sanityClient.fetch<AlbumSlugRaw[]>(
-      `*[_type == "album" && _id in $ids]{ _id, slug, customSlug }`,
+      `*[_type == "album" && _id in $ids]{ _id, owner, slug, customSlug }`,
       { ids }
     );
+
+    // Tenant guard (S2): all-or-nothing. Every requested id must resolve to
+    // an album the caller owns (vendors) — a single foreign or missing id
+    // rejects the whole batch with 404 (not 403) so vendors cannot probe
+    // foreign ids, and nothing is deleted on the rejection path.
+    // Ownerless legacy albums fail the vendor check by construction.
+    if (session.role !== "superadmin") {
+      const byId = new Map(albums.map((album) => [album._id, album]));
+      const allOwned = ids.every(
+        (id) => byId.get(id)?.owner?._ref === session.ownerId
+      );
+      if (!allOwned) {
+        return new Response(
+          JSON.stringify({ error: "Album not found" }),
+          { status: 404, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const slugs = [
       ...albums.map((a) => a.slug?.current).filter((s): s is string => !!s),
       ...albums.map((a) => a.customSlug).filter((s): s is string => !!s),
@@ -65,7 +85,10 @@ export const POST: APIRoute = async ({ cookies, request }) => {
       ...slugs.map((slug) => CACHE_KEYS.albumBySlug(slug)),
     ]);
     // A single realtime event lets every open dashboard refetch once.
-    await publishAdminEvent("album:deleted", { albumIds: ids });
+    // S2: fan out to each affected owner's channel (mixed-owner batches are
+    // superadmin-only; vendors always batch a single owner — their own).
+    const ownerIds = [...new Set(albums.map((a) => a.owner?._ref).filter((o): o is string => typeof o === "string"))];
+    await publishAdminEvent("album:deleted", { albumIds: ids }, ownerIds);
 
     return new Response(
       JSON.stringify({ success: true, deleted: ids.length }),

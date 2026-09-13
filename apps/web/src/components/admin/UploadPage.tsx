@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { DRIVE_STORAGE } from '@ylx/shared';
 import { LazyMotion, domAnimation, m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { resizeImageInWorker } from '../../lib/imageResizeClient';
 import { runWithConcurrency } from '../../lib/concurrency';
@@ -21,6 +22,7 @@ interface Album {
   id: string;
   title: string;
   clientName: string;
+  storageType?: string;
 }
 
 interface UploadFile {
@@ -67,6 +69,9 @@ export default function UploadPage() {
   const shouldReduceMotion = useReducedMotion();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>('');
+  // Drive-backed albums (S2: every vendor album) take photos from the shared
+  // Drive folder — direct upload is disabled for them, server-side too.
+  const selectedAlbumDoc = albums.find((album) => album.id === selectedAlbum);
   const [files, setFiles] = useState<UploadFile[]>([]);
   // Keep a ref in sync with files state so callbacks can read the latest value
   // without needing to re-subscribe on every files change. This avoids recreating
@@ -443,6 +448,11 @@ export default function UploadPage() {
           </select>
         )}
       </div>
+      {selectedAlbumDoc?.storageType === DRIVE_STORAGE && (
+        <div className="drive-upload-notice" role="status">
+          This album is Google Drive-backed — its photos come from the shared Drive folder, not direct upload.
+        </div>
+      )}
 
       {/* Drop Zone */}
       <div
@@ -602,7 +612,7 @@ export default function UploadPage() {
             <button
               className="upload-btn"
               onClick={startUpload}
-              disabled={!selectedAlbum || queuedCount === 0 || isUploading}
+              disabled={!selectedAlbum || queuedCount === 0 || isUploading || selectedAlbumDoc?.storageType === DRIVE_STORAGE}
             >
               {isUploading
                 ? 'Uploading...'

@@ -13,11 +13,23 @@ const album = await getCached(
   CACHE_KEYS.albumBySlug(slug!),
   120,
   120,
-  () => sanityClient.fetch<{ title: string; vendorName?: string | null } | null>(albumBySlugQuery, { slug })
+  () =>
+    sanityClient.fetch<
+      {
+        title: string;
+        vendorName?: string | null;
+        owner?: {
+          _id: string;
+          name?: string | null;
+          brand?: { logoUrl?: string; accentColor?: string } | null;
+        } | null;
+      } | null
+    >(albumBySlugQuery, { slug })
 );
 const vendorName = album?.vendorName ?? 'YLx';
+const brand = album?.owner?.brand ?? null;
 ---
 
-<GalleryLayout title={album?.title ?? 'Gallery'} vendorName={vendorName} clientName="">
+<GalleryLayout title={album?.title ?? 'Gallery'} vendorName={vendorName} clientName="" brand={brand}>
   <GalleryPage slug={slug!} albumTitle={album?.title ?? null} client:load />
 </GalleryLayout>
