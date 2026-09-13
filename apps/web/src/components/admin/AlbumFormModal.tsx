@@ -72,6 +72,26 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
   const [form, setForm] = useState<AlbumFormData>(DEFAULT_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // S2: vendors are Drive-only (they never receive the Sanity write token).
+  // Resolved per open from the session descriptor so a role change between
+  // logins cannot leave a stale lock behind.
+  const [isVendor, setIsVendor] = useState(false);
+  useEffect(() => {
+    if (!isOpen || album) return;
+    let cancelled = false;
+    fetch('/api/auth/session')
+      .then((r) => (r.ok ? (r.json() as Promise<{ role?: unknown }>) : null))
+      .then((s) => {
+        if (cancelled) return;
+        const vendor = s?.role === 'vendor';
+        setIsVendor(vendor);
+        if (vendor) setStorageType('drive');
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, album]);
 
   // Google Drive option (create mode only): scan a shared folder link and
   const [storageType, setStorageType] = useState<StorageType>(SANITY_STORAGE);
@@ -311,15 +331,17 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                 <div className="form-group">
                   <span className="form-label">Storage Foto</span>
                   <div role="radiogroup" aria-label="Photo storage" style={{ display: 'flex', gap: 'var(--space-4)' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
-                      <input
-                        type="radio"
-                        name="storageType"
-                        checked={storageType === SANITY_STORAGE}
-                        onChange={() => setStorageType('sanity')}
-                      />
-                      Sanity upload
-                    </label>
+                    {!isVendor && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="storageType"
+                          checked={storageType === SANITY_STORAGE}
+                          onChange={() => setStorageType('sanity')}
+                        />
+                        Sanity upload
+                      </label>
+                    )}
                     <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
                       <input
                         type="radio"
@@ -330,6 +352,11 @@ export function AlbumFormModal({ isOpen, onClose, onSuccess, album }: AlbumFormM
                       Google Drive
                     </label>
                   </div>
+                  {isVendor && (
+                    <p className="form-hint">
+                      Vendor albums live in your Google Drive — share the folder with the studio account, paste the link, then scan.
+                    </p>
+                  )}
                   {storageType === DRIVE_STORAGE && (
                     <div style={{ marginTop: 'var(--space-2)' }}>
                       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>

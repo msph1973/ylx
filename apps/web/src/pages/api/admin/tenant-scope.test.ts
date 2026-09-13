@@ -283,17 +283,41 @@ describe("POST /api/admin/albums owner forcing", () => {
     vendorName: "Vendor Satu",
     storageType: "sanity",
   };
+  const driveBody = {
+    ...validBody,
+    storageType: "drive",
+    driveFolderId: "AbC123XyZ9",
+    photos: [{ id: "AbC123XyZ9", name: "DSC_0001.JPG", resourceKey: null }],
+  };
 
   it("ignores client-sent owner and forces session.ownerId", async () => {
     requireAdminMock.mockResolvedValue(V1);
     const { status } = await statusOf(
-      await listPost({ cookies: {}, request: jsonRequest({ ...validBody, owner: "admin.palsu" }) } as never)
+      await listPost({ cookies: {}, request: jsonRequest({ ...driveBody, owner: "admin.palsu" }) } as never)
     );
     expect(status).toBe(201);
     expect(sanityCreateMock).toHaveBeenCalledOnce();
     const doc = sanityCreateMock.mock.calls[0][0] as Record<string, unknown>;
     expect(doc.owner).toEqual({ _type: "reference", _ref: "admin.v1" });
     expect(JSON.stringify(doc)).not.toContain("admin.palsu");
+  });
+
+  it("rejects vendor sanity-storage creates with 400 (vendors are Drive-only)", async () => {
+    requireAdminMock.mockResolvedValue(V1);
+    const { status, body } = await statusOf(
+      await listPost({ cookies: {}, request: jsonRequest(validBody) } as never)
+    );
+    expect(status).toBe(400);
+    expect(body.error).toBe("Vendor albums must use Google Drive storage");
+    expect(sanityCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("lets superadmins create sanity-storage albums", async () => {
+    requireAdminMock.mockResolvedValue(SUPER);
+    const { status } = await statusOf(
+      await listPost({ cookies: {}, request: jsonRequest(validBody) } as never)
+    );
+    expect(status).toBe(201);
   });
 });
 

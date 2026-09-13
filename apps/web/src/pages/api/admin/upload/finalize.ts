@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
+import { DRIVE_STORAGE } from "@ylx/shared";
 import { sanityWriteClient } from "@ylx/sanity/client";
 import { requireAdmin } from "../../../../lib/auth";
 import { publishAdminEvent } from "../../../../lib/ably";
@@ -155,7 +156,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     // S2 tenant isolation: vendors only append to their own albums (404, not
     // 403 — anti-enumerasi). The owner reference is read with runtime
     // narrowing (no unchecked cast); ownerless legacy albums are
-    // superadmin-only.
+    // superadmin-only. This runs BEFORE the Drive-model check below so a
+    // rival Drive album id stays indistinguishable from a missing one.
     const albumOwnerRef =
       "owner" in album &&
       album.owner !== null &&
@@ -169,6 +171,19 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Drive-backed albums receive photos through folder scans, never through
+    // direct Sanity uploads — appending a Sanity photo doc here would mix two
+    // storage models on one album (S2: vendors are Drive-only, so this is
+    // their guardrail against a miswired client).
+    const albumStorage =
+      "storageType" in album && typeof album.storageType === "string" ? album.storageType : undefined;
+    if (albumStorage === DRIVE_STORAGE) {
+      return new Response(
+        JSON.stringify({ error: "Drive albums receive photos through folder scans, not direct upload" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     if (!asset || asset._type !== "sanity.imageAsset") {

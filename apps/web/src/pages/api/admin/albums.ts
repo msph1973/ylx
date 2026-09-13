@@ -254,6 +254,17 @@ export const POST: APIRoute = async ({ cookies, request }) => {
     }
     const { title, clientName, eventDate, pin, maxSelections, customSlug, vendorName, storageType, driveFolderId, photos } = validation.value;
 
+    // S2 tenant storage rule: vendors are Drive-only. They never receive the
+    // Sanity write token (see upload/credentials), so a sanity-backed album
+    // would be unfillable — reject it outright instead of creating dead data.
+    // Superadmins keep both backends.
+    if (session.role !== "superadmin" && storageType !== DRIVE_STORAGE) {
+      return new Response(
+        JSON.stringify({ error: "Vendor albums must use Google Drive storage" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Pre-generated so the slug/customSlug reservation locks (created before
     // the album document itself) can record which album owns each one.
     const albumId = randomUUID();
