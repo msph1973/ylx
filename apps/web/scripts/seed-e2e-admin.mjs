@@ -40,7 +40,8 @@ const result = await client.createOrReplace({
   _type: "admin",
   email: "admin@ylx.test",
   name: "Playwright Admin",
-  role: "admin",
+  // S2 role (strict session gate rejects legacy values).
+  role: "superadmin",
   // Dummy hash — e2e never logs in via password; the cookie is signed
   // directly by tests/helpers/adminSession.ts.
   password: "$2a$12$playwright.e2e.dummy.hash.not.a.real.credentialXXXXXXX",
