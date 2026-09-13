@@ -1,0 +1,16 @@
+apps/web/src/pages/privacy.astro
+  h_45c23cf41d175e 1-145
+apps/web/src/pages/terms.astro
+  h_45c23cf41d175e 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7e61bee283f29da245501a9bbba51d45d4beed9d",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
