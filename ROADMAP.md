@@ -16,8 +16,8 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 | 4 | Watermark preview + proteksi klik-kanan/drag-save | 2 | Belum dikerjakan |
 | 5 | Tingkatan pilihan foto (mis. "wajib" vs "kandidat") | 2 | Belum dikerjakan |
 | 6 | Load-testing skenario nyata (submit bersamaan) | 2 | Belum dikerjakan |
-| 7 | Multi-admin dengan kepemilikan album (ownership scoping) | 3 | Belum dikerjakan |
-| 8 | Branding kustom per album/fotografer | 3 | Belum dikerjakan |
+| 7 | Multi-admin dengan kepemilikan album (ownership scoping) | 3 | **MERGED** — PR #112 S2 (role superadmin\|vendor, `album.owner`, filter semua endpoint admin, migrasi role produksi) |
+| 8 | Branding kustom per album/fotografer | 3 | **MERGED** — PR #112 S2 (brand per akun: logoUrl https + accent kontras ≥4.5, render galeri via `album.owner`; `vendorName` per album PR #104) |
 | 9 | Dashboard analitik ringan untuk fotografer | 3 | Belum dikerjakan |
 | 10 | Dukungan multi-bahasa (i18n) sisi klien | 3 | Belum dikerjakan |
 | 11 | Download foto asli (per-foto + download-all ZIP) — klien & admin | 2 | **MERGED** (bagian dari PR #96, merge commit `2178cc5`, klien-side, digabung dengan #2 final delivery) — lihat catatan supersede di bawah |
@@ -124,6 +124,8 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 
 ### 7. Multi-admin dengan kepemilikan album (ownership scoping)
 
+> ✅ **MERGED sebagai PR #112 (S2 multitenant, 2026-09-13)** — diputuskan: multi-tenant penuh (bukan multi-user 1 bisnis). Detail implementasi di `docs/compose/plans/2026-09-12-s2-multitenant.md`. Isi di bawah adalah spec pra-implementasi, dipertahankan sebagai arsip.
+
 **Kenapa**: Schema `admin` (`packages/sanity/schemas/admin.ts`) **sudah punya** field `role` (`admin`/`photographer`) dan sistem sudah bisa punya banyak dokumen admin sekaligus — tapi **tidak ada** konsep kepemilikan album. Semua admin yang login bisa lihat/edit/hapus SEMUA album, tidak peduli siapa yang membuatnya. `PRODUCT.md` menyebut "Photographers" (jamak) sebagai user primer, mengisyaratkan arah produk memang untuk melayani lebih dari satu fotografer/bisnis — tapi arsitektur sekarang efektif single-tenant.
 
 **Yang perlu ditambahkan**:
@@ -139,6 +141,8 @@ Status semua item di bawah: **BELUM DIKERJAKAN**. Update baris "Status" di tabel
 ---
 
 ### 8. Branding kustom per album/fotografer
+
+> ✅ **MERGED sebagai PR #112 (S2, 2026-09-13)** — brand per akun (bukan per album). Isi di bawah adalah spec pra-implementasi, dipertahankan sebagai arsip.
 
 **Kenapa**: Brand YLx sekarang fixed (warna aksen `#d4a574`/amber, dark theme, lihat `DESIGN.md`). Kalau arah produk memang multi-tenant (lihat fitur #7), setiap fotografer/bisnis kemungkinan ingin galeri terlihat seperti brand mereka sendiri, bukan brand YLx.
 

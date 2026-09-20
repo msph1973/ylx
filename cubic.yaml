@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://cubic.dev/schema/cubic-repository-config.schema.json
-# cubic.yaml — PROPOSED (disimpan di ~/system-prompt, belum diterapkan ke ylx/cubic.yaml)
-# Sumber: STATUS.md + REVIEW.md + apps/web/src/pages/api/gallery/[slug]/verify.ts + submit.ts + lib/auth.ts + ratelimit.ts + schemas/album.ts
-# Tanggal: 2026-08-27 | Trigger: user minta simpan dulu, belum patch ylx/cubic.yaml
+# cubic.yaml — LIVE di repo root sejak 2026-09-13 (audit konsistensi P0).
+# Sumber: STATUS.md + REVIEW.md + AGENTS.md + S2 (PR #112: roles, owner, Google).
 
 version: 1
 
@@ -14,12 +13,20 @@ reviews:
   custom_instructions: |
     YLx is a full-stack photo proofing gallery for wedding photographers.
     Stack: Astro 6 + React 18 (islands), Sanity v4 CMS, Ably realtime, Vercel
-    Serverless, pnpm workspaces. No Prisma, no OAuth. Admin is single-user
-    email+bcrypt. Read STATUS.md, REVIEW.md, and AGENTS.md for conventions.
+    Serverless, pnpm workspaces. No Prisma. Auth: email+bcrypt + Google
+    IdToken (invite-only; role preserved from admin doc); roles
+    superadmin|vendor; album.owner scoping; vendors Drive-only. Read
+    STATUS.md, REVIEW.md, and AGENTS.md for conventions.
 
     Key rules:
     - Every API route under /api/admin/ MUST call requireAdmin(cookies) at the
-      top and 401 on failure (REVIEW.md §2.1).
+      top and 401 on failure (REVIEW.md §2.1). Account/token routes
+      (create-admin, upload/credentials, vendors) MUST be effectively
+      superadmin-only (requireSuperAdmin or an equivalent role check +
+      401 unauthenticated / 403 authenticated-non-superadmin split).
+      Cross-vendor access MUST 404, never 403 (anti-enumerasi).
+    - Vendor albums MUST be Drive storage; vendors MUST NEVER receive
+      SANITY_API_TOKEN (upload/credentials is superadmin-only).
     - Every state-changing gallery action (submit, unlock, lock, delete, deliver) MUST
       await publishAdminEvent() after the Sanity commit — never before.
     - Invalidate cache BEFORE publishing realtime events so clients refetch

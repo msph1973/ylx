@@ -103,6 +103,15 @@ export const POST: APIRoute = async ({ cookies, request }) => {
 > `/api/ably/token.ts` also calls `requireAdmin()`, but only to conditionally grant an extra `admin:updates` subscribe capability — non-admin gallery clients hit the same endpoint for their own channel token, so it's not a reject-if-missing case like the routes above.
 > Mastra is fully removed — `/api/admin/upload.ts` and `/api/admin/workflow.ts` no longer exist (see §10); don't re-add either to this list without re-verifying the file is back.
 
+### 2.1b S2 Authorization Rules (multitenant)
+
+Roles are `superadmin`|`vendor` only (legacy `admin`/`photographer` were migrated; sessions carrying them are rejected). Session shape always includes `ownerId` (== admin doc `_id`).
+
+- **Account/token routes are superadmin-only**: `create-admin`, `upload/credentials`, `vendors` — unauthenticated → 401, authenticated vendor → 403. (`upload/credentials` keeps `requireAdmin` + an explicit role check instead of the `requireSuperAdmin` helper; both patterns satisfy the gate.)
+- **Cross-vendor access is 404, never 403** (anti-enumeration): every album/photo/selection read or mutation compares `owner._ref` against `session.ownerId`; ownerless legacy albums are superadmin-only. Missing-vs-foreign must be indistinguishable, including `DELETE` fall-through to cascade and the `finalize` guard order (owner check before storage-model check).
+- **Vendor albums are Drive-only**: `POST albums` rejects non-drive storage for vendors (400); `finalize` rejects Drive albums with 409 only after the owner check; vendors never receive `SANITY_API_TOKEN`.
+- **Realtime is owner-scoped**: vendors subscribe `admin:{ownerId}` only (see `api/ably/token.ts`); `publishAdminEvent` fans out to the global plus owner channels.
+
 ### 2.2 Session Cookie Security
 
 ```typescript
@@ -492,6 +501,8 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `EMAIL_FROM` | "From" address for Resend emails; must be on a domain verified in your Resend account | ❌ optional but required together with `RESEND_API_KEY` for email to actually send; safe to share across environments (not a secret) |
 | `GDRIVE_CLIENT_EMAIL` | Drive-storage albums — service account for folder scans (`lib/gdrive.ts`, called from `api/admin/albums/scan-drive.ts`) | ❌ optional — when unset, a scan fails with **502** "Google Drive integration is not configured" (a curated `DriveScanError`; unexpected errors still map to generic 500) and the Drive storage option is effectively disabled; set in **both** Production + Preview when enabled |
 | `GDRIVE_PRIVATE_KEY` | Same as above (PKCS8 PEM from the service account JSON key) | ❌ optional — secret; pair with `GDRIVE_CLIENT_EMAIL`. Folder must be shared with the SA email as Viewer |
+| `GOOGLE_CLIENT_ID` | Server-side Google IdToken verification (`api/auth/google.ts`, audience check) | ✅ — set in **both** Production + Preview when vendor login is enabled |
+| `PUBLIC_GOOGLE_CLIENT_ID` | Same value as above — GIS button init in the browser (`admin/login.astro`) | ✅ — public identifier by design (not a secret); same scoping as above |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above
