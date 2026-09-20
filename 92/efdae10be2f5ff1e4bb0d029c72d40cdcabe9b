@@ -1,0 +1,22 @@
+AGENTS.md
+  h_45c23cf41d175e 41,52,60,80,82-83
+REVIEW.md
+  h_45c23cf41d175e 495-496
+ROADMAP.md
+  h_45c23cf41d175e 19-20,127-128,145-146
+STATUS.md
+  h_45c23cf41d175e 29,76-80,85-86,104-105,157,169-170
+cubic.yaml
+  h_45c23cf41d175e 2-3,16-19,23-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "92efdae10be2f5ff1e4bb0d029c72d40cdcabe9b",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
