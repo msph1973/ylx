@@ -492,6 +492,8 @@ All required env vars must be present in **both** Vercel environments (preview +
 | `EMAIL_FROM` | "From" address for Resend emails; must be on a domain verified in your Resend account | ❌ optional but required together with `RESEND_API_KEY` for email to actually send; safe to share across environments (not a secret) |
 | `GDRIVE_CLIENT_EMAIL` | Drive-storage albums — service account for folder scans (`lib/gdrive.ts`, called from `api/admin/albums/scan-drive.ts`) | ❌ optional — when unset, a scan fails with **502** "Google Drive integration is not configured" (a curated `DriveScanError`; unexpected errors still map to generic 500) and the Drive storage option is effectively disabled; set in **both** Production + Preview when enabled |
 | `GDRIVE_PRIVATE_KEY` | Same as above (PKCS8 PEM from the service account JSON key) | ❌ optional — secret; pair with `GDRIVE_CLIENT_EMAIL`. Folder must be shared with the SA email as Viewer |
+| `GOOGLE_CLIENT_ID` | Server-side Google IdToken verification (`api/auth/google.ts`, audience check) | ✅ — set in **both** Production + Preview when vendor login is enabled |
+| `PUBLIC_GOOGLE_CLIENT_ID` | Same value as above — GIS button init in the browser (`admin/login.astro`) | ✅ — public identifier by design (not a secret); same scoping as above |
 
 Any PR adding a new `process.env.X` call must:
 1. Document the variable above

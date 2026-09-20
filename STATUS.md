@@ -26,7 +26,7 @@ Baca file ini pertama kali sebelum file lain. Ini adalah satu-satunya sumber keb
 |-------|------|---------|
 | Frontend | Astro 6 + React 18 | Island architecture, `client:load` |
 | CMS + DB | Sanity v4 | Semua data di Sanity, **tidak ada Prisma** |
-| Auth | Email + bcrypt (12 rounds) | Bukan OAuth — admin tunggal |
+| Auth | Email + bcrypt (12 rounds) + Google IdToken (invite-only) | Roles superadmin\|vendor; sesi HMAC tunggal `admin_session` (+ownerId) |
 | Realtime | Ably | `publishAdminEvent` di server, `useRealtime` / `useAdminRealtime` di client |
 | Deploy | Vercel Serverless | `@astrojs/vercel` v10, Node 22, `rootDirectory: apps/web` |
 | Monorepo | Turborepo + pnpm workspaces | `--force` flag di build command |
@@ -73,11 +73,17 @@ Client sees unlock real-time    ✅  useRealtime (`album:unlocked` preserve + `a
 | `apps/web/src/pages/api/gallery/[slug]/verify.ts` | PIN auth + album+photo data |
 | `apps/web/src/pages/api/gallery/[slug]/submit.ts` | Submit selections + lock album |
 | `apps/web/src/pages/api/auth/` | Login, logout, create-admin |
+| `apps/web/src/pages/api/auth/google.ts` | Login Google invite-only (verifikasi IdToken, sesi HMAC sama) |
+| `apps/web/src/pages/api/auth/session.ts` | Descriptor sesi untuk browser (role + ownerId, pilih channel realtime) |
+| `apps/web/src/pages/api/admin/vendors.ts` | Invite/list/brand vendor (superadmin-only) |
+| `apps/web/src/pages/api/admin/profile.ts` | Profil self-service vendor (nama + brand sendiri) |
+| `apps/web/src/pages/admin/profile.astro` + `privacy.astro` + `terms.astro` | Profil vendor; halaman legal statis (syarat publish OAuth) |
 | `apps/web/src/components/admin/` | AdminPage, AlbumList, AlbumCard, AlbumDetail, AlbumFormModal, UploadPage, SelectionTable, CopyFilenamesButton |
 | `apps/web/src/components/gallery/` | GalleryPage, PinEntry, PhotoLightbox, BlurImage (LQIP blur-up) |
 | `apps/web/src/hooks/useCopyToClipboard.ts` | Hook clipboard dengan auto-reset + cleanup |
 | `apps/web/src/lib/slug.ts` | `generateUniqueSlug()` — shared antara POST & PUT |
-| `apps/web/src/lib/auth.ts` | `requireAdmin()` — auth guard semua admin endpoints |
+| `apps/web/src/lib/auth.ts` | `requireAdmin()` semua endpoint + `requireSuperAdmin()` rute akun/token; sesi ketat superadmin\|vendor + ownerId |
+| `apps/web/src/pages/api/admin/albums/[id]/deliver.ts` + `final-photos.ts` | Delivery foto final (guard owner; Drive ditolak di deliver) |
 | `apps/web/src/lib/ably.ts` | `publishAdminEvent()` — SSR-safe via `Ably.Rest` |
 | `packages/sanity/schemas/` | Schema: album, photo, selection, submission |
 | `packages/sanity/lib/queries.ts` | GROQ queries (allAlbumsQuery, albumBySlugQuery, dll.) |
@@ -95,6 +101,8 @@ SANITY_API_TOKEN=<write token — lihat Sanity dashboard>
 PUBLIC_ABLY_KEY=<subscribe-only key>
 ABLY_API_KEY=<full key>
 SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
+GOOGLE_CLIENT_ID=<OAuth client ID — verifikasi IdToken server-side>
+PUBLIC_GOOGLE_CLIENT_ID=<sama dgn di atas — init tombol GIS di browser>
 ```
 
 > ⚠️ Token Sanity di `CONTEXT.md` sudah **di-revoke** — jangan pakai. Generate token baru dari https://www.sanity.io/manage/project/741sif2l/api
@@ -146,7 +154,7 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 |------|--------|
 | Junie MCP servers | playwright, filesystem, sequential-thinking, memory, context7, github, kernel, linear, sanity (9 aktif) |
 | Vercel token | `~/.local/share/com.vercel.cli/auth.json` |
-| Kernel browser | `agent-browser -p kernel` + `KERNEL_API_KEY` di `~/.bashrc` |
+| Steel browser (cloud) | Steel CLI (`~/.steel/bin/steel`, `STEEL_API_KEY` via env sesaat) — viewport iPhone 17 `402x874 @3x`; Kernel plan unpaid/blocked, jangan pakai |
 | Linear team | `Ylx` | ID: `bc11a289-8943-48bc-9679-87557d86ea0e` |
 | Sanity project | `741sif2l` / dataset `production` (**private** sejak 2026-07-02); dataset `test` (**public**, dummy e2e saja — plan tidak mendukung private kedua) |
 
@@ -158,8 +166,8 @@ SESSION_SECRET=<random string — HMAC signing untuk cookie admin session>
 |------|------|--------|
 | Gallery E2E (Playwright) | `apps/web/tests/gallery.spec.ts` | ✅ Refreshed ke selektor lightbox+LQIP (PR #17), 5/5 pass; jalan di CI (job `e2e` di `ci.yml`) |
 | Admin E2E (Playwright) | `apps/web/tests/admin.spec.ts` | ✅ 4/4 pass. Signed-session helper `tests/helpers/adminSession.ts` + doc Sanity `playwright-admin` (seed: `apps/web/scripts/seed-e2e-admin.mjs`, dataset `test`); route API di-mock via `page.route`. Jalan di CI (job `e2e`). Meliputi: pagination, bulk photo delete, reorder (keyboard), lock/unlock |
-| Email notifikasi | — | Tidak ada |
-| OAuth admin auth | — | Bukan OAuth, pakai email+bcrypt |
+| Email notifikasi | `lib/email.ts` via Resend | ✅ MERGED (PR #95) — submit → email fotografer |
+| OAuth admin auth | `api/auth/google.ts` + GIS di login | ✅ MERGED S2 (PR #112) — invite-only, role paksa vendor server-side |
 | LQIP / Blurhash | `BlurImage.tsx` + `verify.ts` (`metadata.lqip`) | ✅ Blur-up progressive loading di grid + lightbox (PR #17) |
 
 ---
