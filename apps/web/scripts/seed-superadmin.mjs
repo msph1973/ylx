@@ -9,11 +9,15 @@
  * Env: PUBLIC_SANITY_PROJECT_ID (or SANITY_PROJECT_ID),
  *      PUBLIC_SANITY_DATASET (or SANITY_DATASET, default "production"),
  *      SANITY_API_TOKEN
- * Usage: node scripts/seed-superadmin.mjs --email you@studio.com --name "Your Name" --password 'long-secret-here'
- *        (min 8 chars; the value never leaves this machine except into Sanity's bcrypt hash)
+ * Usage: node scripts/seed-superadmin.mjs --email you@studio.com --name "Your Name"
+ *        (password comes from a hidden interactive prompt — never argv, so it
+ *        stays out of shell history and process listings; or --password-file
+ *        <path> for automation with a 0600 file)
  */
 
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { createInterface } from "node:readline";
 import bcrypt from "bcryptjs";
 import { createClient } from "@sanity/client";
 
@@ -43,7 +47,6 @@ for (let i = 0; i < rawArgs.length; i++) {
 
 const email = (args.email ?? "").trim().toLowerCase();
 const name = (args.name ?? "").trim();
-const password = args.password ?? "";
 
 // Mirrors isValidInviteEmail (@ylx/shared): plain node cannot resolve the
 // workspace TS sources, so the linear check is duplicated here instead of
@@ -66,8 +69,60 @@ if (name.length === 0 || [...name].length > 80) {
   console.error("❌ --name must be 1-80 characters");
   process.exit(1);
 }
+// Password arrives via hidden prompt (default) or --password-file, never
+// argv. It is cleared right after hashing.
+let password = "";
+if (args["password-file"] !== undefined) {
+  if (typeof args["password-file"] !== "string" || args["password-file"].length === 0) {
+    console.error("❌ --password-file needs a file path");
+    process.exit(1);
+  }
+  password = (await readFile(args["password-file"], "utf8")).replace(/\s+$/, "");
+} else {
+  if (!process.stdin.isTTY) {
+    console.error("❌ No --password-file and no interactive terminal — password prompt needs a TTY");
+    process.exit(1);
+  }
+  password = await new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    const stdin = process.stdin;
+    const setEcho = (on) => {
+      try {
+        if (stdin.isTTY && typeof stdin.setRawMode === "function") {
+          stdin.setRawMode(!on);
+        }
+      } catch { /* non-TTY fallback below still hides via muted output */ }
+    };
+    process.stdout.write("Password (min 8 chars, hidden): ");
+    setEcho(false);
+    let buf = "";
+    const onData = (chunk) => {
+      const s = String(chunk);
+      if (s === "\r" || s === "\n" || s === "\u0004") {
+        stdin.off("data", onData);
+        setEcho(true);
+        process.stdout.write("\n");
+        rl.close();
+        resolve(buf);
+      } else if (s === "\u007f") {
+        buf = buf.slice(0, -1);
+      } else {
+        buf += s;
+      }
+    };
+    stdin.on("data", onData);
+  });
+}
 if ([...password].length < 8) {
-  console.error("❌ --password must be at least 8 characters");
+  password = "";
+  console.error("❌ password must be at least 8 characters");
+  process.exit(1);
+}
+// bcrypt silently truncates past 72 bytes — reject instead of creating two
+// credentials that compare equal.
+if (Buffer.byteLength(password, "utf8") > 72) {
+  password = "";
+  console.error("❌ password must be at most 72 bytes (bcrypt limit)");
   process.exit(1);
 }
 
@@ -82,15 +137,40 @@ if (existing > 0) {
 }
 
 const hashedPassword = await bcrypt.hash(password, 12);
-const result = await client.create({
-  _id: `admin.${createHash("sha256").update(email).digest("hex")}`,
-  _type: "admin",
-  email,
-  name,
-  role: "superadmin",
-  password: hashedPassword,
-  profileComplete: true,
-  sessionVersion: 0,
-});
+password = "";
 
-console.log(`✓ Seeded superadmin ${result.email} in ${projectId}/${dataset} — sign in with email + password`);
+// Atomic first-admin-only: the sentinel and the admin doc are created in ONE
+// transaction with deterministic IDs, so two concurrent runs cannot both
+// succeed — the loser gets a 409 conflict. (The count check above is just a
+// friendly fast path.)
+const adminId = `admin.${createHash("sha256").update(email).digest("hex")}`;
+try {
+  const result = await client
+    .transaction()
+    .create({
+      _id: "admin.bootstrap",
+      _type: "bootstrap",
+      createdAt: new Date().toISOString(),
+      email,
+    })
+    .create({
+      _id: adminId,
+      _type: "admin",
+      email,
+      name,
+      role: "superadmin",
+      password: hashedPassword,
+      profileComplete: true,
+      sessionVersion: 0,
+    })
+    .commit();
+  console.log(`✓ Seeded superadmin ${email} in ${projectId}/${dataset} — sign in with email + password`);
+  void result;
+} catch (err) {
+  const statusCode = err?.statusCode ?? err?.response?.statusCode;
+  if (statusCode === 409) {
+    console.error(`❌ Already bootstrapped in ${projectId}/${dataset} — invite via the app instead`);
+    process.exit(1);
+  }
+  throw err;
+}
