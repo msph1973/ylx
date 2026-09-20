@@ -1,0 +1,24 @@
+.env.example
+  h_45c23cf41d175e 67-71
+DESIGN.md
+  h_45c23cf41d175e 5,66,81,134,147,155
+PRODUCT.md
+  h_45c23cf41d175e 25
+apps/web/package.json
+  h_45c23cf41d175e 44
+apps/web/scripts/seed-superadmin.mjs
+  h_45c23cf41d175e 1-96
+pnpm-lock.yaml
+  h_45c23cf41d175e 105-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "db3b2cd1b44c5205b5f7d93e2fc9288ee21762b7",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
