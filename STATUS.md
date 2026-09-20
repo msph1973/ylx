@@ -77,7 +77,8 @@ Client sees unlock real-time    ✅  useRealtime (`album:unlocked` preserve + `a
 | `apps/web/src/pages/api/auth/session.ts` | Descriptor sesi untuk browser (role + ownerId, pilih channel realtime) |
 | `apps/web/src/pages/api/admin/vendors.ts` | Invite/list/brand vendor (superadmin-only) |
 | `apps/web/src/pages/api/admin/profile.ts` | Profil self-service vendor (nama + brand sendiri) |
-| `apps/web/src/pages/admin/profile.astro` + `privacy.astro` + `terms.astro` | Profil vendor; halaman legal statis (syarat publish OAuth) |
+| `apps/web/src/pages/admin/profile.astro` | Profil self-service vendor (nama + brand sendiri) |
+| `apps/web/src/pages/privacy.astro` + `terms.astro` | Halaman legal statis (syarat publish OAuth) |
 | `apps/web/src/components/admin/` | AdminPage, AlbumList, AlbumCard, AlbumDetail, AlbumFormModal, UploadPage, SelectionTable, CopyFilenamesButton |
 | `apps/web/src/components/gallery/` | GalleryPage, PinEntry, PhotoLightbox, BlurImage (LQIP blur-up) |
 | `apps/web/src/hooks/useCopyToClipboard.ts` | Hook clipboard dengan auto-reset + cleanup |
@@ -167,7 +168,7 @@ PUBLIC_GOOGLE_CLIENT_ID=<sama dgn di atas — init tombol GIS di browser>
 | Gallery E2E (Playwright) | `apps/web/tests/gallery.spec.ts` | ✅ Refreshed ke selektor lightbox+LQIP (PR #17), 5/5 pass; jalan di CI (job `e2e` di `ci.yml`) |
 | Admin E2E (Playwright) | `apps/web/tests/admin.spec.ts` | ✅ 4/4 pass. Signed-session helper `tests/helpers/adminSession.ts` + doc Sanity `playwright-admin` (seed: `apps/web/scripts/seed-e2e-admin.mjs`, dataset `test`); route API di-mock via `page.route`. Jalan di CI (job `e2e`). Meliputi: pagination, bulk photo delete, reorder (keyboard), lock/unlock |
 | Email notifikasi | `lib/email.ts` via Resend | ✅ MERGED (PR #95) — submit → email fotografer |
-| OAuth admin auth | `api/auth/google.ts` + GIS di login | ✅ MERGED S2 (PR #112) — invite-only, role paksa vendor server-side |
+| OAuth admin auth | `api/auth/google.ts` + GIS di login | ✅ MERGED S2 (PR #112) — invite-only; role preserved from doc (vendor\|superadmin) |
 | LQIP / Blurhash | `BlurImage.tsx` + `verify.ts` (`metadata.lqip`) | ✅ Blur-up progressive loading di grid + lightbox (PR #17) |
 
 ---

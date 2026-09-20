@@ -49,7 +49,7 @@ The built-in `memory` MCP server holds a knowledge graph — use it **only** for
 
 - **Frontend:** Astro 6 (island architecture) + React 18 interactive components via `client:load`
 - **CMS + DB:** Sanity v4 — all data stored here; **no Prisma**
-- **Auth:** Email + bcrypt (12 rounds) + Google IdToken (invite-only vendors) — roles superadmin|vendor, single HMAC `admin_session` cookie
+- **Auth:** Email + bcrypt (12 rounds) + Google IdToken (invite-only; role preserved from admin doc) — roles superadmin|vendor, single HMAC `admin_session` cookie (+ownerId)
 - **Realtime:** Ably — `publishAdminEvent()` server-side, `useRealtime`/`useAdminRealtime` client-side
 - **Deployment:** Vercel Serverless (`@astrojs/vercel` v10), Node 22, `rootDirectory: apps/web`
 - **Monorepo:** Turborepo + pnpm workspaces
@@ -93,7 +93,7 @@ Since the app runs on Vercel Serverless, a local `astro dev` server behaves diff
 
 ## Skills — Always Use the Relevant One
 
-Before starting any task, scan the available Agent Skills and use **every** skill that matches the task's domain (open its doc first). Skipping a matching skill is not allowed unless the user says otherwise. Common matches in this repo: `astro` (framework), `sanity-best-practices` / `sanity-migration` / `content-modeling-best-practices` (CMS + GROQ), `impeccable` (UI/UX audit + fix), `compose:*` (`plan` / `tdd` / `subagent` / `review` / `verify`), `kernel-*` + `debug-browser-session` (browser E2E).
+Before starting any task, scan the available Agent Skills and use **every** skill that matches the task's domain (open its doc first). Skipping a matching skill is not allowed unless the user says otherwise. Common matches in this repo: `astro` (framework), `sanity-best-practices` / `sanity-migration` / `content-modeling-best-practices` (CMS + GROQ), `impeccable` (UI/UX audit + fix), `compose:*` (`plan` / `tdd` / `subagent` / `review` / `verify`), `steel-browser-cloud-test` + `ylx-ui-ux-preview-audit` (browser E2E via Steel cloud, iPhone 17 402x874). Kernel cloud is unpaid/blocked — do NOT load `kernel-*`/`debug-browser-session` for browser work.
 
 ## Token Efficiency (mandatory)
 
