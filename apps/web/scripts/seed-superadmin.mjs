@@ -16,6 +16,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import bcrypt from "bcryptjs";
 import { createClient } from "@sanity/client";
 
