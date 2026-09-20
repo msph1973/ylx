@@ -1,0 +1,16 @@
+apps/web/scripts/seed-superadmin.mjs
+  h_45c23cf41d175e 12-15,19-20,72-115,117-125,140,142-176
+apps/web/src/styles/variables.css
+  h_45c23cf41d175e 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c43c1dff1d65e36f81885a58034c4253a0cb6fc9",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
