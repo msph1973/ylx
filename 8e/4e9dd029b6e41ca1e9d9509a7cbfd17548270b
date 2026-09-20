@@ -1,0 +1,22 @@
+.env.example
+  h_45c23cf41d175e 66-75
+AGENTS.md
+  h_45c23cf41d175e 52,96
+REVIEW.md
+  h_45c23cf41d175e 106-114
+STATUS.md
+  h_45c23cf41d175e 80-81,171
+cubic.yaml
+  h_45c23cf41d175e 17-19,24-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8e4e9dd029b6e41ca1e9d9509a7cbfd17548270b",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
