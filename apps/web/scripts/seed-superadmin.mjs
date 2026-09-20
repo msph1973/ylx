@@ -16,8 +16,6 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { createInterface } from "node:readline";
 import bcrypt from "bcryptjs";
 import { createClient } from "@sanity/client";
 
@@ -77,37 +75,54 @@ if (args["password-file"] !== undefined) {
     console.error("❌ --password-file needs a file path");
     process.exit(1);
   }
-  password = (await readFile(args["password-file"], "utf8")).replace(/\s+$/, "");
+  try {
+    password = (await readFile(args["password-file"], "utf8")).replace(/\s+$/, "");
+  } catch {
+    console.error(`❌ Cannot read password file ${args["password-file"]} — check the path and permissions`);
+    process.exit(1);
+  }
 } else {
   if (!process.stdin.isTTY) {
     console.error("❌ No --password-file and no interactive terminal — password prompt needs a TTY");
     process.exit(1);
   }
+  // No readline interface: in terminal mode readline re-renders the line
+  // buffer (echoing the secret). Raw stdin + manual per-character scan
+  // handles pasted multi-char chunks too (paste arrives as one data event).
   password = await new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
     const stdin = process.stdin;
-    const setEcho = (on) => {
-      try {
-        if (stdin.isTTY && typeof stdin.setRawMode === "function") {
-          stdin.setRawMode(!on);
-        }
-      } catch { /* non-TTY fallback below still hides via muted output */ }
-    };
+    try {
+      if (typeof stdin.setRawMode === "function") stdin.setRawMode(false);
+    } catch { /* leave echo state alone on exotic platforms */ }
     process.stdout.write("Password (min 8 chars, hidden): ");
-    setEcho(false);
+    try {
+      if (typeof stdin.setRawMode === "function") stdin.setRawMode(true);
+    } catch { /* best effort; raw mode is what hides the echo */ }
+    stdin.resume();
     let buf = "";
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      stdin.off("data", onData);
+      try {
+        if (typeof stdin.setRawMode === "function") stdin.setRawMode(false);
+      } catch { /* ignore */ }
+      stdin.pause();
+      process.stdout.write("\n");
+      resolve(buf);
+    };
     const onData = (chunk) => {
-      const s = String(chunk);
-      if (s === "\r" || s === "\n" || s === "\u0004") {
-        stdin.off("data", onData);
-        setEcho(true);
-        process.stdout.write("\n");
-        rl.close();
-        resolve(buf);
-      } else if (s === "\u007f") {
-        buf = buf.slice(0, -1);
-      } else {
-        buf += s;
+      for (const s of String(chunk)) {
+        if (done) return;
+        if (s === "\r" || s === "\n" || s === "\u0004") {
+          finish();
+          return;
+        } else if (s === "\u007f" || s === "\b") {
+          buf = buf.slice(0, -1);
+        } else {
+          buf += s;
+        }
       }
     };
     stdin.on("data", onData);
