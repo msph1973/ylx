@@ -306,7 +306,9 @@ interface AlbumData {
 }
 
 function isAlbumLocked(album: AlbumData | null): boolean {
-  return album?.status === 'locked' || album?.status === 'submitted';
+  // 'delivered' counts as locked: the client is viewing finals, selection
+  // mutations must stay closed (submit.ts gates on !== 'active').
+  return album?.status === 'locked' || album?.status === 'submitted' || album?.status === 'delivered';
 }
 
 // ❌ Wrong — boolean isLocked is not what Sanity returns
