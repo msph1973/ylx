@@ -1,5 +1,7 @@
 # YLx Photo Proofing Platform — Implementation Plan
 
+> **ARCHIVED 2026-09-13** — pre-implementation plan, superseded. Current truth: STATUS.md + code. Body preserved untouched below.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use compose:subagent (recommended) or compose:execute to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a full-stack photo proofing platform for wedding photographers with PIN-locked galleries, real-time updates, and Lightroom export.

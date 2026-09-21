@@ -11,7 +11,7 @@
 |-------|-------|
 | **Repo** | `msph1973/ylx` (Turborepo monorepo) |
 | **Live** | https://ylx-msph.vercel.app |
-| **Admin** | `/admin/login` — `admin@ylex.my.id` |
+| **Admin** | `/admin/login` — superadmin (`admin@ylex.my.id`, email+bcrypt) + invited vendors (Google login, Drive-only) |
 | **Sanity Studio** | https://ylx-admin.sanity.studio |
 | **Tech stack** | Astro + React (islands), Sanity CMS, Ably real-time, Vercel Serverless |
 | **Package manager** | `pnpm` (workspaces) |
@@ -298,13 +298,17 @@ setAlbum(data);        // if API wraps in { album: ... }
 ### 4.3 Status Fields — Use String Literals Not Boolean
 
 ```typescript
+
+
 // ✅ Correct — Sanity album uses status string
 interface AlbumData {
-  status: string; // 'active' | 'submitted' | 'locked'
+  status: string; // 'active' | 'submitted' | 'locked' | 'delivered'
 }
 
 function isAlbumLocked(album: AlbumData | null): boolean {
-  return album?.status === 'locked' || album?.status === 'submitted';
+  // 'delivered' counts as locked: the client is viewing finals, selection
+  // mutations must stay closed (submit.ts gates on !== 'active').
+  return album?.status === 'locked' || album?.status === 'submitted' || album?.status === 'delivered';
 }
 
 // ❌ Wrong — boolean isLocked is not what Sanity returns
@@ -323,7 +327,9 @@ interface AlbumData {
 // ✅ Correct — publishAdminEvent uses Ably.Rest (safe for serverless)
 import Ably from 'ably';
 const client = new Ably.Rest({ key: process.env.ABLY_API_KEY });
-await client.channels.get('admin-events').publish(event, data);
+await client.channels.get('admin:updates').publish(event, data);
+// S2: vendors subscribe `admin:{ownerId}` only — publishAdminEvent fans out
+// to the global channel plus each owner channel (see api/ably/token.ts).
 
 // ❌ Wrong — Ably.Realtime holds WebSocket connections, bad for serverless
 const client = new Ably.Realtime({ key: ... });

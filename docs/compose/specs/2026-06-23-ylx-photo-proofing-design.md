@@ -1,5 +1,7 @@
 # YLx Photo Proofing Platform — Design Spec
 
+> **ARCHIVED 2026-09-13** — pre-implementation spec (refs Mastra, Astro 4, passwordless OAuth). Current truth: STATUS.md + code. Body preserved untouched below.
+
 ## [S1] Problem
 
 Wedding photographers need a streamlined way to distribute photos to clients and collect selections for final editing. Current workflows involve manual file sharing, email back-and-forth, and manual Lightroom filtering — which is error-prone and time-consuming.
