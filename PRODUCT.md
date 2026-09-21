@@ -22,7 +22,7 @@ Success looks like: photographers spend less time managing selections, clients e
 
 - Professional: This is a business tool. No frivolity, no decorative fluff. Every element serves a purpose.
 - Clean: Minimal chrome, maximum content. Photos are the hero, not the UI.
-- Intimate: Wedding context demands warmth. The dark theme with warm accent (#d4a574) creates a premium, personal feel without being saccharine.
+- Intimate: Wedding context demands warmth. The dark theme with warm accent (#c4704b, 5.44:1 on #0a0a0a WCAG AA) creates a premium, personal feel without being saccharine.
 
 Voice: Confident but not loud. Helpful but not chatty. Premium but not pretentious.
 

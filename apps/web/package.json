@@ -41,6 +41,7 @@
     "@typescript-eslint/parser": "^8.62.0",
     "@ylx/sanity": "workspace:*",
     "@ylx/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "eslint": "^10.5.0",
     "eslint-plugin-astro": "^2.1.1",
     "typescript": "^5.3.3",
