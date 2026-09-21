@@ -1,0 +1,18 @@
+REVIEW.md
+  h_45c23cf41d175e 14,301-302,305,328-330
+docs/compose/plans/2026-06-23-ylx-photo-proofing-plan.md
+  h_45c23cf41d175e 3-4
+docs/compose/specs/2026-06-23-ylx-photo-proofing-design.md
+  h_45c23cf41d175e 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9862f324c2cdd2e7dfb1feee35819a362bc8651c",
+  "prompts": {},
+  "humans": {
+    "h_45c23cf41d175e": {
+      "author": "IrvanNandika <ylexrapper@gmail.com>"
+    }
+  }
+}
